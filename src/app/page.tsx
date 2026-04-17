@@ -11,12 +11,9 @@ export default function HomePage() {
       </div>
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
-        {/* Logo */}
+        {/* Header */}
         <div className="mb-10 text-center">
-          <img
-            alt="Alwaan"
-            className="mx-auto h-24 w-auto sm:h-32"
-          />
+          <h1 className="text-3xl font-black text-white tracking-tight">Alwaan</h1>
           <p className="mt-4 text-[11px] font-bold tracking-[0.4em] text-[#E30613]">
             PROPERTY MANAGEMENT SYSTEM
           </p>
