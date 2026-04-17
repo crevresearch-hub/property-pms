@@ -34,27 +34,14 @@ export async function GET() {
       orderBy: { name: 'asc' },
     })
 
-    // Pull cheque counts so the badge reflects records in the Cheque table,
-    // not just the legacy "Cheques" document upload.
-    const chequeRows = await prisma.cheque.groupBy({
-      by: ['tenantId'],
-      where: { organizationId, tenantId: { in: tenants.map((t) => t.id) } },
-      _count: { _all: true },
-    })
-    const chequeCountByTenant = new Map(
-      chequeRows.map((r) => [r.tenantId, r._count._all])
-    )
-
     // Add document status flags
     const tenantsWithFlags = tenants.map((tenant: typeof tenants[number]) => {
       const docTypes = tenant.documents.map((d: { docType: string }) => d.docType.toLowerCase())
-      const hasChequeImage = docTypes.some((t) => t.startsWith('cheque-') || t === 'upfront-cheque')
-      const hasChequeRow = (chequeCountByTenant.get(tenant.id) || 0) > 0
+      const hasChequeImage = docTypes.some((t: string) => t.startsWith('cheque-') || t === 'upfront-cheque')
       return {
         ...tenant,
         has_ejari: docTypes.includes('ejari'),
         has_cheque:
-          hasChequeRow ||
           hasChequeImage ||
           docTypes.includes('cheque') ||
           docTypes.includes('cheques'),
