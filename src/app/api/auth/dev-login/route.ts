@@ -28,10 +28,14 @@ export async function GET(request: NextRequest) {
   const redirect = request.nextUrl.searchParams.get('to') || '/dashboard'
   const res = NextResponse.redirect(new URL(redirect, request.url))
 
+  const isSecure = request.url.startsWith('https')
+  const cookieName = isSecure ? '__Secure-next-auth.session-token' : 'next-auth.session-token'
+
   const cookieStore = await cookies()
-  cookieStore.set('next-auth.session-token', token, {
+  cookieStore.set(cookieName, token, {
     httpOnly: true,
     sameSite: 'lax',
+    secure: isSecure,
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
   })
