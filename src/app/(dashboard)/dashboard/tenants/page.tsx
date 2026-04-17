@@ -1,0 +1,1292 @@
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
+import { DataTable, Column } from "@/components/ui/data-table"
+import { StatusBadge } from "@/components/ui/status-badge"
+import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
+import { formatCurrency, formatDate } from "@/lib/utils"
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Eye,
+  CheckCircle,
+  XCircle,
+  FileSignature,
+  Upload,
+  Download,
+  ExternalLink,
+  KeyRound,
+  Mail,
+  Copy,
+  Ban,
+} from "lucide-react"
+
+interface TenantRow {
+  id: string
+  name: string
+  phone: string
+  email: string
+  emiratesId: string
+  passportNo: string
+  nationality: string
+  emergencyContactName: string
+  emergencyContactPhone: string
+  status: string
+  notes: string
+  visaNo: string
+  visaExpiry: string
+  emiratesIdExpiry: string
+  passportExpiry: string
+  occupation: string
+  employer: string
+  familySize: number
+  isCompany: boolean
+  companyName: string
+  companyTradeLicense: string
+  companyTradeLicenseExpiry: string
+  signatoryName: string
+  signatoryTitle: string
+  units: { id: string; unitNo: string; status: string; currentRent: number }[]
+  documents: { id: string; docType: string }[]
+  has_ejari: boolean
+  has_cheque: boolean
+  has_eid: boolean
+  [key: string]: unknown
+}
+
+interface UnitOption {
+  id: string
+  unitNo: string
+  unitType: string
+  currentRent: number
+  status: string
+}
+
+interface OwnerOption {
+  id: string
+  ownerName: string
+  buildingName: string
+}
+
+interface ContractRow {
+  id: string
+  contractNo: string
+  version: number
+  status: string
+  contractStart: string
+  contractEnd: string
+  rentAmount: number
+  contractType: string
+  signedFilePath: string
+  signedFileName: string
+  createdAt: string
+}
+
+const defaultForm = {
+  name: "",
+  phone: "",
+  email: "",
+  emiratesId: "",
+  passportNo: "",
+  nationality: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
+  status: "Active",
+  notes: "",
+  unitId: "",
+  visaNo: "",
+  visaExpiry: "",
+  emiratesIdExpiry: "",
+  passportExpiry: "",
+  occupation: "",
+  employer: "",
+  familySize: 1,
+  isCompany: false,
+  companyName: "",
+  companyTradeLicense: "",
+  companyTradeLicenseExpiry: "",
+  signatoryName: "",
+  signatoryTitle: "",
+}
+
+const defaultContractForm = {
+  unitId: "",
+  ownerId: "",
+  contractStart: "",
+  contractEnd: "",
+  rentAmount: 0,
+  rentInWords: "",
+  numberOfCheques: 4,
+  securityDeposit: 0,
+  bookingAmount: 0,
+  contractType: "Residential",
+  purpose: "Family residence",
+  commissionFee: 0,
+  ejariFee: 250,
+  municipalityFee: 210,
+  reason: "Initial",
+}
+
+export default function TenantsPage() {
+  const [tenants, setTenants] = useState<TenantRow[]>([])
+  const [units, setUnits] = useState<UnitOption[]>([])
+  const [vacantUnits, setVacantUnits] = useState<UnitOption[]>([])
+  const [owners, setOwners] = useState<OwnerOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [addOpen, setAddOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [portalOpen, setPortalOpen] = useState(false)
+  const [portalTenant, setPortalTenant] = useState<TenantRow | null>(null)
+  const [portalBusy, setPortalBusy] = useState(false)
+  const [portalMsg, setPortalMsg] = useState<{ text: string; ok: boolean } | null>(null)
+  const [portalTempPwd, setPortalTempPwd] = useState<string>("")
+  const [termOpen, setTermOpen] = useState(false)
+  const [termTenant, setTermTenant] = useState<TenantRow | null>(null)
+  const [termReason, setTermReason] = useState("")
+  const [termEffectiveDate, setTermEffectiveDate] = useState("")
+  const [termProof, setTermProof] = useState<File | null>(null)
+  const [termConfirm, setTermConfirm] = useState(false)
+  const [termBusy, setTermBusy] = useState(false)
+  const [termError, setTermError] = useState("")
+  const [contractOpen, setContractOpen] = useState(false)
+  const [form, setForm] = useState(defaultForm)
+  const [contractForm, setContractForm] = useState(defaultContractForm)
+  const [editId, setEditId] = useState("")
+  const [detailTenant, setDetailTenant] = useState<TenantRow | null>(null)
+  const [tenantContracts, setTenantContracts] = useState<ContractRow[]>([])
+  const [tenantCheques, setTenantCheques] = useState<Array<{ id: string; sequenceNo: number; chequeNo: string; bankName: string; chequeDate: string; amount: number; status: string; paymentType: string }>>([])
+  const [activeTenant, setActiveTenant] = useState<TenantRow | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const fetchTenants = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tenants")
+      if (!res.ok) throw new Error("Failed to fetch tenants")
+      setTenants(await res.json())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const fetchUnits = useCallback(async () => {
+    try {
+      const res = await fetch("/api/units")
+      if (res.ok) {
+        const data: UnitOption[] = await res.json()
+        setUnits(data)
+        setVacantUnits(data.filter((u) => u.status === "Vacant"))
+      }
+    } catch {}
+  }, [])
+
+  const fetchOwners = useCallback(async () => {
+    try {
+      const res = await fetch("/api/owners")
+      if (res.ok) {
+        const data = await res.json()
+        const list: OwnerOption[] = Array.isArray(data) ? data : data.owners || []
+        setOwners(list)
+      }
+    } catch {}
+  }, [])
+
+  const fetchTenantContracts = useCallback(async (tenantId: string) => {
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/tenancy-contracts`)
+      if (!res.ok) return
+      const data = await res.json()
+      setTenantContracts(data.contracts || [])
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    fetchTenants()
+    fetchUnits()
+    fetchOwners()
+  }, [fetchTenants, fetchUnits, fetchOwners])
+
+  const handleAdd = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create tenant")
+      }
+      setAddOpen(false)
+      setForm(defaultForm)
+      fetchTenants()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openEdit = (t: TenantRow) => {
+    setEditId(t.id)
+    setForm({
+      name: t.name,
+      phone: t.phone,
+      email: t.email,
+      emiratesId: t.emiratesId,
+      passportNo: t.passportNo,
+      nationality: t.nationality,
+      emergencyContactName: t.emergencyContactName,
+      emergencyContactPhone: t.emergencyContactPhone,
+      status: t.status,
+      notes: t.notes,
+      unitId: "",
+      visaNo: t.visaNo || "",
+      visaExpiry: t.visaExpiry || "",
+      emiratesIdExpiry: t.emiratesIdExpiry || "",
+      passportExpiry: t.passportExpiry || "",
+      occupation: t.occupation || "",
+      employer: t.employer || "",
+      familySize: t.familySize || 1,
+      isCompany: Boolean(t.isCompany),
+      companyName: t.companyName || "",
+      companyTradeLicense: t.companyTradeLicense || "",
+      companyTradeLicenseExpiry: t.companyTradeLicenseExpiry || "",
+      signatoryName: t.signatoryName || "",
+      signatoryTitle: t.signatoryTitle || "",
+    })
+    setEditOpen(true)
+  }
+
+  const handleEdit = async () => {
+    setSaving(true)
+    try {
+      const { unitId: _u, ...rest } = form
+      const res = await fetch(`/api/tenants/${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rest),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update tenant")
+      }
+      setEditOpen(false)
+      setForm(defaultForm)
+      fetchTenants()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (t: TenantRow) => {
+    if (!confirm(`Delete tenant ${t.name}?`)) return
+    try {
+      const res = await fetch(`/api/tenants/${t.id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to delete tenant")
+      }
+      fetchTenants()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    }
+  }
+
+  const openGenerate = (t: TenantRow) => {
+    setActiveTenant(t)
+    const firstUnit = t.units[0]
+    const matchedUnit = firstUnit ? units.find((u) => u.id === firstUnit.id) : undefined
+    const rent = matchedUnit?.currentRent || firstUnit?.currentRent || 0
+    const isResidential = (matchedUnit?.unitType || "Residential").toLowerCase().includes("commercial")
+      ? false
+      : true
+    const contractType = isResidential ? "Residential" : "Commercial"
+    const security = (isResidential ? 0.05 : 0.1) * rent
+    const commission = Math.max((isResidential ? 0.05 : 0.1) * rent, 1050)
+    setContractForm({
+      ...defaultContractForm,
+      unitId: firstUnit?.id || "",
+      contractType,
+      rentAmount: rent,
+      securityDeposit: security,
+      commissionFee: commission,
+    })
+    setContractOpen(true)
+  }
+
+  const openTerminate = (t: TenantRow) => {
+    setTermTenant(t)
+    setTermReason("")
+    setTermEffectiveDate(new Date().toISOString().slice(0, 10))
+    setTermProof(null)
+    setTermConfirm(false)
+    setTermError("")
+    setTermOpen(true)
+  }
+
+  const submitTerminate = async () => {
+    if (!termTenant) return
+    setTermError("")
+    if (termReason.trim().length < 3) {
+      setTermError("Please enter a reason for termination.")
+      return
+    }
+    if (!termConfirm) {
+      setTermError("Please tick the confirmation box to proceed.")
+      return
+    }
+    setTermBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append("reason", termReason.trim())
+      fd.append("effectiveDate", termEffectiveDate)
+      if (termProof) fd.append("proof", termProof)
+      const res = await fetch(`/api/tenants/${termTenant.id}/terminate`, {
+        method: "POST",
+        body: fd,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Failed to terminate")
+      setTermOpen(false)
+      await fetchTenants()
+    } catch (e) {
+      setTermError(e instanceof Error ? e.message : "Failed to terminate")
+    } finally {
+      setTermBusy(false)
+    }
+  }
+
+  const openPortal = (t: TenantRow) => {
+    setPortalTenant(t)
+    setPortalMsg(null)
+    setPortalTempPwd("")
+    setPortalOpen(true)
+  }
+
+  const resetTenantPassword = async (sendEmail: boolean) => {
+    if (!portalTenant) return
+    setPortalBusy(true)
+    setPortalMsg(null)
+    setPortalTempPwd("")
+    try {
+      const res = await fetch(`/api/tenants/${portalTenant.id}/portal-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generate: true, sendEmail }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed")
+      if (data.password) setPortalTempPwd(data.password)
+      setPortalMsg({
+        text: sendEmail
+          ? "New password generated and emailed to the tenant."
+          : "New password generated. Copy it now — it won’t be shown again.",
+        ok: true,
+      })
+      await fetchTenants()
+    } catch (e) {
+      setPortalMsg({ text: e instanceof Error ? e.message : "Failed", ok: false })
+    } finally {
+      setPortalBusy(false)
+    }
+  }
+
+  const disableTenantPortal = async () => {
+    if (!portalTenant) return
+    if (!confirm(`Disable portal login for ${portalTenant.name}? They won't be able to sign in until you issue a new password.`)) return
+    setPortalBusy(true)
+    setPortalMsg(null)
+    try {
+      const res = await fetch(`/api/tenants/${portalTenant.id}/portal-password`, {
+        method: "DELETE",
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed")
+      setPortalMsg({ text: "Portal login disabled for this tenant.", ok: true })
+      await fetchTenants()
+    } catch (e) {
+      setPortalMsg({ text: e instanceof Error ? e.message : "Failed", ok: false })
+    } finally {
+      setPortalBusy(false)
+    }
+  }
+
+  const openDetail = async (t: TenantRow) => {
+    setDetailTenant(t)
+    setDetailOpen(true)
+    setTenantCheques([])
+    await fetchTenantContracts(t.id)
+    try {
+      const r = await fetch(`/api/cheques?tenant_id=${t.id}`)
+      const data = await r.json()
+      setTenantCheques(Array.isArray(data) ? data : (data.cheques || []))
+    } catch { /* ignore */ }
+  }
+
+  const handleGenerate = async () => {
+    if (!activeTenant) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/tenants/${activeTenant.id}/tenancy-contracts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contractForm),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to generate contract")
+      }
+      const data = await res.json()
+      setContractOpen(false)
+      window.open(`/api/tenancy-contracts/${data.contract.id}?format=html`, "_blank")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleContractAction = async (
+    contract: ContractRow,
+    action: "send" | "sign" | "cancel" | "terminate"
+  ) => {
+    if (action === "cancel" && !confirm(`Cancel ${contract.contractNo}?`)) return
+    if (action === "terminate" && !confirm(`Terminate ${contract.contractNo}?`)) return
+    try {
+      const res = await fetch(`/api/tenancy-contracts/${contract.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed")
+      }
+      if (detailTenant) await fetchTenantContracts(detailTenant.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    }
+  }
+
+  const handleUploadSigned = async (contract: ContractRow) => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = ".pdf,.jpg,.jpeg,.png"
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const fd = new FormData()
+      fd.append("file", file)
+      try {
+        const res = await fetch(`/api/tenancy-contracts/${contract.id}/upload`, {
+          method: "POST",
+          body: fd,
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || "Upload failed")
+        }
+        if (detailTenant) await fetchTenantContracts(detailTenant.id)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Upload error")
+      }
+    }
+    input.click()
+  }
+
+  const DocBadge = ({ has, label }: { has: boolean; label: string }) => (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+        has
+          ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-500/30"
+          : "bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/30"
+      }`}
+    >
+      {has ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+      {label}
+    </span>
+  )
+
+  const columns: Column<TenantRow>[] = [
+    { key: "name", header: "Name", sortable: true },
+    { key: "phone", header: "Phone" },
+    { key: "email", header: "Email" },
+    {
+      key: "units",
+      header: "Unit",
+      render: (row) =>
+        row.units.length > 0
+          ? row.units.map((u) => u.unitNo).join(", ")
+          : <span className="text-slate-600">--</span>,
+    },
+    { key: "emiratesId", header: "Emirates ID" },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => (
+        <StatusBadge status={row.status === "Pending" ? "Emailed to Client" : row.status} />
+      ),
+    },
+    {
+      key: "docs",
+      header: "Docs",
+      render: (row) => (
+        <div className="flex gap-1">
+          <DocBadge has={row.has_ejari} label="Ejari" />
+          <DocBadge has={row.has_cheque} label="Chq" />
+          <DocBadge has={row.has_eid} label="EID" />
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (row) => (
+        <div className="flex gap-1">
+          <button
+            title="View"
+            onClick={(e) => { e.stopPropagation(); openDetail(row) }}
+            className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          {row.status !== "Active" && row.status !== "Terminated" && (
+            <Link
+              href={`/dashboard/tenants/${row.id}/edit`}
+              title="Edit"
+              onClick={(e) => e.stopPropagation()}
+              className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+          )}
+          {row.status === "Active" && (
+            <button
+              title="Tenant Portal"
+              onClick={(e) => { e.stopPropagation(); openPortal(row) }}
+              className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-amber-400"
+            >
+              <KeyRound className="h-4 w-4" />
+            </button>
+          )}
+          {row.status === "Active" && (
+            <button
+              title="Terminate Contract"
+              onClick={(e) => { e.stopPropagation(); openTerminate(row) }}
+              className="rounded p-1.5 text-slate-400 hover:bg-red-900/50 hover:text-red-400"
+            >
+              <Ban className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            title="Delete"
+            onClick={(e) => { e.stopPropagation(); handleDelete(row) }}
+            className="rounded p-1.5 text-slate-400 hover:bg-red-900/50 hover:text-red-400"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ]
+
+  const inputCls = "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+  const labelCls = "mb-1 block text-xs font-medium text-slate-400"
+
+  const formFields = (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <input
+          id="isCompany"
+          type="checkbox"
+          checked={form.isCompany}
+          onChange={(e) => setForm({ ...form, isCompany: e.target.checked })}
+        />
+        <label htmlFor="isCompany" className="text-sm text-slate-300">Company tenant (corporate lease)</label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className={labelCls}>{form.isCompany ? "Contact Person *" : "Name *"}</label>
+          <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Phone</label>
+          <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Email</label>
+          <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Nationality</label>
+          <input type="text" value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Emirates ID</label>
+          <input type="text" value={form.emiratesId} onChange={(e) => setForm({ ...form, emiratesId: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>EID Expiry</label>
+          <input type="date" value={form.emiratesIdExpiry} onChange={(e) => setForm({ ...form, emiratesIdExpiry: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Passport No</label>
+          <input type="text" value={form.passportNo} onChange={(e) => setForm({ ...form, passportNo: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Passport Expiry</label>
+          <input type="date" value={form.passportExpiry} onChange={(e) => setForm({ ...form, passportExpiry: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Visa No</label>
+          <input type="text" value={form.visaNo} onChange={(e) => setForm({ ...form, visaNo: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Visa Expiry</label>
+          <input type="date" value={form.visaExpiry} onChange={(e) => setForm({ ...form, visaExpiry: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Occupation</label>
+          <input type="text" value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Employer</label>
+          <input type="text" value={form.employer} onChange={(e) => setForm({ ...form, employer: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Family Size</label>
+          <input type="number" min={1} value={form.familySize} onChange={(e) => setForm({ ...form, familySize: Number(e.target.value) })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Status</label>
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputCls}>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Emergency Contact</label>
+          <input type="text" value={form.emergencyContactName} onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Emergency Phone</label>
+          <input type="text" value={form.emergencyContactPhone} onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })} className={inputCls} />
+        </div>
+      </div>
+
+      {form.isCompany && (
+        <div className="rounded-lg border border-amber-700/40 bg-amber-900/10 p-3">
+          <p className="mb-3 text-xs font-semibold uppercase text-amber-400">Company Information</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Company Name</label>
+              <input type="text" value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Trade License No</label>
+              <input type="text" value={form.companyTradeLicense} onChange={(e) => setForm({ ...form, companyTradeLicense: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Trade License Expiry</label>
+              <input type="date" value={form.companyTradeLicenseExpiry} onChange={(e) => setForm({ ...form, companyTradeLicenseExpiry: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Signatory Name</label>
+              <input type="text" value={form.signatoryName} onChange={(e) => setForm({ ...form, signatoryName: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Signatory Title</label>
+              <input type="text" value={form.signatoryTitle} onChange={(e) => setForm({ ...form, signatoryTitle: e.target.value })} className={inputCls} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addOpen && (
+        <div>
+          <label className={labelCls}>Assign Unit (optional)</label>
+          <select value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })} className={inputCls}>
+            <option value="">No unit</option>
+            {vacantUnits.map((u) => (
+              <option key={u.id} value={u.id}>{u.unitNo}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className={labelCls}>Notes</label>
+        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={inputCls} />
+      </div>
+    </div>
+  )
+
+  const contractFormFields = (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className={labelCls}>Unit *</label>
+          <select
+            value={contractForm.unitId}
+            onChange={(e) => {
+              const u = units.find((x) => x.id === e.target.value)
+              const isResidential = u && u.unitType.toLowerCase().includes("commercial") ? false : true
+              const ct = isResidential ? "Residential" : "Commercial"
+              const rent = u?.currentRent || 0
+              setContractForm({
+                ...contractForm,
+                unitId: e.target.value,
+                contractType: ct,
+                rentAmount: rent || contractForm.rentAmount,
+                securityDeposit: (isResidential ? 0.05 : 0.1) * (rent || contractForm.rentAmount),
+                commissionFee: Math.max((isResidential ? 0.05 : 0.1) * (rent || contractForm.rentAmount), 1050),
+              })
+            }}
+            className={inputCls}
+          >
+            <option value="">Select unit...</option>
+            {units.map((u) => (
+              <option key={u.id} value={u.id}>{u.unitNo} ({u.unitType || "—"})</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Landlord *</label>
+          <select value={contractForm.ownerId} onChange={(e) => setContractForm({ ...contractForm, ownerId: e.target.value })} className={inputCls}>
+            <option value="">Select landlord...</option>
+            {owners.map((o) => (
+              <option key={o.id} value={o.id}>{o.ownerName} – {o.buildingName}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Contract Type</label>
+          <select
+            value={contractForm.contractType}
+            onChange={(e) => {
+              const ct = e.target.value
+              const isRes = ct === "Residential"
+              setContractForm({
+                ...contractForm,
+                contractType: ct,
+                securityDeposit: (isRes ? 0.05 : 0.1) * contractForm.rentAmount,
+                commissionFee: Math.max((isRes ? 0.05 : 0.1) * contractForm.rentAmount, 1050),
+              })
+            }}
+            className={inputCls}
+          >
+            <option value="Residential">Residential</option>
+            <option value="Commercial">Commercial</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Reason</label>
+          <select value={contractForm.reason} onChange={(e) => setContractForm({ ...contractForm, reason: e.target.value })} className={inputCls}>
+            <option value="Initial">Initial</option>
+            <option value="Renewal">Renewal</option>
+            <option value="Amendment">Amendment</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Start Date *</label>
+          <input type="date" value={contractForm.contractStart} onChange={(e) => setContractForm({ ...contractForm, contractStart: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>End Date *</label>
+          <input type="date" value={contractForm.contractEnd} onChange={(e) => setContractForm({ ...contractForm, contractEnd: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Annual Rent (AED) *</label>
+          <input
+            type="number"
+            value={contractForm.rentAmount}
+            onChange={(e) => {
+              const rent = Number(e.target.value)
+              const isRes = contractForm.contractType === "Residential"
+              setContractForm({
+                ...contractForm,
+                rentAmount: rent,
+                securityDeposit: (isRes ? 0.05 : 0.1) * rent,
+                commissionFee: Math.max((isRes ? 0.05 : 0.1) * rent, 1050),
+              })
+            }}
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Number of Cheques</label>
+          <input type="number" min={1} max={12} value={contractForm.numberOfCheques} onChange={(e) => setContractForm({ ...contractForm, numberOfCheques: Number(e.target.value) })} className={inputCls} />
+        </div>
+        <div className="col-span-2">
+          <label className={labelCls}>Rent in Words</label>
+          <input type="text" value={contractForm.rentInWords} onChange={(e) => setContractForm({ ...contractForm, rentInWords: e.target.value })} className={inputCls} placeholder="e.g. Sixty Thousand Dirhams Only" />
+        </div>
+        <div>
+          <label className={labelCls}>Security Deposit (AED)</label>
+          <input type="number" value={contractForm.securityDeposit} onChange={(e) => setContractForm({ ...contractForm, securityDeposit: Number(e.target.value) })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Booking Amount (AED)</label>
+          <input type="number" value={contractForm.bookingAmount} onChange={(e) => setContractForm({ ...contractForm, bookingAmount: Number(e.target.value) })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>EJARI Fee</label>
+          <input type="number" value={contractForm.ejariFee} onChange={(e) => setContractForm({ ...contractForm, ejariFee: Number(e.target.value) })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Municipality Fee</label>
+          <input type="number" value={contractForm.municipalityFee} onChange={(e) => setContractForm({ ...contractForm, municipalityFee: Number(e.target.value) })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Commission Fee (AED)</label>
+          <input type="number" value={contractForm.commissionFee} onChange={(e) => setContractForm({ ...contractForm, commissionFee: Number(e.target.value) })} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Purpose</label>
+          <input type="text" value={contractForm.purpose} onChange={(e) => setContractForm({ ...contractForm, purpose: e.target.value })} className={inputCls} />
+        </div>
+      </div>
+    </div>
+  )
+
+  if (loading) {
+    return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" /></div>
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Tenant Management</h1>
+          <p className="mt-1 text-sm text-slate-400">{tenants.length} tenants registered</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard/tenants/new" className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-slate-950 hover:from-amber-400 hover:to-amber-500">
+            <Plus className="h-4 w-4" /> Onboarding Wizard
+          </Link>
+          <button onClick={() => { setForm(defaultForm); setAddOpen(true) }} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700">
+            <Plus className="h-4 w-4" /> Quick Add
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-800 bg-red-900/20 p-3 text-sm text-red-400">
+          {error} <button onClick={() => setError("")} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
+
+      <DataTable columns={columns} data={tenants} searchPlaceholder="Search tenants..." searchKeys={["name", "phone", "email", "emiratesId"]} />
+
+      <Modal open={addOpen} onOpenChange={setAddOpen} title="Add Tenant" description="Register a new tenant" size="xl"
+        footer={<><ModalCancelButton /><ModalSaveButton onClick={handleAdd} disabled={saving || !form.name}>{saving ? "Saving..." : "Save"}</ModalSaveButton></>}>
+        {formFields}
+      </Modal>
+
+      <Modal open={editOpen} onOpenChange={setEditOpen} title="Edit Tenant" description="Update tenant information" size="xl"
+        footer={<><ModalCancelButton /><ModalSaveButton onClick={handleEdit} disabled={saving || !form.name}>{saving ? "Saving..." : "Update"}</ModalSaveButton></>}>
+        {formFields}
+      </Modal>
+
+      <Modal
+        open={contractOpen}
+        onOpenChange={setContractOpen}
+        title={`Generate Tenancy Contract - ${activeTenant?.name || ""}`}
+        description="Bilingual EN / AR tenancy contract"
+        size="xl"
+        footer={
+          <>
+            <ModalCancelButton />
+            <ModalSaveButton
+              onClick={handleGenerate}
+              disabled={saving || !contractForm.unitId || !contractForm.ownerId || !contractForm.contractStart || !contractForm.contractEnd || !contractForm.rentAmount}
+            >
+              {saving ? "Generating..." : "Generate Contract"}
+            </ModalSaveButton>
+          </>
+        }
+      >
+        {contractFormFields}
+      </Modal>
+
+      <Modal open={detailOpen} onOpenChange={setDetailOpen} title={detailTenant?.name || "Tenant Details"} size="xl">
+        {detailTenant && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-2">
+              <StatusBadge status={detailTenant.status || ''} />
+              {Boolean((detailTenant as unknown as { passwordHash?: string }).passwordHash) && (
+                <span className="rounded-full bg-teal-500/15 text-teal-400 ring-1 ring-teal-500/30 px-2.5 py-0.5 text-[11px] font-semibold">Portal Active</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><span className="text-slate-500">Phone:</span> <span className="ml-2 text-white">{detailTenant.phone || "--"}</span></div>
+              <div><span className="text-slate-500">Email:</span> <span className="ml-2 text-white">{detailTenant.email || "--"}</span></div>
+              <div><span className="text-slate-500">Emirates ID:</span> <span className="ml-2 text-white font-mono">{detailTenant.emiratesId || "--"}</span></div>
+              <div><span className="text-slate-500">EID Expiry:</span> <span className="ml-2 text-white">{(detailTenant as unknown as { emiratesIdExpiry?: string }).emiratesIdExpiry || "--"}</span></div>
+              <div><span className="text-slate-500">Nationality:</span> <span className="ml-2 text-white">{detailTenant.nationality || "--"}</span></div>
+              <div><span className="text-slate-500">Family Size:</span> <span className="ml-2 text-white">{(detailTenant as unknown as { familySize?: number }).familySize ?? "--"}</span></div>
+              <div><span className="text-slate-500">Occupation:</span> <span className="ml-2 text-white">{detailTenant.occupation || "--"}</span></div>
+              <div><span className="text-slate-500">Employer:</span> <span className="ml-2 text-white">{detailTenant.employer || "--"}</span></div>
+              <div><span className="text-slate-500">Emergency Contact:</span> <span className="ml-2 text-white">{(detailTenant as unknown as { emergencyContactName?: string }).emergencyContactName || "--"}</span></div>
+              <div><span className="text-slate-500">Emergency Phone:</span> <span className="ml-2 text-white">{(detailTenant as unknown as { emergencyContactPhone?: string }).emergencyContactPhone || "--"}</span></div>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase text-slate-400">Units</h3>
+              {detailTenant.units.length === 0 ? (
+                <p className="text-sm text-slate-600">No units assigned</p>
+              ) : (
+                <div className="space-y-2">
+                  {detailTenant.units.map((u) => (
+                    <div key={u.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/30 p-3 text-sm">
+                      <span className="text-white">{u.unitNo}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-400">{formatCurrency(u.currentRent)}</span>
+                        <StatusBadge status={u.status} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase text-slate-400">Tenant Contracts</h3>
+                <button
+                  onClick={() => { setDetailOpen(false); openGenerate(detailTenant) }}
+                  className="flex items-center gap-1 rounded bg-amber-600/20 px-2 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-600/30"
+                >
+                  <Plus className="h-3 w-3" /> New Contract
+                </button>
+              </div>
+              {tenantContracts.length === 0 ? (
+                <p className="text-sm text-slate-600">No contracts generated yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {tenantContracts.map((c) => (
+                    <div key={c.id} className="rounded-lg border border-slate-800 bg-slate-800/30 p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-white">{c.contractNo} <span className="text-xs text-slate-500">v{c.version}</span></div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {formatDate(c.contractStart)} → {formatDate(c.contractEnd)} · {c.contractType} · {formatCurrency(c.rentAmount)}
+                          </div>
+                        </div>
+                        <StatusBadge status={c.status} />
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <a
+                          href={`/api/tenancy-contracts/${c.id}?format=html`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-600"
+                        >
+                          <ExternalLink className="h-3 w-3" /> View
+                        </a>
+                        {c.status === "Draft" && (
+                          <button
+                            onClick={() => handleContractAction(c, "send")}
+                            className="rounded bg-blue-700/50 px-2 py-1 text-xs text-blue-200 hover:bg-blue-700"
+                          >
+                            Send
+                          </button>
+                        )}
+                        {c.signedFilePath && (
+                          <a
+                            href={`/api/tenancy-contracts/${c.id}/download`}
+                            className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-600"
+                          >
+                            <Download className="h-3 w-3" /> Download
+                          </a>
+                        )}
+                        {c.status === "Active" && (
+                          <button
+                            onClick={() => handleContractAction(c, "terminate")}
+                            className="rounded bg-red-800/50 px-2 py-1 text-xs text-red-300 hover:bg-red-800"
+                          >
+                            Terminate
+                          </button>
+                        )}
+                        {c.status === "Draft" && (
+                          <button
+                            onClick={() => handleContractAction(c, "cancel")}
+                            className="rounded bg-red-800/50 px-2 py-1 text-xs text-red-300 hover:bg-red-800"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase text-slate-400">Documents</h3>
+              {(() => {
+                const docs = ((detailTenant as unknown as { documents?: Array<{ id: string; docType: string; originalFilename?: string }> }).documents) || []
+                if (docs.length === 0) {
+                  return <p className="text-sm text-slate-600">No documents uploaded yet.</p>
+                }
+                return (
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {docs.map((d) => (
+                      <a
+                        key={d.id}
+                        href={`/api/documents/${d.id}/file`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/30 px-3 py-2 text-xs text-slate-200 hover:border-amber-500/40 hover:bg-slate-800/60"
+                      >
+                        <span className="truncate"><strong className="text-amber-400">{d.docType}</strong> — {d.originalFilename || ''}</span>
+                        <ExternalLink className="ml-2 h-3 w-3 flex-shrink-0 text-slate-500" />
+                      </a>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase text-slate-400">Cheques</h3>
+              {tenantCheques.length === 0 ? (
+                <p className="text-sm text-slate-600">No cheques recorded yet.</p>
+              ) : (
+                <div className="overflow-hidden rounded-lg border border-slate-800">
+                  <table className="w-full text-xs text-slate-200">
+                    <thead className="bg-slate-800/50 text-slate-400">
+                      <tr>
+                        <th className="px-3 py-2 text-left">#</th>
+                        <th className="px-3 py-2 text-left">Cheque No.</th>
+                        <th className="px-3 py-2 text-left">Bank</th>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th className="px-3 py-2 text-left">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tenantCheques.map((c) => (
+                        <tr key={c.id} className="border-t border-slate-800">
+                          <td className="px-3 py-2">
+                            Cheque {c.sequenceNo}
+                            {c.paymentType === 'Upfront' && <span className="ml-1 text-[10px] text-blue-400">(Upfront)</span>}
+                          </td>
+                          <td className="px-3 py-2 font-mono">{c.chequeNo || '—'}</td>
+                          <td className="px-3 py-2">{c.bankName || '—'}</td>
+                          <td className="px-3 py-2">{c.chequeDate || '—'}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{formatCurrency(c.amount || 0)}</td>
+                          <td className="px-3 py-2"><StatusBadge status={c.status || 'Pending'} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Terminate Contract modal */}
+      <Modal
+        open={termOpen}
+        onOpenChange={setTermOpen}
+        title={`Terminate Contract — ${termTenant?.name || ""}`}
+        description="This ends the tenancy, disables the portal, and emails the tenant."
+        size="md"
+        footer={
+          <>
+            <ModalCancelButton />
+            <button
+              onClick={submitTerminate}
+              disabled={termBusy || !termConfirm || termReason.trim().length < 3}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#E30613] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c20510] disabled:opacity-50"
+            >
+              <Ban className="h-4 w-4" />
+              {termBusy ? "Terminating..." : "Confirm Termination"}
+            </button>
+          </>
+        }
+      >
+        {termTenant && (
+          <div className="space-y-3 text-sm">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Reason for Termination <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                rows={4}
+                value={termReason}
+                onChange={(e) => setTermReason(e.target.value)}
+                placeholder="Describe why the contract is being terminated (non-payment, mutual agreement, etc.)"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/20"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Effective Date
+              </label>
+              <input
+                type="date"
+                value={termEffectiveDate}
+                onChange={(e) => setTermEffectiveDate(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Proof / Supporting Document (optional)
+              </label>
+              {!termProof ? (
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(e) => setTermProof(e.target.files?.[0] || null)}
+                  className="block w-full text-xs text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-300"
+                />
+              ) : (
+                <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
+                  <span className="truncate">{termProof.name} ({(termProof.size / 1024).toFixed(0)} KB)</span>
+                  <button
+                    onClick={() => setTermProof(null)}
+                    className="ml-2 text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              <p className="mt-1 text-[11px] text-slate-500">PDF / JPG / PNG / WebP, max 10 MB</p>
+            </div>
+
+            <label className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+              <input
+                type="checkbox"
+                checked={termConfirm}
+                onChange={(e) => setTermConfirm(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span className="text-xs text-red-800">
+                I confirm I have verified all details. Terminating will immediately:
+                end the active contract, disable the tenant&rsquo;s portal login, and
+                send a termination email to <strong>{termTenant.email || "the tenant"}</strong>.
+                This cannot be reversed.
+              </span>
+            </label>
+
+            {termError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                {termError}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Tenant Portal Access modal */}
+      <Modal
+        open={portalOpen}
+        onOpenChange={(o) => { setPortalOpen(o); if (!o) { setPortalMsg(null); setPortalTempPwd("") } }}
+        title={`Tenant Portal — ${portalTenant?.name || ""}`}
+        description="Manage login credentials for the tenant portal"
+        size="md"
+        footer={<ModalCancelButton>Close</ModalCancelButton>}
+      >
+        {portalTenant && (
+          <div className="space-y-4 text-sm">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-slate-500">Username (email)</p>
+                  <p className="font-medium text-slate-900">{portalTenant.email || "—"}</p>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+                    Boolean((portalTenant as unknown as { passwordHash?: string }).passwordHash)
+                      ? "bg-emerald-100 text-emerald-700 ring-emerald-200"
+                      : "bg-red-100 text-red-700 ring-red-200"
+                  }`}
+                >
+                  {Boolean((portalTenant as unknown as { passwordHash?: string }).passwordHash) ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+
+            {portalTempPwd && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-semibold text-amber-800">One-time password (copy now):</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="flex-1 rounded border border-amber-300 bg-white px-2 py-1 font-mono text-sm">{portalTempPwd}</code>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(portalTempPwd) }}
+                    className="rounded border border-amber-300 bg-white px-2 py-1 text-xs hover:bg-amber-100"
+                  >
+                    <Copy className="h-3 w-3 inline mr-1" />Copy
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {portalMsg && (
+              <div className={`rounded-lg border p-3 text-xs ${portalMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`}>
+                {portalMsg.text}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-1">
+              <button
+                disabled={portalBusy || !portalTenant.email}
+                onClick={() => resetTenantPassword(true)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#E30613] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c20510] disabled:opacity-50"
+              >
+                <Mail className="h-4 w-4" /> Reset password &amp; email tenant
+              </button>
+              <button
+                disabled={portalBusy || !portalTenant.email}
+                onClick={() => resetTenantPassword(false)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <KeyRound className="h-4 w-4" /> Generate new password (show only, no email)
+              </button>
+              {Boolean((portalTenant as unknown as { passwordHash?: string }).passwordHash) && (
+                <button
+                  disabled={portalBusy}
+                  onClick={disableTenantPortal}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <XCircle className="h-4 w-4" /> Disable portal login
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Disabling blocks login until a new password is issued. Reset generates a random password; either copy it directly or send it to the tenant by email.
+            </p>
+          </div>
+        )}
+      </Modal>
+    </div>
+  )
+}
+
+function DocBadge({ has, label }: { has: boolean; label: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${has ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-500/30" : "bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/30"}`}>
+      {has ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+      {label}
+    </span>
+  )
+}

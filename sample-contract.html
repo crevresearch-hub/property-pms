@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tenancy Contract · 101</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #f4f4f4;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+  .sheet {
+    background: #fff;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 14px auto;
+    padding: 16mm 14mm 18mm 14mm;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .ar { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+
+  /* Header — plain, simple, balanced */
+  .doc-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    padding: 8px 0;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #000;
+    gap: 8px;
+  }
+  .doc-header .logo-left,
+  .doc-header .logo-right {
+    display: flex;
+    align-items: center;
+    height: 90px;
+  }
+  .doc-header .logo-left { justify-content: flex-start; }
+  .doc-header .logo-right { justify-content: flex-end; }
+  .doc-header .logo-left img,
+  .doc-header .logo-right img {
+    max-height: 90px;
+    max-width: 100%;
+    width: auto;
+    display: block;
+    object-fit: contain;
+  }
+  .doc-header .title-block {
+    text-align: center;
+    padding: 0 4px;
+  }
+  .doc-header .title-en {
+    font-size: 14px;
+    font-weight: 700;
+    color: #000;
+    line-height: 1.3;
+  }
+  .doc-header .title-ar {
+    font-size: 14px;
+    font-weight: 700;
+    color: #000;
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+  .doc-header .date-line {
+    font-size: 10.5px;
+    color: #000;
+    margin-top: 6px;
+  }
+
+  /* Sections — simple bilingual header bar */
+  h2.section-title {
+    background: #f2f2f2;
+    color: #000;
+    font-size: 12px;
+    margin: 16px 0 0 0;
+    padding: 8px 12px;
+    letter-spacing: 0.3px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #E30613;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  h2.section-title .ar { font-size: 13px; font-weight: 700; text-transform: none; }
+
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4px;
+    border: 1px solid #000;
+    border-top: none;
+  }
+  table.info th, table.info td {
+    border: 1px solid #c7c7c7;
+    padding: 6px 8px;
+    vertical-align: top;
+    font-size: 11px;
+  }
+  table.info th {
+    width: 26%;
+    background: #f5f5f5;
+    text-align: left;
+    font-weight: 600;
+    color: #000;
+  }
+  table.info td { background: #fff; color: #000; }
+  table.info .half th { width: 22%; }
+
+  /* Terms */
+  table.terms {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2px;
+    border: 1px solid #000;
+    border-top: none;
+  }
+  table.terms th, table.terms td {
+    border: 1px solid #c7c7c7;
+    padding: 6px 8px;
+    vertical-align: top;
+    font-size: 10.5px;
+    color: #000;
+  }
+  table.terms thead th {
+    background: #f5f5f5;
+    color: #000;
+    font-weight: 700;
+  }
+  .term-num { width: 4%; text-align: center; color: #E30613; font-weight: 700; }
+  .term-en { width: 48%; }
+  .term-ar { width: 48%; text-align: right; font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+
+  /* Signature blocks */
+  .signatures {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .sig-box {
+    flex: 1;
+    border: 1px solid #000;
+    padding: 10px 12px;
+    background: #fff;
+  }
+  .sig-box .label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #E30613;
+    margin-bottom: 42px;
+    border-bottom: 1px dashed #ddd;
+    padding-bottom: 4px;
+  }
+  .sig-box .line {
+    border-top: 2px solid #E30613;
+    padding-top: 4px;
+    font-size: 10.5px;
+    color: #000;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Know your rights */
+  .rights {
+    border: 1px solid #000;
+    border-top: none;
+    padding: 8px 12px;
+    background: #fff;
+    font-size: 10.5px;
+    color: #000;
+  }
+  .rights ul { margin: 4px 0 4px 18px; padding: 0; }
+  .rights li { margin: 2px 0; }
+  .rights a { color: #E30613; text-decoration: none; }
+
+  /* Additional terms */
+  ol.additional {
+    margin: 6px 0 0 0;
+    padding: 8px 14px;
+    border: 1px solid #000;
+    border-top: none;
+    background: #fff;
+  }
+  ol.additional > li { margin: 6px 0; font-size: 10.5px; list-style: none; color: #000; }
+  .add-num { font-weight: 700; color: #E30613; margin-right: 4px; }
+
+  /* CRE footer brand */
+  .cre-brand-footer {
+    margin-top: 22px;
+    padding: 12px 0 8px 0;
+    border-top: 2px solid #E30613;
+    text-align: center;
+  }
+  .cre-brand-footer img {
+    height: 34px;
+    width: auto;
+    display: inline-block;
+  }
+  .cre-brand-footer .tag {
+    display: block;
+    margin-top: 6px;
+    font-size: 10px;
+    color: #000;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+
+  /* Footer */
+  .doc-footer {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid #000;
+    text-align: center;
+    font-size: 9.5px;
+    color: #000;
+  }
+  .doc-footer a { color: #E30613; text-decoration: none; }
+
+  @media print {
+    body { background: #fff; }
+    .sheet { box-shadow: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ============ HEADER ============ -->
+  <div class="doc-header">
+    <div class="logo-left"><img src="http://localhost:3000/dubai-gov-logo.jpeg" alt="Government of Dubai"/></div>
+    <div class="title-block">
+      <div class="title-en">Tenancy Contract</div>
+      <div class="title-ar ar">عقد إيجار</div>
+      <div class="date-line">Date: <strong>15 Apr 2026</strong></div>
+    </div>
+    <div class="logo-right"><img src="http://localhost:3000/dld-logo.png" alt="Dubai Land Department"/></div>
+  </div>
+
+  <!-- ============ SECTION 1: OWNER / LESSOR ============ -->
+  <h2 class="section-title"><span>1. Owner / Lessor Information</span><span class="ar">معلومات المالك والمؤجر</span></h2>
+  <table class="info">
+    <tr><th>Owner's Name</th><td>Khalifa Zayed Al Nehayan</td>
+        <th>Lessor's Name</th><td>Continental Real Estate L.L.C.</td></tr>
+    <tr><th>Lessor's Emirates ID</th><td>784-XXXX-XXXXXXX-X</td>
+        <th>License No.</th><td>DED-591234</td></tr>
+    <tr><th>Licensing Authority</th><td>DED (Department of Economic Development)</td>
+        <th>Lessor's Email</th><td>info@cre.ae</td></tr>
+    <tr><th>Lessor's Phone</th><td>+971 4 000 0000</td>
+        <th>Licensing Jurisdiction</th><td>Emirate of Dubai</td></tr>
+  </table>
+
+  <!-- ============ SECTION 2: TENANT ============ -->
+  <h2 class="section-title"><span>2. Tenant Information</span><span class="ar">معلومات المستأجر</span></h2>
+  <table class="info">
+    <tr><th>Tenant's Name</th><td>Maryna Talyhina</td>
+        <th>Tenant's Emirates ID</th><td>784-1996-3988434-7</td></tr>
+    <tr><th>License No.</th><td>—</td>
+        <th>Licensing Authority</th><td>—</td></tr>
+    <tr><th>Tenant's Email</th><td>m@cre.ae</td>
+        <th>Tenant's Phone</th><td>+971 50 451 7399</td></tr>
+    <tr><th>Number of Co-Occupants</th><td colspan="3">1</td></tr>
+  </table>
+
+  <!-- ============ SECTION 3: PROPERTY ============ -->
+  <h2 class="section-title"><span>3. Property Information</span><span class="ar">معلومات العقار</span></h2>
+  <table class="info">
+    <tr><th>Property Usage</th>
+        <td>
+          <label style="margin-right:10px;"><input type="checkbox"  disabled/> Industrial</label>
+          <label style="margin-right:10px;"><input type="checkbox"  disabled/> Commercial</label>
+          <label><input type="checkbox" checked disabled/> Residential</label>
+        </td>
+        <th>Plot No. / Makani No.</th>
+        <td>7-0 / 12345 67890</td></tr>
+    <tr><th>Building Name / Property No.</th><td>Oasis Tower / Unit-101</td>
+        <th>Property Type</th><td>Flat</td></tr>
+    <tr><th>Property Area (sqm)</th><td>—</td>
+        <th>Location</th><td>Trade Center Second</td></tr>
+    <tr><th>Premises No. (DEWA)</th><td colspan="3">—</td></tr>
+  </table>
+
+  <!-- ============ SECTION 4: CONTRACT ============ -->
+  <h2 class="section-title"><span>4. Contract Information</span><span class="ar">معلومات العقد</span></h2>
+  <table class="info">
+    <tr><th>Contract Period — From</th><td>01 May 2026</td>
+        <th>Contract Period — To</th><td>30 Apr 2027</td></tr>
+    <tr><th>Contract Value</th><td>AED 65,000</td>
+        <th>Annual Rent</th><td>AED 65,000</td></tr>
+    <tr><th>Security Deposit</th><td>AED 3,250</td>
+        <th>Mode of Payment</th><td>4 Installments (In Cheques)</td></tr>
+  </table>
+
+  <!-- ============ SECTION 5: TERMS ============ -->
+  <h2 class="section-title"><span>5. Terms and Conditions</span><span class="ar">الأحكام والشروط</span></h2>
+  <table class="terms">
+    <thead>
+      <tr><th>#</th><th>English</th><th class="ar" dir="rtl">العربية</th></tr>
+    </thead>
+    <tbody>
+      <tr class="terms-row">
+        <td class="term-num">1</td>
+        <td class="term-en">The tenant has inspected the premises and agreed to lease the unit on its current condition.</td>
+        <td class="term-ar" dir="rtl">قام المستأجر بمعاينة المأجور ويرغب باستئجار الوحدة بحالتها الراهنة.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">2</td>
+        <td class="term-en">Tenant undertakes to use the premises for designated purpose. Tenant has no right to transfer, assign or relinquish the tenancy contract to any third party or to sublease the premises without prior written consent from the landlord.</td>
+        <td class="term-ar" dir="rtl">يلتزم المستأجر باستخدام المأجور للغرض المخصص له وليس له الحق في التنازل عن عقد الإيجار أو التأجير من الباطن إلا بموافقة خطية مسبقة من المالك.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">3</td>
+        <td class="term-en">The tenant undertakes not to make any amendments or alterations in the premises without written consent from the landlord and the competent authorities.</td>
+        <td class="term-ar" dir="rtl">يلتزم المستأجر بعدم إجراء أي تعديلات في المأجور إلا بموافقة خطية من المالك والجهات المختصة.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">4</td>
+        <td class="term-en">The tenant shall be responsible for payment of all electricity, water, cooling and gas charges (DEWA / Empower / etc.) throughout the contract period.</td>
+        <td class="term-ar" dir="rtl">يتحمل المستأجر رسوم الكهرباء والمياه والتبريد والغاز خلال فترة العقد.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">5</td>
+        <td class="term-en">The tenant must pay the rent amount in the manner and dates agreed with the landlord.</td>
+        <td class="term-ar" dir="rtl">يلتزم المستأجر بسداد بدل الإيجار بالطريقة والمواعيد المتفق عليها مع المالك.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">6</td>
+        <td class="term-en">The tenant fully undertakes to comply with all the regulations and instructions issued by the competent authorities and building management.</td>
+        <td class="term-ar" dir="rtl">يلتزم المستأجر الالتزام التام بجميع القوانين والتعليمات الصادرة عن الجهات المختصة وإدارة المبنى.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">7</td>
+        <td class="term-en">Tenancy contract parties declare all mentioned emails addresses and phone numbers are correct and any legal notice sent to them shall be considered valid notification.</td>
+        <td class="term-ar" dir="rtl">يقر طرفا عقد الإيجار بأن جميع عناوين البريد الإلكتروني وأرقام الهواتف المذكورة صحيحة وأي إشعار قانوني يرسل عليها يعتبر إشعاراً صحيحاً.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">8</td>
+        <td class="term-en">The landlord undertakes to enable the tenant of the full use of the premises including its facilities throughout the contract period.</td>
+        <td class="term-ar" dir="rtl">يلتزم المالك بتمكين المستأجر من الانتفاع الكامل بالمأجور ومرافقه طوال مدة العقد.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">9</td>
+        <td class="term-en">By signing this agreement from the first party, the &quot;Landlord&quot; hereby confirms and undertakes that he is the current owner of the leased property and has full legal right to lease it.</td>
+        <td class="term-ar" dir="rtl">يقر ويتعهد المالك (الطرف الأول) بتوقيعه على هذا العقد بأنه المالك الحالي للعقار المؤجر وله كامل الحق القانوني في تأجيره.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">10</td>
+        <td class="term-en">Any disagreement or dispute that may arise from execution or interpretation of this contract shall be settled by the Rental Dispute Center.</td>
+        <td class="term-ar" dir="rtl">أي نزاع ينشأ عن تنفيذ أو تفسير هذا العقد يحال إلى مركز فض المنازعات الإيجارية.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">11</td>
+        <td class="term-en">This contract is subject to all provisions of Law No (26) of 2007 and its amendments regulating the relationship between Landlords and Tenants in the Emirate of Dubai.</td>
+        <td class="term-ar" dir="rtl">يخضع هذا العقد لأحكام القانون رقم (26) لسنة 2007 وتعديلاته المنظم للعلاقة بين المؤجرين والمستأجرين في إمارة دبي.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">12</td>
+        <td class="term-en">Any additional condition will not be considered in case it conflicts with law.</td>
+        <td class="term-ar" dir="rtl">لا يعتد بأي شرط إضافي في حال تعارضه مع القانون.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">13</td>
+        <td class="term-en">In case of discrepancy occurs between Arabic and non Arabic texts, the Arabic text shall prevail.</td>
+        <td class="term-ar" dir="rtl">في حال وجود تعارض بين النصين العربي وغير العربي، يعتمد النص العربي.</td>
+      </tr>
+      <tr class="terms-row">
+        <td class="term-num">14</td>
+        <td class="term-en">The landlord undertakes to register this tenancy contract on EJARI system before handing over the premises to the tenant.</td>
+        <td class="term-ar" dir="rtl">يتعهد المالك بتسجيل عقد الإيجار في نظام إيجاري قبل تسليم المأجور للمستأجر.</td>
+      </tr></tbody>
+  </table>
+
+  <!-- ============ SECTION 6: SIGNATURES ============ -->
+  <h2 class="section-title"><span>6. Signatures</span><span class="ar">التواقيع</span></h2>
+  <div class="signatures">
+    <div class="sig-box">
+      <div class="label">Tenant Signature / توقيع المستأجر</div>
+      <div class="line"><span>Name: Maryna Talyhina</span><span>Date: ____________</span></div>
+    </div>
+    <div class="sig-box">
+      <div class="label">Lessor's Signature / توقيع المؤجر</div>
+      <div class="line"><span>Continental Real Estate L.L.C.</span><span>Date: ____________</span></div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION 7: KNOW YOUR RIGHTS ============ -->
+  <h2 class="section-title"><span>7. Know Your Rights</span><span class="ar">اعرف حقوقك</span></h2>
+  <div class="rights">
+    <ul>
+      <li>Visit the Rental Dispute Center website: <a href="https://www.dubailand.gov.ae" target="_blank" rel="noopener">www.dubailand.gov.ae</a></li>
+      <li>Law No. (26) of 2007 — regulating the relationship between Landlords and Tenants in the Emirate of Dubai.</li>
+      <li>Law No. (33) of 2008 — amending Law No. (26) of 2007.</li>
+      <li>Decree No. (43) of 2013 — determining rent increases for real property in Dubai.</li>
+    </ul>
+  </div>
+
+  <!-- ============ SECTION 8: EJARI ATTACHMENTS ============ -->
+  <h2 class="section-title"><span>8. Attachments for Ejari Registration</span><span class="ar">مرفقات تسجيل إيجاري</span></h2>
+  <div class="rights">
+    <ol style="margin:4px 0 4px 18px;padding:0;">
+      <li>Original unified tenancy contract.</li>
+      <li>Original Emirates ID of applicant.</li>
+    </ol>
+  </div>
+
+  <!-- ============ SECTION 9: ADDITIONAL TERMS ============ -->
+  <h2 class="section-title"><span>9. Additional Terms (CRE Addendum)</span><span class="ar">شروط إضافية</span></h2>
+  <ol class="additional">
+    <li><span class="add-num">1.</span> Maintenance and chiller are included in the rent. The terms outlined in the tenancy contract and Ejari forms are an integral part of this lease agreement.</li><li><span class="add-num">2.</span> Only the tenant holding Emirates ID No (784-1996-3988434-7) and dependents (Wife/Husband & Children) have the right to occupy the apartment. Any additional occupant must be declared and approved in writing by the landlord.</li><li><span class="add-num">3.</span> Annual administrative fees AED 2,100 (VAT Inclusive) for residential leases, AED 2,100 (VAT Inclusive) for commercial leases, and AED 250 for Ejari registration are payable by the tenant at the time of contract signing.</li><li><span class="add-num">4.</span> In case of delay in renewing the contract for a period of 15 days, a fine of AED 525/- (VAT Inclusive) applies. Beyond 30 days, a fine of AED 1,050 (VAT Inclusive) applies, after which the file will be transferred to the Legal Department for further action.</li><li><span class="add-num">5.</span> Bounced cheque fees AED 1,050/- (VAT Inclusive). Cheque replacement fees AED 262.50. Cheque postponement fees AED 262.50. The fees of name changing or lease transfer to another unit is 5% of annual rent for residential units (+VAT) and 10% of annual rent for commercial units (+VAT).</li>
+  </ol>
+
+  <!-- ============ FINAL SIGNATURES ============ -->
+  <div class="signatures" style="margin-top:18px;">
+    <div class="sig-box">
+      <div class="label">Tenant Signature / توقيع المستأجر</div>
+      <div class="line"><span>Maryna Talyhina</span><span>Date: ____________</span></div>
+    </div>
+    <div class="sig-box">
+      <div class="label">Lessor's Signature / توقيع المؤجر</div>
+      <div class="line"><span>Continental Real Estate L.L.C.</span><span>Date: ____________</span></div>
+    </div>
+  </div>
+
+  <!-- ============ CRE BRAND FOOTER ============ -->
+  <div class="cre-brand-footer">
+    <img src="http://localhost:3000/cre-logo.png" alt="Continental Real Estate"/>
+    <span class="tag">Managed by Continental Real Estate · Dubai, U.A.E.</span>
+  </div>
+
+  <!-- ============ DLD OFFICIAL FOOTER ============ -->
+  <div class="doc-footer">
+    Tel: 8004488 &nbsp;·&nbsp; Fax: +971 4 222 2251 &nbsp;·&nbsp; P.O. Box 1166, Dubai, U.A.E.
+    &nbsp;·&nbsp; E-mail: <a href="mailto:support@dubailand.gov.ae">support@dubailand.gov.ae</a>
+    &nbsp;·&nbsp; Website: <a href="https://www.dubailand.gov.ae">www.dubailand.gov.ae</a>
+  </div>
+
+</div>
+</body>
+</html>

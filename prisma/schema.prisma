@@ -1,0 +1,929 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ════════════════════════════════════════════
+// MULTI-TENANT: Organizations (your clients)
+// ════════════════════════════════════════════
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  email     String?
+  phone     String?
+  address   String?
+  plan      String   @default("starter")
+  maxUnits  Int      @default(50)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  units              Unit[]
+  tenants            Tenant[]
+  invoices           Invoice[]
+  payments           Payment[]
+  cheques            Cheque[]
+  maintenanceTickets MaintenanceTicket[]
+  vendors            Vendor[]
+  renewalRequests    RenewalRequest[]
+  complaints         Complaint[]
+  violations         Violation[]
+  parkingSlots       ParkingSlot[]
+  dewaReadings       DewaReading[]
+  documents          TenantDocument[]
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+  contractHistory    ContractHistory[]
+  workOrders         WorkOrder[]
+  feeLedger          FeeLedger[]
+  incomeItems        Income[]
+  expenseItems       Expense[]
+  propertyOwners     PropertyOwner[]
+  ownerContracts     OwnerContract[]
+  emailLogs          EmailLog[]
+  tenancyContracts   TenancyContract[]
+}
+
+// ════════════════════════════════════════════
+// USERS (staff per organization)
+// ════════════════════════════════════════════
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String       @unique
+  password       String
+  role           String       @default("staff")
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// UNITS
+// ════════════════════════════════════════════
+model Unit {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  unitNo         String
+  unitType       String       @default("")
+  contractStart  String       @default("")
+  contractEnd    String       @default("")
+  currentRent    Float        @default(0)
+  status         String       @default("Vacant")
+  notes          String       @default("")
+  tenantId       String?
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  invoices           Invoice[]
+  cheques            Cheque[]
+  maintenanceTickets MaintenanceTicket[]
+  renewalRequests    RenewalRequest[]
+  complaints         Complaint[]
+  violations         Violation[]
+  parkingSlots       ParkingSlot[]
+  dewaReadings       DewaReading[]
+  contractHistory    ContractHistory[]
+  feeLedger          FeeLedger[]
+
+  @@unique([organizationId, unitNo])
+  @@index([organizationId])
+  @@index([tenantId])
+}
+
+// ════════════════════════════════════════════
+// TENANTS
+// ════════════════════════════════════════════
+model Tenant {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                  String
+  phone                 String       @default("")
+  email                 String       @default("")
+  emiratesId            String       @default("")
+  passportNo            String       @default("")
+  nationality           String       @default("")
+  emergencyContactName  String       @default("")
+  emergencyContactPhone String       @default("")
+  status                String       @default("Active")
+  passwordHash          String       @default("")
+  notes                 String       @default("")
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  units              Unit[]
+  invoices           Invoice[]
+  cheques            Cheque[]
+  maintenanceTickets MaintenanceTicket[]
+  renewalRequests    RenewalRequest[]
+  complaints         Complaint[]
+  violations         Violation[]
+  parkingSlots       ParkingSlot[]
+  dewaReadings       DewaReading[]
+  documents          TenantDocument[]
+  notifications      Notification[]
+  contractHistory    ContractHistory[]
+  feeLedger          FeeLedger[]
+  tenancyContracts   TenancyContract[]
+
+  // Extra fields for tenancy contract generator
+  visaNo             String       @default("")
+  visaExpiry         String       @default("")
+  emiratesIdExpiry   String       @default("")
+  passportExpiry     String       @default("")
+  occupation         String       @default("")
+  employer           String       @default("")
+  familySize         Int          @default(1)
+  signatureUrl       String       @default("")  // base64 signature
+
+  // For company tenants
+  isCompany          Boolean      @default(false)
+  companyName        String       @default("")
+  companyTradeLicense String      @default("")
+  companyTradeLicenseExpiry String @default("")
+  signatoryName      String       @default("")
+  signatoryTitle     String       @default("")
+
+  // Verified Emirates ID details
+  eidNameEn      String   @default("")
+  eidNameAr      String   @default("")
+  eidNumber      String   @default("")
+  eidExpiry      String   @default("")
+  eidIssued      String   @default("")
+  eidCardNumber  String   @default("")
+  eidDob         String   @default("")
+  eidVerifiedAt  DateTime?
+  eidVerifiedBy  String   @default("")
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// TENANCY CONTRACTS (Tenant agreements with the Landlord)
+// ════════════════════════════════════════════
+model TenancyContract {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId         String
+  ownerId        String?      // Property Owner (landlord)
+
+  contractNo     String       // TC-2026-0001
+  version        Int          @default(1)
+  status         String       @default("Draft")  // Draft, Active, Renewed, Terminated, Cancelled
+
+  // Lease terms
+  contractStart  String
+  contractEnd    String
+  graceStart     String       @default("")  // 20d residential / 30d commercial
+  rentAmount     Float
+  rentInWords    String       @default("")
+  numberOfCheques Int         @default(4)
+  securityDeposit Float       @default(0)
+  bookingAmount  Float        @default(0)
+
+  // Type flags
+  contractType   String       @default("Residential")  // Residential, Commercial
+  purpose        String       @default("")  // Family residence, Office, Shop etc.
+
+  // Fees collected
+  ejariFee       Float        @default(250)
+  municipalityFee Float       @default(210)
+  commissionFee  Float        @default(0)
+
+  // Generated content
+  htmlBody       String       @db.Text
+  signatureToken String       @default("")
+
+  // Lifecycle timestamps
+  generatedAt    DateTime     @default(now())
+  sentAt         DateTime?
+  signedByTenantAt DateTime?
+  signedByLandlordAt DateTime?
+  effectiveAt    DateTime?
+  terminatedAt   DateTime?
+  terminationReason String    @default("")
+
+  // Signed copy
+  signedFilePath String       @default("")
+  signedFileName String       @default("")
+  signedFileSize Int          @default(0)
+  uploadedAt     DateTime?
+
+  // Renewal
+  renewalOfId    String?      // Previous contract this is renewal of
+  reason         String       @default("")  // Initial, Renewal, Amendment
+
+  notes          String       @default("")
+  createdBy      String       @default("")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, contractNo])
+  @@index([organizationId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([status])
+}
+
+// ════════════════════════════════════════════
+// INVOICES
+// ════════════════════════════════════════════
+model Invoice {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceNo      String
+  tenantId       String?
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  type           String       @default("Rent")
+  amount         Float
+  vatAmount      Float        @default(0)
+  totalAmount    Float
+  dueDate        String
+  periodStart    String       @default("")
+  periodEnd      String       @default("")
+  status         String       @default("Draft")
+  paidAmount     Float        @default(0)
+  lateFee        Float        @default(0)
+  notes          String       @default("")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  payments Payment[]
+
+  @@unique([organizationId, invoiceNo])
+  @@index([organizationId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+// ════════════════════════════════════════════
+// PAYMENTS
+// ════════════════════════════════════════════
+model Payment {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceId      String
+  invoice        Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount         Float
+  paymentDate    String
+  method         String       @default("Bank Transfer")
+  chequeNo       String       @default("")
+  chequeDate     String       @default("")
+  chequeBank     String       @default("")
+  chequeStatus   String       @default("")
+  referenceNo    String       @default("")
+  notes          String       @default("")
+  recordedBy     String       @default("")
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([invoiceId])
+}
+
+// ════════════════════════════════════════════
+// CHEQUES
+// ════════════════════════════════════════════
+model Cheque {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  chequeNo       String       @default("")
+  chequeDate     String       @default("")
+  amount         Float        @default(0)
+  bankName       String       @default("")
+  status         String       @default("Received")
+  paymentType    String       @default("Rent")
+  periodFrom     String       @default("")
+  periodTo       String       @default("")
+  sequenceNo     Int          @default(1)
+  totalCheques   Int          @default(12)
+  bouncedReason  String       @default("")
+  clearedDate    String       @default("")
+  notes          String       @default("")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([tenantId])
+}
+
+// ════════════════════════════════════════════
+// MAINTENANCE
+// ════════════════════════════════════════════
+model MaintenanceTicket {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ticketNo       String
+  tenantId       String?
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  category       String       @default("General")
+  priority       String       @default("Medium")
+  title          String
+  description    String       @default("")
+  status         String       @default("Submitted")
+  vendorId       String?
+  vendor         Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  estimatedCost  Float        @default(0)
+  actualCost     Float        @default(0)
+  rating         Int          @default(0)
+  ratingComment  String       @default("")
+  submittedAt    DateTime     @default(now())
+  acknowledgedAt DateTime?
+  assignedAt     DateTime?
+  completedAt    DateTime?
+  closedAt       DateTime?
+
+  comments   TicketComment[]
+  workOrders WorkOrder[]
+
+  @@unique([organizationId, ticketNo])
+  @@index([organizationId])
+}
+
+model TicketComment {
+  id         String            @id @default(cuid())
+  ticketId   String
+  ticket     MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author     String
+  authorType String            @default("staff")
+  message    String
+  attachment String            @default("")
+  createdAt  DateTime          @default(now())
+
+  @@index([ticketId])
+}
+
+// ════════════════════════════════════════════
+// VENDORS & WORK ORDERS
+// ════════════════════════════════════════════
+model Vendor {
+  id                 String       @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  companyName        String
+  contactPerson      String       @default("")
+  phone              String       @default("")
+  email              String       @default("")
+  tradeLicenseNo     String       @default("")
+  tradeLicenseExpiry String       @default("")
+  address            String       @default("")
+  status             String       @default("Active")
+  isPreferred        Boolean      @default(false)
+  categories         String       @default("")
+  notes              String       @default("")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  maintenanceTickets MaintenanceTicket[]
+  workOrders         WorkOrder[]
+
+  @@index([organizationId])
+}
+
+model WorkOrder {
+  id                 String             @id @default(cuid())
+  organizationId     String
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workOrderNo        String
+  ticketId           String?
+  ticket             MaintenanceTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  vendorId           String
+  vendor             Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  scopeOfWork        String             @default("")
+  startDate          String             @default("")
+  expectedCompletion String             @default("")
+  actualCompletion   String             @default("")
+  estimatedAmount    Float              @default(0)
+  actualAmount       Float              @default(0)
+  status             String             @default("Issued")
+  notes              String             @default("")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([organizationId, workOrderNo])
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// RENEWALS & CONTRACT HISTORY
+// ════════════════════════════════════════════
+model RenewalRequest {
+  id                   String       @id @default(cuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  unitId               String
+  unit                 Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId             String?
+  tenant               Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  currentRent          Float        @default(0)
+  proposedRent         Float        @default(0)
+  staffRecommendedRent Float        @default(0)
+  finalRent            Float        @default(0)
+  newStartDate         String       @default("")
+  newEndDate           String       @default("")
+  status               String       @default("Requested")
+  tenantNotes          String       @default("")
+  staffNotes           String       @default("")
+  ceoNotes             String       @default("")
+  requestedAt          DateTime     @default(now())
+  reviewedAt           DateTime?
+  decidedAt            DateTime?
+  acceptedAt           DateTime?
+
+  @@index([organizationId])
+}
+
+model ContractHistory {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  unitId           String
+  unit             Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId         String?
+  tenant           Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  contractStart    String       @default("")
+  contractEnd      String       @default("")
+  rentAmount       Float        @default(0)
+  renewalRequestId String?
+  createdAt        DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// COMPLAINTS
+// ════════════════════════════════════════════
+model Complaint {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  complaintNo    String
+  tenantId       String?
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  category       String       @default("General")
+  subject        String
+  description    String       @default("")
+  priority       String       @default("Medium")
+  status         String       @default("Open")
+  assignedTo     String       @default("")
+  resolution     String       @default("")
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, complaintNo])
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// VIOLATIONS
+// ════════════════════════════════════════════
+model Violation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  violationNo    String
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  type           String       @default("General")
+  description    String       @default("")
+  evidence       String       @default("")
+  severity       String       @default("Warning")
+  fineAmount     Float        @default(0)
+  status         String       @default("Issued")
+  issuedBy       String       @default("")
+  acknowledgedAt DateTime?
+  paidAt         DateTime?
+  notes          String       @default("")
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, violationNo])
+  @@index([organizationId])
+  @@index([tenantId])
+}
+
+// ════════════════════════════════════════════
+// PARKING
+// ════════════════════════════════════════════
+model ParkingSlot {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slotNo         String
+  zone           String       @default("A")
+  floor          String       @default("Basement")
+  type           String       @default("Standard")
+  status         String       @default("Available")
+  tenantId       String?
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  vehiclePlate   String       @default("")
+  vehicleType    String       @default("")
+  vehicleColor   String       @default("")
+  assignedAt     DateTime?
+  notes          String       @default("")
+
+  @@unique([organizationId, slotNo])
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// DEWA
+// ════════════════════════════════════════════
+model DewaReading {
+  id                 String       @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  unitId             String
+  unit               Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId           String?
+  tenant             Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  premiseNo          String       @default("")
+  month              String
+  electricityReading Float        @default(0)
+  waterReading       Float        @default(0)
+  electricityCharge  Float        @default(0)
+  waterCharge        Float        @default(0)
+  sewageCharge       Float        @default(0)
+  totalCharge        Float        @default(0)
+  status             String       @default("Pending")
+  paidDate           String       @default("")
+  notes              String       @default("")
+  createdAt          DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// DOCUMENTS
+// ════════════════════════════════════════════
+model TenantDocument {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenantId         String
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  docType          String       @default("Other")
+  filename         String
+  originalFilename String       @default("")
+  filePath         String
+  fileSize         Int          @default(0)
+  expiryDate       String       @default("")
+  status           String       @default("Uploaded")
+  reviewNotes      String       @default("")
+  reviewedBy       String       @default("")
+  uploadedAt       DateTime     @default(now())
+  reviewedAt       DateTime?
+
+  @@index([organizationId])
+  @@index([tenantId])
+}
+
+// ════════════════════════════════════════════
+// NOTIFICATIONS
+// ════════════════════════════════════════════
+model Notification {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipientType  String
+  recipientId    String?
+  tenant         Tenant?      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  title          String
+  message        String       @default("")
+  category       String       @default("system")
+  referenceType  String       @default("")
+  referenceId    String       @default("")
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// ACTIVITY LOG
+// ════════════════════════════════════════════
+model ActivityLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           String
+  action         String
+  details        String       @default("")
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// FEE LEDGER
+// ════════════════════════════════════════════
+model FeeLedger {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenantId       String?
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  feeType        String
+  description    String       @default("")
+  amount         Float
+  beneficiary    String       @default("CRE")
+  status         String       @default("Pending")
+  paidDate       String       @default("")
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// INCOME & EXPENSES
+// ════════════════════════════════════════════
+model Income {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       String
+  amount         Float
+  period         String       @default("Annual")
+  dateAdded      String
+  notes          String       @default("")
+
+  @@index([organizationId])
+}
+
+model Expense {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       String
+  amount         Float
+  period         String       @default("Annual")
+  dateAdded      String
+  notes          String       @default("")
+
+  @@index([organizationId])
+}
+
+// ════════════════════════════════════════════
+// PROPERTY OWNERS (CRE Onboarding - BEFORE PMS)
+// ════════════════════════════════════════════
+model PropertyOwner {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Owner Personal Info
+  ownerName       String
+  ownerType       String       @default("Individual") // Individual, Company
+  emiratesId      String       @default("")
+  passportNo      String       @default("")
+  nationality     String       @default("")
+  email           String
+  phone           String       @default("")
+  alternatePhone  String       @default("")
+  address         String       @default("")
+  iban            String       @default("")
+  bankName        String       @default("")
+  tradeLicense    String       @default("")  // For company owners
+
+  // Building / Property Info
+  buildingName       String
+  buildingType       String       @default("Residential")  // Residential, Commercial, Mixed
+  emirate            String       @default("Dubai")
+  area               String       @default("")  // IMPZ, Marina, etc
+  plotNo             String       @default("")
+  makaniNo           String       @default("")
+  titleDeedNo        String       @default("")
+  totalUnits         Int          @default(0)
+  totalFloors        Int          @default(0)
+  parkingSpaces      Int          @default(0)
+  yearBuilt          String       @default("")
+  buildingDescription String      @default("")
+
+  // Service Type & Commission
+  serviceType        String       @default("Full Property Management")
+  // Full Property Management, Leasing Only, Rent Collection Only, Maintenance Only, Hybrid, Sales Brokerage, Snagging
+  servicesIncluded   String       @default("")  // JSON array of services
+  leasingCommissionRes  Float     @default(5)   // %
+  leasingCommissionCom  Float     @default(10)  // %
+  managementFee         Float     @default(5)   // %
+  renewalFeeRes         Float     @default(850) // AED
+  renewalFeeCom         Float     @default(1500)// AED
+  maintenanceMarkup     Float     @default(15)  // %
+  customCommissionNotes String    @default("")
+  specialTerms          String    @default("")  // Free-text special terms included in contract
+  customClauses         String    @default("")  // JSON array of {title, content}
+  contractClausesJson   String    @default("") @db.Text  // Full editable clauses snapshot JSON (sections)
+
+  // DLD Official Registration
+  dldContractNo     String    @default("")   // Official DLD Contract No (e.g., 0320200809002228)
+  dldStatus         String    @default("Not Registered")  // Not Registered, In Progress, Registered, Rejected
+  dldContractType   String    @default("PM Building")  // PM Building, PM Unit, Lease & Sublease
+  dldSubmittedAt    DateTime?
+  dldRegisteredAt   DateTime?
+  dldPdfPath        String    @default("")   // Path to uploaded official DLD-issued PDF
+  dldPdfName        String    @default("")
+  dldPdfSize        Int       @default(0)
+  dldPdfUploadedAt  DateTime?
+  dldNotes          String    @default("")
+
+  // Contract Terms
+  contractStartDate  String       @default("")
+  contractEndDate    String       @default("")
+  contractTerm       String       @default("1 year")  // 1 year, 2 years, 3 years
+  noticePeriodDays   Int          @default(60)
+  autoRenew          Boolean      @default(true)
+  exclusiveMandate   Boolean      @default(true)
+  paymentFrequency   String       @default("Monthly") // Monthly, Quarterly
+  reportingFrequency String       @default("Monthly")
+  approvalThreshold  Float        @default(5000)  // AED for major repairs
+
+  // Onboarding Stage
+  stage              String       @default("Lead")
+  // Lead, Proposal Sent, Negotiation, Contract Signed, Handover, PMS Setup, Live
+  proposalSentAt     DateTime?
+  contractSentAt     DateTime?
+  contractSignedAt   DateTime?
+  handoverDate       String       @default("")
+  livePMSDate        DateTime?
+  signedByOwner      Boolean      @default(false)
+  signedByCRE        Boolean      @default(false)
+  emailSentAt        DateTime?
+  signatureToken     String       @default("")  // for owner sign link
+
+  // Handover Checklist (JSON)
+  handoverChecklist  String       @default("")  // JSON array
+
+  // Documents
+  contractDocPath    String       @default("")
+  titleDeedDocPath   String       @default("")
+  ownerIdDocPath     String       @default("")
+
+  notes              String       @default("")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  contracts OwnerContract[]
+  images    BuildingImage[]
+
+  @@index([organizationId])
+  @@index([stage])
+}
+
+// ════════════════════════════════════════════
+// BUILDING IMAGES (optional photos per property)
+// ════════════════════════════════════════════
+model BuildingImage {
+  id             String        @id @default(cuid())
+  organizationId String
+  ownerId        String
+  owner          PropertyOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  filename         String
+  originalFilename String       @default("")
+  filePath         String
+  fileSize         Int          @default(0)
+  mimeType         String       @default("")
+  caption          String       @default("")
+  category         String       @default("Exterior") // Exterior, Lobby, Unit, Amenity, Other
+  isPrimary        Boolean      @default(false)
+  sortOrder        Int          @default(0)
+  uploadedBy       String       @default("")
+  uploadedAt       DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([ownerId])
+}
+
+// ════════════════════════════════════════════
+// PROPERTY OWNER CONTRACTS (versioned)
+// ════════════════════════════════════════════
+model OwnerContract {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          PropertyOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  contractNo     String        // e.g., PMA-2026-0001
+  version        Int           @default(1)        // 1, 2, 3 ... for amendments
+  status         String        @default("Draft")   // Draft, Sent, Signed, Active, Superseded, Cancelled
+
+  // Snapshot of terms at time of generation (so future term changes don't affect this version)
+  serviceType    String
+  startDate      String
+  endDate        String
+  contractTerm   String
+  leasingCommissionRes Float
+  leasingCommissionCom Float
+  managementFee  Float
+  renewalFeeRes  Float
+  renewalFeeCom  Float
+  noticePeriodDays Int
+  autoRenew      Boolean
+  exclusiveMandate Boolean
+  paymentFrequency String
+
+  // The full HTML body (so we can re-render exactly as signed)
+  htmlBody       String        @db.Text
+
+  // Signature & lifecycle
+  signatureToken String        @default("")
+  generatedAt    DateTime      @default(now())
+  sentAt         DateTime?
+  sentToEmail    String        @default("")
+  signedAt       DateTime?
+  signedByOwnerName  String    @default("")
+  signedByCREName    String    @default("")
+  ownerIpAddress     String    @default("")  // IP when owner signed
+  ownerUserAgent     String    @default("")  // browser info
+  ownerSignatureImage String   @default("") @db.Text  // base64 PNG signature
+  ownerSignedAt      DateTime?
+  creSignatureImage  String    @default("") @db.Text  // CRE counter-signature
+  creSignedAt        DateTime?
+  creSignedBy        String    @default("")
+  signedFilePath String        @default("")   // Path to uploaded signed PDF (alternative)
+  signedFileName String        @default("")
+  signedFileSize Int           @default(0)
+  uploadedAt     DateTime?
+
+  // Amendment chain
+  supersededById String?       // ID of newer contract that replaced this
+  reason         String        @default("")   // Why this version was created (renewal, amendment, correction)
+
+  notes          String        @default("")
+  createdBy      String        @default("")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organizationId, contractNo])
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([status])
+}
+
+// ════════════════════════════════════════════
+// EMAIL LOG (track every email sent)
+// ════════════════════════════════════════════
+model EmailLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  toEmail        String
+  toName         String       @default("")
+  fromEmail      String
+  subject        String
+  template       String       // welcome, contract_sent, contract_signed, etc.
+  body           String       @db.Text
+  status         String       @default("Sent")  // Sent, Failed, Queued
+  errorMessage   String       @default("")
+  providerId     String       @default("")  // Resend message ID
+  triggeredBy    String       @default("")  // user who triggered
+
+  // Reference to related entity
+  refType        String       @default("")  // owner, contract, tenant, etc.
+  refId          String       @default("")
+
+  sentAt         DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([toEmail])
+  @@index([refType, refId])
+  @@index([sentAt])
+}

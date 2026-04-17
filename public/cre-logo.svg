@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 220" preserveAspectRatio="xMidYMid meet">
+  <!-- Red house/arrow icon -->
+  <g fill="#E30613">
+    <!-- Outer roof chevron -->
+    <polygon points="20,118 110,38 200,118 175,118 110,68 45,118" />
+    <!-- Inner roof chevron (hollow) -->
+    <polygon points="62,118 110,76 158,118 145,118 110,90 75,118" />
+    <!-- Right pillar (chimney) -->
+    <rect x="155" y="60" width="14" height="58" />
+  </g>
+  <!-- Continental wordmark -->
+  <text x="215" y="120" font-family="Arial Black, Helvetica, sans-serif" font-size="76" font-weight="900" fill="#1a1a1a" letter-spacing="-1">Continental</text>
+  <!-- Real Estate subtitle -->
+  <text x="217" y="170" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="500" fill="#1a1a1a" letter-spacing="2">Real Estate</text>
+</svg>
