@@ -104,13 +104,13 @@ export async function POST(
         </p>
 
         <p style="margin:18px 0 4px 0;">Kind regards,</p>
-        <p style="margin:0 0 22px 0;"><strong>Continental Real Estate</strong><br/>
+        <p style="margin:0 0 22px 0;"><strong>CRE</strong><br/>
         <span style="color:#6b7280;font-size:13px;">Property Management · Dubai, UAE</span></p>
 
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
         <p style="color:#9ca3af;font-size:12px;margin:0;">
           Contract No: ${contract.contractNo} v${contract.version}<br/>
-          This email was sent by Continental Real Estate. Replies go to info@cre.ae.
+          This email was sent by CRE. Replies go to info@cre.ae.
         </p>
       </div>
     `

@@ -45,7 +45,7 @@ export default async function SignPage({
           <div className="text-[#E30613] text-5xl mb-4">⚠</div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Invalid Signature Link</h1>
           <p className="text-gray-600">
-            This signature link is invalid or has expired. Please contact Continental Real Estate
+            This signature link is invalid or has expired. Please contact CRE
             for a new link.
           </p>
           <p className="mt-4 text-xs text-gray-400">info@cre.ae</p>
@@ -85,7 +85,7 @@ export default async function SignPage({
 
       htmlBody = buildContractHTML(
         ownerForBuilder,
-        contract.owner.organization?.name || 'Continental Real Estate',
+        contract.owner.organization?.name || 'CRE',
         baseUrl,
         primaryImagePath
       )
@@ -97,7 +97,7 @@ export default async function SignPage({
       <div className="min-h-screen bg-gray-100">
         <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
           <div className="flex flex-col items-center text-center mb-6">
-            <img src="/cre-logo.png" alt="Continental Real Estate" className="h-16 w-auto mb-4" />
+            <img src="/cre-logo.png" alt="CRE" className="h-16 w-auto mb-4" />
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Property Management Agreement Signature
             </h1>
@@ -157,7 +157,7 @@ export default async function SignPage({
           )}
 
           <p className="text-center text-xs text-gray-500 mt-8">
-            Continental Real Estate &middot; Dubai, UAE &middot;{' '}
+            CRE &middot; Dubai, UAE &middot;{' '}
             <Link href="mailto:info@cre.ae" className="underline">info@cre.ae</Link>
           </p>
         </div>
@@ -178,7 +178,7 @@ export default async function SignPage({
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         <div className="flex flex-col items-center text-center mb-6">
-          <img src="/cre-logo.png" alt="Continental Real Estate" className="h-16 w-auto mb-4" />
+          <img src="/cre-logo.png" alt="CRE" className="h-16 w-auto mb-4" />
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tenancy Contract Signature</h1>
           <p dir="rtl" className="mt-1 text-lg text-gray-700" style={{ fontFamily: 'Tahoma, Arial, sans-serif' }}>
             توقيع عقد الإيجار
@@ -243,7 +243,7 @@ export default async function SignPage({
         )}
 
         <p className="text-center text-xs text-gray-500 mt-8">
-          Continental Real Estate &middot; Dubai, UAE &middot;{' '}
+          CRE &middot; Dubai, UAE &middot;{' '}
           <Link href="mailto:info@cre.ae" className="underline">info@cre.ae</Link>
         </p>
       </div>

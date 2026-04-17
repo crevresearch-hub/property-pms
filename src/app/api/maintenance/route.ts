@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
             <div style="height:4px;width:60px;background:#E30613;border-radius:2px;margin-bottom:18px;"></div>
             <h1 style="margin:0 0 12px 0;font-size:20px;">Maintenance Notice — ${ticketNo}</h1>
             <p>Dear ${safeName},</p>
-            <p>Continental Real Estate has scheduled / logged the following maintenance${ticket.unit?.unitNo ? ` for Unit ${ticket.unit.unitNo}` : ''}:</p>
+            <p>CRE has scheduled / logged the following maintenance${ticket.unit?.unitNo ? ` for Unit ${ticket.unit.unitNo}` : ''}:</p>
             <table style="width:100%;border-collapse:collapse;margin:14px 0;">
               <tr style="background:#fafafa;"><td style="padding:8px 12px;font-size:12px;color:#6b7280;width:35%;border-bottom:1px solid #e5e7eb;">Title</td><td style="padding:8px 12px;font-size:12px;border-bottom:1px solid #e5e7eb;font-weight:600;">${title.replace(/[<>]/g, '')}</td></tr>
               <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Category</td><td style="padding:8px 12px;font-size:12px;border-bottom:1px solid #e5e7eb;">${(category || 'General').replace(/[<>]/g, '')}</td></tr>

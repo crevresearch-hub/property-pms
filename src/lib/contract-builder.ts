@@ -601,7 +601,7 @@ export function buildContractHTML(
 
 <!-- HEADER -->
 <div class="doc-header">
-  <img src="${baseUrl}/cre-logo.png" alt="Continental Real Estate" />
+  <img src="${baseUrl}/cre-logo.png" alt="CRE" />
   <div class="crest">CONTINENTAL REAL ESTATE</div>
   <h1>Property Management Agreement <span class="ar-h">اتفاقية إدارة عقار</span></h1>
   <div class="sub">Governed by UAE Federal Law and Dubai Real Estate Law No. 26 of 2007</div>
@@ -642,7 +642,7 @@ ${biH('1', C.sectionHeaders.s1En, C.sectionHeaders.s1Ar)}
   <div class="party-card">
     <h3><span>PROPERTY MANAGER (SECOND PARTY)</span><span class="h-ar" dir="rtl">مدير العقار (الطرف الثاني)</span></h3>
     <div class="kv">
-      <div><span class="k">Company / الشركة:</span> <span class="v">Continental Real Estate (CRE)</span></div>
+      <div><span class="k">Company / الشركة:</span> <span class="v">CRE (CRE)</span></div>
       <div><span class="k">Type / النوع:</span> <span class="v">Property Management Company</span></div>
       <div><span class="k">RERA License:</span> <span class="v">_______________</span></div>
       <div><span class="k">Trade License:</span> <span class="v">_______________</span></div>
@@ -841,7 +841,7 @@ ${biH('15', C.sectionHeaders.s15En, C.sectionHeaders.s15Ar)}
 <div class="footer-note">
   <div>${C.footerNoteEn}</div>
   <div class="ar-f" dir="rtl">${C.footerNoteAr}</div>
-  <div style="margin-top:8px"><strong>Continental Real Estate</strong> &middot; Dubai, United Arab Emirates &middot; www.cre.ae &middot; info@cre.ae</div>
+  <div style="margin-top:8px"><strong>CRE</strong> &middot; Dubai, United Arab Emirates &middot; www.cre.ae &middot; info@cre.ae</div>
   <div>Generated: ${today} &middot; Reference: ${refNo}</div>
 </div>
 

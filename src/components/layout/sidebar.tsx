@@ -114,7 +114,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed, onCollapsedChang
         {collapsed ? (
           <img src="/cre-icon.png" alt="CRE" className="h-10 w-10 object-contain" />
         ) : (
-          <img src="/cre-logo.png" alt="Continental Real Estate" className="h-14 w-auto object-contain" />
+          <img src="/cre-logo.png" alt="CRE" className="h-14 w-auto object-contain" />
         )}
       </div>
 

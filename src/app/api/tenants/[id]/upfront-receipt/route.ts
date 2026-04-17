@@ -91,7 +91,7 @@ export async function POST(
         <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #E30613;padding-bottom:14px;margin-bottom:18px;">
           <div>
             <h1 style="margin:0;font-size:22px;color:#E30613;">Payment Receipt</h1>
-            <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">Continental Real Estate L.L.C.</p>
+            <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">CRE L.L.C.</p>
           </div>
           <div style="text-align:right;">
             <p style="margin:0;font-size:11px;color:#6b7280;">Receipt No.</p>

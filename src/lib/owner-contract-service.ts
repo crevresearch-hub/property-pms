@@ -85,7 +85,7 @@ export async function createVersionedContract(
 
   const htmlBody = buildContractHTML(
     owner as unknown as PropertyOwnerRecord,
-    owner.organization?.name || 'Continental Real Estate',
+    owner.organization?.name || 'CRE',
     baseUrl,
     primaryImagePath,
     customContent

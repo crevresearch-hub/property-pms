@@ -128,7 +128,7 @@ export async function POST(
               <p style="color:#6b7280;font-size:12px;">After updating, re-send the agreement so
               the owner can review and sign the new version.</p>
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-              <p style="color:#6b7280;font-size:12px;">Continental Real Estate · CRE System · Dubai, UAE</p>
+              <p style="color:#6b7280;font-size:12px;">CRE · CRE System · Dubai, UAE</p>
             </div>
           `,
           template: 'owner_change_request',

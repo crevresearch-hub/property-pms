@@ -15,7 +15,7 @@ export default function HomePage() {
         <div className="mb-10 text-center">
           <img
             src="/cre-logo.png"
-            alt="Continental Real Estate"
+            alt="CRE"
             className="mx-auto h-24 w-auto sm:h-32"
           />
           <p className="mt-4 text-[11px] font-bold tracking-[0.4em] text-[#E30613]">
@@ -95,7 +95,7 @@ export default function HomePage() {
         {/* Footer */}
         <footer className="mt-10 text-center">
           <p className="text-xs text-slate-500">
-            Continental Real Estate &copy; {new Date().getFullYear()} &middot; Dubai, United Arab Emirates
+            CRE &copy; {new Date().getFullYear()} &middot; Dubai, United Arab Emirates
           </p>
           <p className="mt-1 text-[11px] text-slate-600">
             Need help? Contact us at <a href="mailto:info@cre.ae" className="text-[#E30613] hover:underline">info@cre.ae</a>

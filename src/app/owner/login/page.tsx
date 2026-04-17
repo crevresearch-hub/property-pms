@@ -57,7 +57,7 @@ function LoginInner() {
         <div className="mb-6 text-center">
           <div className="mx-auto h-1 w-12 bg-[#E30613] rounded mb-3"></div>
           <h1 className="text-xl font-bold text-white">Owner Portal</h1>
-          <p className="mt-1 text-xs text-slate-400">Continental Real Estate L.L.C.</p>
+          <p className="mt-1 text-xs text-slate-400">CRE L.L.C.</p>
         </div>
 
         {token && busy ? (

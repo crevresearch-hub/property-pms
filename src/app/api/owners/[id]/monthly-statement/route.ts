@@ -181,7 +181,7 @@ function buildStatementHTML(s: StatementData, baseUrl: string): string {
 <html><body style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#111;">
   <div style="max-width:720px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
     <div style="text-align:center;margin-bottom:16px;">
-      <img src="${logoUrl}" alt="Continental Real Estate" style="height:48px;" />
+      <img src="${logoUrl}" alt="CRE" style="height:48px;" />
     </div>
     <h1 style="margin:0 0 6px 0;font-size:22px;">Monthly Statement — ${s.periodLabel}</h1>
     <p style="margin:0 0 18px 0;color:#6b7280;font-size:13px;">
@@ -216,7 +216,7 @@ function buildStatementHTML(s: StatementData, baseUrl: string): string {
     </table>` : ''}
 
     <p style="margin:24px 0 0 0;font-size:11px;color:#6b7280;">
-      Generated ${new Date(s.generatedAt).toLocaleString('en-GB')} · Continental Real Estate
+      Generated ${new Date(s.generatedAt).toLocaleString('en-GB')} · CRE
     </p>
   </div>
 </body></html>`

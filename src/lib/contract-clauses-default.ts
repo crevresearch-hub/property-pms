@@ -53,7 +53,7 @@ export interface ContractContent {
 export function getDefaultContractContent(): ContractContent {
   return {
     preambleEn:
-      'This Property Management Agreement ("Agreement") is entered into by and between the Owner and Continental Real Estate (CRE), as the appointed Property Management Company, on the date stated above. Both parties acknowledge that they have read, understood, and agreed to all the terms and conditions set forth herein and in any schedules attached.',
+      'This Property Management Agreement ("Agreement") is entered into by and between the Owner and CRE (CRE), as the appointed Property Management Company, on the date stated above. Both parties acknowledge that they have read, understood, and agreed to all the terms and conditions set forth herein and in any schedules attached.',
     preambleAr:
       'تم إبرام اتفاقية إدارة العقار هذه ("الاتفاقية") بين المالك وشركة كونتيننتال للعقارات (CRE) بصفتها شركة إدارة العقار المعينة، في التاريخ المذكور أعلاه. يقر الطرفان بأنهما قد قرآ وفهما وافقا على جميع الشروط والأحكام الواردة في هذه الاتفاقية وفي أي ملاحق مرفقة بها.',
 

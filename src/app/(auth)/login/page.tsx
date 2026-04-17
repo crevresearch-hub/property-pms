@@ -49,7 +49,7 @@ export default function LoginPage() {
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl sm:p-10">
           {/* CRE Logo */}
           <div className="mb-8 text-center">
-            <img src="/cre-logo.png" alt="Continental Real Estate" className="mx-auto h-20 w-auto" />
+            <img src="/cre-logo.png" alt="CRE" className="mx-auto h-20 w-auto" />
             <div className="mt-4 inline-block rounded-full bg-[#E30613]/10 px-4 py-1">
               <p className="text-[10px] font-bold tracking-[0.3em] text-[#E30613]">
                 STAFF PORTAL
@@ -169,7 +169,7 @@ export default function LoginPage() {
             <p className="text-xs text-slate-400">
               <a href="/" className="hover:text-slate-600">← Back to home</a>
               {" · "}
-              Continental Real Estate &copy; {new Date().getFullYear()}
+              CRE &copy; {new Date().getFullYear()}
             </p>
           </div>
         </div>

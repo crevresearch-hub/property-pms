@@ -454,10 +454,10 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
 <body>
 
 <div class="doc-header">
-  ${baseUrl ? `<img src="${esc(baseUrl)}/cre-logo.png" alt="Continental Real Estate" />` : ''}
+  ${baseUrl ? `<img src="${esc(baseUrl)}/cre-logo.png" alt="CRE" />` : ''}
   <h1>TENANCY CONTRACT</h1>
   <h1 class="ar" dir="rtl" lang="ar">عقد إيجار</h1>
-  <div class="sub">Continental Real Estate – Property Management</div>
+  <div class="sub">CRE – Property Management</div>
 </div>
 
 <div class="meta">
@@ -480,7 +480,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
     <h3 style="margin-top:8px;">Property Manager</h3>
     <div class="kv">
       <div><span class="k">Acting on behalf of the Landlord:</span></div>
-      <div><strong>Continental Real Estate (CRE)</strong></div>
+      <div><strong>CRE (CRE)</strong></div>
       <div>Dubai, United Arab Emirates</div>
     </div>
     <h3 style="margin-top:8px;">Tenant</h3>
@@ -617,7 +617,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
     <div class="sig-box">
       <div class="role">LANDLORD / MANAGEMENT</div>
       Name: ${esc(owner?.ownerName || '__________')}<br/>
-      For: Continental Real Estate<br/>
+      For: CRE<br/>
       Date: __________<br/>
       Signature: __________
     </div>
@@ -660,7 +660,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
 </div>
 
 <div class="footer-note">
-  Continental Real Estate &middot; Dubai, UAE &middot; Governed by UAE Federal Law and Dubai Real Estate Law No. 26 of 2007<br/>
+  CRE &middot; Dubai, UAE &middot; Governed by UAE Federal Law and Dubai Real Estate Law No. 26 of 2007<br/>
   Contract Ref: ${esc(contract.contractNo)} v${esc(contract.version)} &middot; Generated ${today}
 </div>
 

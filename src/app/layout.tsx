@@ -9,8 +9,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "CRE System | Continental Real Estate",
-  description: "Continental Real Estate — Property Management Platform",
+  title: "CRE System | CRE",
+  description: "CRE — Property Management Platform",
 }
 
 export default function RootLayout({

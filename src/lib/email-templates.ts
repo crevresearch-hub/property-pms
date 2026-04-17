@@ -1,5 +1,5 @@
 /**
- * Continental Real Estate (CRE) email templates.
+ * CRE (CRE) email templates.
  *
  * All templates return { subject, html } where `html` is a fully
  * self-contained, inline-styled email body. Email clients (Gmail,
@@ -113,7 +113,7 @@ function layout(opts: {
           <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;">
             <tr>
               <td align="center" style="padding:16px 0 24px 0;">
-                <img src="${logoUrl}" alt="Continental Real Estate" style="height:60px;display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" />
+                <img src="${logoUrl}" alt="CRE" style="height:60px;display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" />
               </td>
             </tr>
             <tr>
@@ -130,7 +130,7 @@ function layout(opts: {
             </tr>
             <tr>
               <td align="center" style="padding:20px 12px 8px 12px;font-size:11px;line-height:1.5;color:${TEXT_MUTED};">
-                <strong style="color:${TEXT_DARK};">Continental Real Estate</strong> &middot; Dubai, UAE<br />
+                <strong style="color:${TEXT_DARK};">CRE</strong> &middot; Dubai, UAE<br />
                 This is an automated message &middot; Please do not reply directly to this email.
               </td>
             </tr>
@@ -163,7 +163,7 @@ function detailsTable(rows: Array<[string, string]>): string {
 /* ------------------------------------------------------------------ */
 
 export function welcomeOwnerTemplate(owner: OwnerLike, baseUrl: string) {
-  const subject = `Welcome to Continental Real Estate, ${owner.ownerName}`
+  const subject = `Welcome to CRE, ${owner.ownerName}`
   const details = detailsTable([
     ['Building', owner.buildingName || '—'],
     ['Type', owner.buildingType || '—'],
@@ -174,7 +174,7 @@ export function welcomeOwnerTemplate(owner: OwnerLike, baseUrl: string) {
   const bodyHtml = `
     <p style="margin:0 0 14px 0;">Dear ${esc(owner.ownerName)},</p>
     <p style="margin:0 0 14px 0;">
-      Thank you for choosing <strong>Continental Real Estate</strong> as your property management partner.
+      Thank you for choosing <strong>CRE</strong> as your property management partner.
       We're delighted to welcome <strong>${esc(owner.buildingName)}</strong> to our portfolio.
     </p>
     <p style="margin:0 0 10px 0;font-weight:600;">Your Building on File</p>
@@ -335,7 +335,7 @@ export function contractSignedTemplate(owner: OwnerLike, contract: ContractLike,
       <li style="margin-bottom:6px;">You'll receive a go-live confirmation once your building is active in the PMS.</li>
     </ol>
     <p style="margin:14px 0 0 0;">
-      Thank you for entrusting Continental Real Estate with the management of your property.
+      Thank you for entrusting CRE with the management of your property.
     </p>
   `
   return {
@@ -356,13 +356,13 @@ export function contractSignedTemplate(owner: OwnerLike, contract: ContractLike,
 /* ------------------------------------------------------------------ */
 
 export function ownerActivatedTemplate(owner: OwnerLike, baseUrl: string) {
-  const subject = `You're Live with Continental Real Estate!`
+  const subject = `You're Live with CRE!`
   const portalUrl = `${baseUrl.replace(/\/$/, '')}/owner-portal`
   const bodyHtml = `
     <p style="margin:0 0 14px 0;">Dear ${esc(owner.ownerName)},</p>
     <p style="margin:0 0 14px 0;">
       Congratulations — <strong>${esc(owner.buildingName)}</strong> is officially
-      <strong style="color:#16a34a;">live</strong> in the Continental Real Estate Property Management System.
+      <strong style="color:#16a34a;">live</strong> in the CRE Property Management System.
     </p>
     <p style="margin:14px 0 10px 0;font-weight:600;">From Here Onwards</p>
     <ul style="margin:0 0 14px 18px;padding:0;">
@@ -573,7 +573,7 @@ export function tenancyContractSignedTemplate(
       Welcome to your new home. A countersigned copy is on file for your records.
     </div>
     <p style="margin:14px 0 0 0;">
-      Thank you for choosing Continental Real Estate.
+      Thank you for choosing CRE.
     </p>
   `
   return {

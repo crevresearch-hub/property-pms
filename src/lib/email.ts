@@ -42,7 +42,7 @@ function htmlToText(html: string): string {
 
 export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY || ''
-  const fromEmail = process.env.EMAIL_FROM || 'Continental Real Estate <onboarding@resend.dev>'
+  const fromEmail = process.env.EMAIL_FROM || 'CRE <onboarding@resend.dev>'
   const replyTo = process.env.EMAIL_REPLY_TO || 'info@cre.ae'
 
   const plainBody = htmlToText(opts.html)

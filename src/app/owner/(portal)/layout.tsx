@@ -73,7 +73,7 @@ export default function OwnerPortalLayout({ children }: { children: React.ReactN
         {children}
       </main>
       <footer className="border-t border-white/5 py-4 text-center text-[10px] text-white/20">
-        Continental Real Estate L.L.C. · Dubai, U.A.E. · <a href="mailto:info@cre.ae" className="text-[#E30613]/50">info@cre.ae</a>
+        CRE L.L.C. · Dubai, U.A.E. · <a href="mailto:info@cre.ae" className="text-[#E30613]/50">info@cre.ae</a>
       </footer>
     </div>
   )

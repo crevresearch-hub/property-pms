@@ -94,7 +94,7 @@ export async function GET(
 
       const htmlBody = buildContractHTML(
         ownerForBuilder,
-        contract.owner.organization?.name || 'Continental Real Estate',
+        contract.owner.organization?.name || 'CRE',
         baseUrl,
         primaryImagePath
       )
@@ -354,7 +354,7 @@ export async function POST(
                   </a>
                 </p>
                 <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-                <p style="color:#6b7280;font-size:12px;">Continental Real Estate · CRE System · Dubai, UAE</p>
+                <p style="color:#6b7280;font-size:12px;">CRE · CRE System · Dubai, UAE</p>
               </div>
             `,
             template: 'admin_owner_signed',
@@ -583,7 +583,7 @@ export async function POST(
                 </a>
               </p>
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-              <p style="color:#6b7280;font-size:12px;">Continental Real Estate · CRE System · Dubai, UAE</p>
+              <p style="color:#6b7280;font-size:12px;">CRE · CRE System · Dubai, UAE</p>
             </div>
           `,
           template: 'admin_tenant_signed',

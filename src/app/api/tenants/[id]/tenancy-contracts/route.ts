@@ -181,7 +181,7 @@ export async function POST(
     const baseUrl = process.env.NEXTAUTH_URL || ''
     const orgName = (
       await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } })
-    )?.name || 'Continental Real Estate'
+    )?.name || 'CRE'
 
     const tempContract: TenancyContractRecord = {
       id: 'pending',

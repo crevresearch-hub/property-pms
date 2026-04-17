@@ -43,7 +43,7 @@ export default function TenantLoginPage() {
       <div className="relative z-10 w-full max-w-md px-4">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl sm:p-10">
           <div className="mb-8 text-center">
-            <img src="/cre-logo.png" alt="Continental Real Estate" className="mx-auto h-20 w-auto" />
+            <img src="/cre-logo.png" alt="CRE" className="mx-auto h-20 w-auto" />
             <div className="mt-4 inline-block rounded-full bg-emerald-100 px-4 py-1">
               <p className="text-[10px] font-bold tracking-[0.3em] text-emerald-700">
                 TENANT PORTAL
@@ -114,7 +114,7 @@ export default function TenantLoginPage() {
             <p className="text-xs text-slate-400">
               <a href="/" className="hover:text-slate-600">← Back to home</a>
               {" · "}
-              Continental Real Estate &copy; {new Date().getFullYear()}
+              CRE &copy; {new Date().getFullYear()}
             </p>
           </div>
         </div>

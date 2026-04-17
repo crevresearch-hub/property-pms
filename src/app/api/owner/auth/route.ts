@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         <div style="height:4px;width:60px;background:#E30613;border-radius:2px;margin-bottom:18px;"></div>
         <h1 style="margin:0 0 12px 0;font-size:22px;">Owner Portal Sign-In</h1>
         <p>Hello ${owner.ownerName.replace(/[<>]/g, '')},</p>
-        <p>Click the button below to sign in to your Continental Real Estate owner portal. This link is valid for ${TOKEN_TTL_MIN} minutes.</p>
+        <p>Click the button below to sign in to your CRE owner portal. This link is valid for ${TOKEN_TTL_MIN} minutes.</p>
         <p style="text-align:center;margin:18px 0;">
           <a href="${link}" style="display:inline-block;background:#E30613;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Sign In to Portal</a>
         </p>

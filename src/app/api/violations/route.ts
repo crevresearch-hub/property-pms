@@ -181,10 +181,10 @@ export async function POST(request: NextRequest) {
           <div style="max-width:620px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
             <div style="border-bottom:3px solid ${isCritical ? '#dc2626' : '#E30613'};padding-bottom:14px;margin-bottom:18px;">
               <h1 style="margin:0;font-size:22px;color:${isCritical ? '#dc2626' : '#E30613'};">${isCritical ? '🚨 ' : ''}Violation Notice — ${violationNo}</h1>
-              <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">Continental Real Estate L.L.C. · ${new Date().toLocaleDateString('en-GB')}</p>
+              <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">CRE L.L.C. · ${new Date().toLocaleDateString('en-GB')}</p>
             </div>
             <p>Dear ${safeName},</p>
-            <p>Continental Real Estate has issued the following violation notice${unitId ? ` for your unit` : ''}:</p>
+            <p>CRE has issued the following violation notice${unitId ? ` for your unit` : ''}:</p>
             <table style="width:100%;border-collapse:collapse;margin:14px 0;">
               <tr style="background:#fafafa;"><td style="padding:8px 12px;font-size:12px;color:#6b7280;width:35%;border-bottom:1px solid #e5e7eb;">Type</td><td style="padding:8px 12px;font-size:12px;border-bottom:1px solid #e5e7eb;font-weight:600;">${violationType}</td></tr>
               <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Severity</td><td style="padding:8px 12px;font-size:12px;border-bottom:1px solid #e5e7eb;${isCritical ? 'color:#dc2626;font-weight:700;' : ''}">${finalSeverity}${priorViolations >= 3 ? ' (auto-escalated — repeat offender)' : ''}</td></tr>

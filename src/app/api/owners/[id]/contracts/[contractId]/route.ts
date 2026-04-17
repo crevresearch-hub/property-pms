@@ -69,7 +69,7 @@ export async function GET(
 
       const html = buildContractHTML(
         ownerForBuilder,
-        contract.owner.organization?.name || 'Continental Real Estate',
+        contract.owner.organization?.name || 'CRE',
         baseUrl,
         primaryImagePath,
         content

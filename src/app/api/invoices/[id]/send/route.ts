@@ -75,7 +75,7 @@ export async function POST(
         <div style="max-width:620px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
           <div style="border-bottom:3px solid #E30613;padding-bottom:14px;margin-bottom:18px;">
             <h1 style="margin:0;font-size:22px;color:#E30613;">Invoice ${safeInvoiceNo}</h1>
-            <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">Continental Real Estate L.L.C.</p>
+            <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">CRE L.L.C.</p>
           </div>
           <p>Dear ${safeName},</p>
           <p>An invoice has been issued to you. Details below.</p>

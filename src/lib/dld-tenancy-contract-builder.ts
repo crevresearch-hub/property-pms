@@ -2,7 +2,7 @@
  * DLD-style Tenancy Contract HTML builder (CRE-branded edition).
  *
  * Replicates the official Dubai Land Department (DLD) bilingual
- * Unified Tenancy Contract layout used by Continental Real Estate,
+ * Unified Tenancy Contract layout used by CRE,
  * restyled with CRE red/black/white branding.
  *
  *   - Government of Dubai + DLD logos header (served from /public)
@@ -448,7 +448,7 @@ export function buildDldTenancyContractHTML(
   <h2 class="section-title"><span>1. Owner / Lessor Information</span><span class="ar">معلومات المالك والمؤجر</span></h2>
   <table class="info">
     <tr><th>Owner's Name</th><td>${esc(owner.ownerName || '—')}</td>
-        <th>Lessor's Name</th><td>Continental Real Estate L.L.C.</td></tr>
+        <th>Lessor's Name</th><td>CRE L.L.C.</td></tr>
     <tr><th>Lessor's Emirates ID</th><td>784-XXXX-XXXXXXX-X</td>
         <th>License No.</th><td>DED-591234</td></tr>
     <tr><th>Licensing Authority</th><td>DED (Department of Economic Development)</td>
@@ -517,7 +517,7 @@ export function buildDldTenancyContractHTML(
     </div>
     <div class="sig-box">
       <div class="label">Lessor's Signature / توقيع المؤجر</div>
-      <div class="line"><span>Continental Real Estate L.L.C.</span><span>Date: ____________</span></div>
+      <div class="line"><span>CRE L.L.C.</span><span>Date: ____________</span></div>
     </div>
   </div>
 
@@ -555,14 +555,14 @@ export function buildDldTenancyContractHTML(
     </div>
     <div class="sig-box">
       <div class="label">Lessor's Signature / توقيع المؤجر</div>
-      <div class="line"><span>Continental Real Estate L.L.C.</span><span>Date: ____________</span></div>
+      <div class="line"><span>CRE L.L.C.</span><span>Date: ____________</span></div>
     </div>
   </div>
 
   <!-- ============ CRE BRAND FOOTER ============ -->
   <div class="cre-brand-footer">
-    <img src="${esc(creLogoSrc)}" alt="Continental Real Estate"/>
-    <span class="tag">Managed by Continental Real Estate · Dubai, U.A.E.</span>
+    <img src="${esc(creLogoSrc)}" alt="CRE"/>
+    <span class="tag">Managed by CRE · Dubai, U.A.E.</span>
   </div>
 
   <!-- ============ DLD OFFICIAL FOOTER ============ -->
