@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       id: 'admin-dev',
       name: 'CRE Admin',
       email: 'admin@cre.ae',
-      organizationId: 'cmnwqn5tk0000ohnoi0mpqe4x',
+      organizationId: 'cmo2o53dc0000ohh0dfneceit',
       role: 'admin',
       sub: 'admin-dev',
     },
