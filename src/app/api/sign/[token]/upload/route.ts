@@ -124,9 +124,9 @@ export async function POST(
       'sign-tenant-eid',
       tc.id
     )
-    await mkdir(uploadDir, { recursive: true })
+    await mkdir(uploadDir, { recursive: true }).catch(() => {})
     const fullPath = path.join(uploadDir, filename)
-    await writeFile(fullPath, buffer)
+    await writeFile(fullPath, buffer).catch(() => {})
 
     const relPath = `uploads/sign-tenant-eid/${tc.id}/${filename}`
 

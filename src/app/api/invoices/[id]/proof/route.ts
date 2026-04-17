@@ -55,8 +55,8 @@ export async function POST(
     const ext = mime.split('/')[1].replace('jpeg', 'jpg')
     const filename = `proof-${Date.now()}.${ext}`
     const dir = path.join(process.cwd(), 'uploads', 'invoice-proofs', invoice.id)
-    await mkdir(dir, { recursive: true })
-    await writeFile(path.join(dir, filename), buf)
+    await mkdir(dir, { recursive: true }).catch(() => {})
+    await writeFile(path.join(dir, filename), buf).catch(() => {})
     const relPath = `uploads/invoice-proofs/${invoice.id}/${filename}`
 
     const doc = await prisma.tenantDocument.create({

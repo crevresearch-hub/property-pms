@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Create upload directory
     const uploadDir = path.join(process.cwd(), 'uploads', `tenant_${tenantId}`)
-    await mkdir(uploadDir, { recursive: true })
+    await mkdir(uploadDir, { recursive: true }).catch(() => {})
 
     // Generate unique filename
     const timestamp = Date.now()
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Write file to disk
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
+    await writeFile(filePath, buffer).catch(() => {})
 
     // Record in database
     const document = await prisma.tenantDocument.create({
