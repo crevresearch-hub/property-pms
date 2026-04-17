@@ -601,7 +601,7 @@ export function buildContractHTML(
 
 <!-- HEADER -->
 <div class="doc-header">
-  <img src="${baseUrl}/cre-logo.png" alt="CRE" />
+  
   <div class="crest">CONTINENTAL REAL ESTATE</div>
   <h1>Property Management Agreement <span class="ar-h">اتفاقية إدارة عقار</span></h1>
   <div class="sub">Governed by UAE Federal Law and Dubai Real Estate Law No. 26 of 2007</div>

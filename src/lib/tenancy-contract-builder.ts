@@ -454,7 +454,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
 <body>
 
 <div class="doc-header">
-  ${baseUrl ? `<img src="${esc(baseUrl)}/cre-logo.png" alt="CRE" />` : ''}
+  
   <h1>TENANCY CONTRACT</h1>
   <h1 class="ar" dir="rtl" lang="ar">عقد إيجار</h1>
   <div class="sub">CRE – Property Management</div>

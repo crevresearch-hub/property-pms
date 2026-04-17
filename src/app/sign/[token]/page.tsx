@@ -97,7 +97,6 @@ export default async function SignPage({
       <div className="min-h-screen bg-gray-100">
         <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
           <div className="flex flex-col items-center text-center mb-6">
-            <img src="/cre-logo.png" alt="CRE" className="h-16 w-auto mb-4" />
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Property Management Agreement Signature
             </h1>
@@ -178,7 +177,6 @@ export default async function SignPage({
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         <div className="flex flex-col items-center text-center mb-6">
-          <img src="/cre-logo.png" alt="CRE" className="h-16 w-auto mb-4" />
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tenancy Contract Signature</h1>
           <p dir="rtl" className="mt-1 text-lg text-gray-700" style={{ fontFamily: 'Tahoma, Arial, sans-serif' }}>
             توقيع عقد الإيجار

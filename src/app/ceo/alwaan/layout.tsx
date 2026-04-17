@@ -20,7 +20,6 @@ export default function AlwaanLayout({ children }: { children: React.ReactNode }
       <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
         <div className="mx-auto max-w-[1400px] px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-5">
-            <img src="/cre-logo.png" alt="CRE" className="h-10" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
             <div className="h-8 w-px bg-slate-200" />
             <div>
               <h1 className="text-lg font-bold text-slate-900 tracking-tight">Alwaan Residence</h1>

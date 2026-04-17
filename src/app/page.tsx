@@ -14,7 +14,6 @@ export default function HomePage() {
         {/* Logo */}
         <div className="mb-10 text-center">
           <img
-            src="/cre-logo.png"
             alt="CRE"
             className="mx-auto h-24 w-auto sm:h-32"
           />

@@ -109,13 +109,11 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed, onCollapsedChang
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
-      {/* CRE Branding header */}
-      <div className={cn("flex items-center gap-3 border-b border-white/10 bg-white px-4 py-5", collapsed && "justify-center px-2")}>
-        {collapsed ? (
-          <img src="/cre-icon.png" alt="CRE" className="h-10 w-10 object-contain" />
-        ) : (
-          <img src="/cre-logo.png" alt="CRE" className="h-14 w-auto object-contain" />
-        )}
+      {/* Header */}
+      <div className={cn("border-b border-white/10 px-4 py-5", collapsed && "px-2")}>
+        <p className={cn("text-sm font-bold text-white", collapsed && "text-center text-xs")}>
+          {collapsed ? "PMS" : "Property Management"}
+        </p>
       </div>
 
       {/* Navigation */}

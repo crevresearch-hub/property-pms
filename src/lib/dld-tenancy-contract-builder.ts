@@ -100,7 +100,7 @@ export function buildDldTenancyContractHTML(
   // User-provided official logos
   const govLogoSrc = `${baseUrl}/dubai-gov-logo.jpeg`
   const dldLogoSrc = `${baseUrl}/dld-logo.png`
-  const creLogoSrc = `${baseUrl}/cre-logo.png`
+  const creLogoSrc = ""
 
   const annualRent = unit.currentRent
   const propertyType = inferPropertyType(unit.unitType)

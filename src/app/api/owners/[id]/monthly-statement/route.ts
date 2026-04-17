@@ -154,7 +154,7 @@ function fmtAED(n: number): string {
 }
 
 function buildStatementHTML(s: StatementData, baseUrl: string): string {
-  const logoUrl = `${baseUrl.replace(/\/$/, '')}/cre-logo.png`
+  const logoUrl = ""
   const invoiceRows = s.invoices
     .map(
       (i) => `<tr>

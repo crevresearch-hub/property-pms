@@ -84,7 +84,7 @@ function layout(opts: {
   ctaHref?: string
 }): string {
   const { baseUrl, preheader, heading, bodyHtml, ctaLabel, ctaHref } = opts
-  const logoUrl = `${baseUrl.replace(/\/$/, '')}/cre-logo.png`
+  const logoUrl = ''
 
   const cta =
     ctaLabel && ctaHref
@@ -113,7 +113,7 @@ function layout(opts: {
           <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;">
             <tr>
               <td align="center" style="padding:16px 0 24px 0;">
-                <img src="${logoUrl}" alt="CRE" style="height:60px;display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" />
+                
               </td>
             </tr>
             <tr>

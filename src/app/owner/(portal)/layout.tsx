@@ -36,7 +36,6 @@ export default function OwnerPortalLayout({ children }: { children: React.ReactN
       <header className="border-b border-white/10">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img src="/cre-logo.png" alt="CRE" className="h-9" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
             <div>
               <h1 className="text-sm font-bold text-white">Alwaan Residence</h1>
               <p className="text-[10px] text-white/40">{owner?.name || ""} · Owner Portal</p>
