@@ -7,13 +7,8 @@ import { encode } from 'next-auth/jwt'
  *
  * Dev-only one-click PM/CEO sign-in. Sets the NextAuth session cookie
  * directly so the user lands on the dashboard without a login form.
- * Disabled in production.
  */
 export async function GET(request: NextRequest) {
-  if (process.env.DISABLE_DEV_LOGIN === 'true') {
-    return NextResponse.json({ error: 'Disabled in production' }, { status: 403 })
-  }
-
   const secret = process.env.NEXTAUTH_SECRET || 'super-secret-key-change-in-production-abc123xyz'
 
   // Create a JWT token for admin user

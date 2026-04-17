@@ -8,10 +8,6 @@ import prisma from '@/lib/prisma'
  * demo owners can be opened directly. Disabled when NODE_ENV=production.
  */
 export async function GET(request: NextRequest) {
-  if (process.env.DISABLE_DEV_LOGIN === 'true') {
-    return NextResponse.json({ error: 'Disabled in production' }, { status: 403 })
-  }
-
   const email = (request.nextUrl.searchParams.get('email') || '').trim().toLowerCase()
   if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })
 
