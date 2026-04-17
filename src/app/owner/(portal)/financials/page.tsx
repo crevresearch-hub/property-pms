@@ -52,7 +52,7 @@ export default function FinancialsPage() {
             <CartesianGrid strokeDasharray="3 3" stroke="#222" />
             <XAxis dataKey="month" tick={{ fill: "#555", fontSize: 10 }} />
             <YAxis tick={{ fill: "#555", fontSize: 10 }} />
-            <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v: number) => aed(v)} />
+            <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v) => aed(Number(v))} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="income" fill="#E30613" name="Income" radius={[4, 4, 0, 0]} />
             <Bar dataKey="expense" fill="#333" name="Expense" radius={[4, 4, 0, 0]} />
@@ -142,7 +142,7 @@ function CatBreakdown({ title, data, total }: { title: string; data: Array<{ cat
         <ResponsiveContainer width="100%" height={180}>
           <PieChart><Pie data={data} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="amount" nameKey="category">
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-          </Pie><Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v: number) => aed(v)} /></PieChart>
+          </Pie><Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v) => aed(Number(v))} /></PieChart>
         </ResponsiveContainer>
         <div className="space-y-1 text-xs">
           {data.map((c, i) => (

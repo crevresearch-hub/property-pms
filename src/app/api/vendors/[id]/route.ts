@@ -74,6 +74,7 @@ export async function PUT(
     }
 
     const organizationId = session.user.organizationId
+    const { id } = await params
     const body = await request.json()
 
     const existing = await prisma.vendor.findFirst({

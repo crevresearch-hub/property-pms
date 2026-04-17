@@ -87,7 +87,7 @@ export default function PnlPage() {
               <Pie data={allIncome} cx="50%" cy="50%" innerRadius={55} outerRadius={90} dataKey="amount" nameKey="category">
                 {allIncome.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v: number) => aed(v)} />
+              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v) => aed(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -100,7 +100,7 @@ export default function PnlPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis type="number" tick={{ fill: "#94a3b8", fontSize: 10 }} />
               <YAxis type="category" dataKey="category" width={170} tick={{ fill: "#64748b", fontSize: 10 }} />
-              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v: number) => aed(v)} />
+              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v) => aed(Number(v))} />
               <Bar dataKey="amount" fill="#E30613" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -115,7 +115,7 @@ export default function PnlPage() {
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="q" tick={{ fill: "#94a3b8", fontSize: 11 }} />
             <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v: number) => aed(v)} />
+            <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v) => aed(Number(v))} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="income" fill="#E30613" name="Revenue" radius={[6, 6, 0, 0]} />
             <Bar dataKey="expense" fill="#1e293b" name="Expenses" radius={[6, 6, 0, 0]} />

@@ -90,7 +90,7 @@ export async function PUT(
 
     // Accept: archive old contract, update unit, update renewal status
     // Use a transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx: typeof prisma) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Archive the current contract to contract_history
       if (existing.unit) {
         await tx.contractHistory.create({

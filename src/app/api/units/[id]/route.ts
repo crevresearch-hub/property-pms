@@ -18,7 +18,7 @@ export async function GET(
     const organizationId = session.user.organizationId
 
     const unit = await prisma.unit.findFirst({
-      where: { id: id, organizationId },
+      where: { id, organizationId },
       include: {
         tenant: {
           select: {
@@ -66,11 +66,12 @@ export async function PUT(
     }
 
     const organizationId = session.user.organizationId
+    const { id } = await params
     const body = await request.json()
 
     // Verify unit belongs to the organization
     const existing = await prisma.unit.findFirst({
-      where: { id: id, organizationId },
+      where: { id, organizationId },
     })
 
     if (!existing) {
@@ -129,7 +130,7 @@ export async function DELETE(
     const organizationId = session.user.organizationId
 
     const unit = await prisma.unit.findFirst({
-      where: { id: id, organizationId },
+      where: { id, organizationId },
     })
 
     if (!unit) {

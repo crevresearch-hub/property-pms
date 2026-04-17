@@ -110,9 +110,9 @@ export async function GET(
           startDate: contract.startDate,
           endDate: contract.endDate,
           contractTerm: contract.contractTerm,
-          ownerName: (contract.owner as { ownerName: string }).ownerName,
-          ownerEmail: (contract.owner as { email: string }).email,
-          buildingName: (contract.owner as { buildingName: string }).buildingName,
+          ownerName: (contract.owner as unknown as { ownerName: string })?.ownerName || '',
+          ownerEmail: (contract.owner as unknown as { email: string })?.email || '',
+          buildingName: (contract.owner as unknown as { buildingName: string })?.buildingName || '',
           ownerSigned: !!contract.ownerSignedAt,
           creSigned: !!contract.creSignedAt,
         },
@@ -180,7 +180,7 @@ async function saveEidAttachment(
   tenantId: string,
   dataUrl: string
 ): Promise<void> {
-  const m = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl)
+  const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl)
   if (!m) return
   const mime = m[1].toLowerCase()
   const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf', 'image/webp']

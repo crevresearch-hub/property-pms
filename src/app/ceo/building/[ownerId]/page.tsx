@@ -117,7 +117,7 @@ export default function BuildingDetailPage({ params }: { params: Promise<{ owner
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 11 }} />
               <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <Tooltip contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8 }} formatter={(v: number) => aed(v)} />
+              <Tooltip contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8 }} formatter={(v) => aed(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="cleared" stackId="a" fill="#22c55e" name="Cleared (received)" radius={[0, 0, 0, 0]} />
               <Bar dataKey="expected" stackId="a" fill="#f59e0b" name="Expected (due)" radius={[6, 6, 0, 0]} />

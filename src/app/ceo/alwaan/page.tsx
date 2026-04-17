@@ -185,7 +185,7 @@ export default function AlwaanCeoDashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="m" tick={{ fill: "#94a3b8", fontSize: 11 }} />
               <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} formatter={(v: number) => aed(v)} />
+              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} formatter={(v) => aed(Number(v))} />
               <Area type="monotone" dataKey="income" stroke="#E30613" strokeWidth={2.5} fill="url(#incGrad)" />
               <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={1.5} fill="transparent" strokeDasharray="6 3" />
             </AreaChart>

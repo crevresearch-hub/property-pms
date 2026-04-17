@@ -78,7 +78,7 @@ export default function CashFlowPage() {
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 11 }} />
             <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} formatter={(v: number) => aed(v)} />
+            <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} formatter={(v) => aed(Number(v))} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="inflow" fill="#10b981" name="Cash In" radius={[4, 4, 0, 0]} opacity={0.8} />
             <Bar dataKey="outflow" fill="#ef4444" name="Cash Out" radius={[4, 4, 0, 0]} opacity={0.6} />

@@ -95,12 +95,19 @@ interface TenancyContract {
   contractStart: string
   contractEnd: string
   rentAmount: number
+  numberOfCheques: number
+  securityDeposit: number
+  ejariFee: number
+  municipalityFee: number
+  commissionFee: number
   contractType: string
   signatureToken: string
   signedFileName: string
   sentAt: string | null
   signedByTenantAt: string | null
+  notes: string
   createdAt: string
+  [key: string]: unknown
 }
 
 interface Cheque {
@@ -110,8 +117,10 @@ interface Cheque {
   amount: number
   bankName: string
   status: string
+  paymentType: string
   sequenceNo: number
   totalCheques: number
+  [key: string]: unknown
 }
 
 interface VacatingData {
@@ -1044,123 +1053,6 @@ export default function TenantEditPage() {
             />
           )}
 
-          {/* 7. Vacating Process — REMOVED per user request. Move-outs are
-              handled through the Terminate Contract action on the tenant list. */}
-          {false && (
-          <section className={SECTION}>
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <div className="flex items-center gap-2">
-                <DoorOpen className="h-4 w-4 text-[#E30613]" />
-                <h2 className="text-sm font-semibold text-slate-900">Vacating / Move-out</h2>
-              </div>
-              {!vacating && (
-                <button
-                  onClick={() => setVacOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                >
-                  <LogOut className="h-3.5 w-3.5" /> Initiate Vacating
-                </button>
-              )}
-            </div>
-            <div className="p-6">
-              {vacOpen && !vacating && (
-                <div className="mb-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div>
-                      <label className={LABEL}>Vacating Type</label>
-                      <select className={INPUT} value={vacForm.type} onChange={(e) => setVacForm({ ...vacForm, type: e.target.value })}>
-                        <option>Normal at expiry</option>
-                        <option>Early termination</option>
-                        <option>Non-renewal</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={LABEL}>Notice Date Received</label>
-                      <input type="date" className={INPUT} value={vacForm.noticeDate} onChange={(e) => setVacForm({ ...vacForm, noticeDate: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className={LABEL}>Vacate Date</label>
-                      <input type="date" className={INPUT} value={vacForm.vacateDate} onChange={(e) => setVacForm({ ...vacForm, vacateDate: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className={LABEL}>Reason</label>
-                      <input className={INPUT} value={vacForm.reason} onChange={(e) => setVacForm({ ...vacForm, reason: e.target.value })} placeholder="e.g. Relocation, personal reasons" />
-                    </div>
-                  </div>
-                  {vacForm.type === "Early termination" && activeContract && (
-                    <div className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                      Early termination penalty: {activeContract.contractType === "Commercial" ? "3" : "2"} months rent =
-                      {" "}<strong>{fmtAED((activeContract.rentAmount / 12) * (activeContract.contractType === "Commercial" ? 3 : 2))}</strong>
-                    </div>
-                  )}
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => setVacOpen(false)} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
-                      Cancel
-                    </button>
-                    <button onClick={initiateVacating} className="rounded-lg bg-[#E30613] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#c20510]">
-                      Start Process
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {vacating ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                    <Info label="Type" value={vacating.type} />
-                    <Info label="Notice Date" value={fmtDate(vacating.noticeDate)} />
-                    <Info label="Vacate Date" value={fmtDate(vacating.vacateDate)} />
-                    <Info label="Penalty" value={fmtAED(vacating.penaltyAmount)} />
-                    <Info label="Refund" value={fmtAED(vacating.refundAmount)} />
-                    <Info label="Progress" value={`${checklistDone} / ${checklistTotal}`} />
-                    {vacating.closedAt && <Info label="Closed" value={fmtDate(vacating.closedAt)} />}
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-slate-700">Checklist</p>
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                      {CHECKLIST_LABELS.map((c) => {
-                        const checked = !!vacating.checklist[c.key]
-                        return (
-                          <label key={c.key} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                            checked ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"
-                          }`}>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={!!vacating.closedAt}
-                              onChange={(e) => toggleCheck(c.key, e.target.checked)}
-                              className="h-4 w-4 rounded border-slate-300"
-                            />
-                            <span className={checked ? "text-emerald-800" : "text-slate-700"}>{c.label}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {!vacating.closedAt && (
-                    <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-                      <button onClick={cancelVacating} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
-                        Cancel Process
-                      </button>
-                      <button
-                        onClick={closeVacating}
-                        disabled={checklistDone < checklistTotal}
-                        title={checklistDone < checklistTotal ? "Complete all checklist items first" : ""}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                      >
-                        Complete Move-out
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                !vacOpen && <p className="text-sm text-slate-500">No active vacating process.</p>
-              )}
-            </div>
-          </section>
-          )}
         </div>
         </div>
       </div>
@@ -1206,7 +1098,7 @@ function PaymentPlan({
   onChange,
 }: {
   cheques: Cheque[]
-  contract: Contract
+  contract: TenancyContract
   tenantId: string
   tenantName: string
   tenantEmail: string

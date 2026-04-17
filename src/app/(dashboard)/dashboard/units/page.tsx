@@ -483,7 +483,7 @@ export default function UnitsPage() {
                   const data = await res.json()
                   if (!res.ok) throw new Error(data.error || "Bulk create failed")
                   setBulkResult({ created: data.created, skipped: data.skipped })
-                  await fetchData()
+                  await fetchUnits()
                 } catch (e) {
                   setError(e instanceof Error ? e.message : "Failed")
                 } finally {

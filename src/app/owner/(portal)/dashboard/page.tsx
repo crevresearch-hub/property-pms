@@ -81,7 +81,7 @@ export default function OwnerDashPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
               <XAxis dataKey="name" tick={{ fill: "#555", fontSize: 10 }} />
               <YAxis tick={{ fill: "#555", fontSize: 10 }} />
-              <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v: number) => aed(v)} />
+              <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v) => aed(Number(v))} />
               <Bar dataKey="rent" fill="#E30613" name="Annual Rent" radius={[4, 4, 0, 0]} />
               <Line type="monotone" dataKey="collected" stroke="#fff" strokeWidth={2} name="Collected" dot={{ r: 3, fill: "#fff" }} />
             </ComposedChart>

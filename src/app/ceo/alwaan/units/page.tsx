@@ -51,7 +51,7 @@ export default function UnitsPage() {
           <h3 className="text-sm font-bold text-slate-900 mb-4">Unit Mix</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={unitTypePie} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={unitTypePie} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
                 {unitTypePie.map((_, i) => <Cell key={i} fill={PIE[i % PIE.length]} />)}
               </Pie>
               <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} />
@@ -66,7 +66,7 @@ export default function UnitsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="type" tick={{ fill: "#64748b", fontSize: 11 }} />
               <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v: number) => aed(v)} />
+              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 12 }} formatter={(v) => aed(Number(v))} />
               <Bar dataKey="avg" fill="#E30613" name="Average Rent" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

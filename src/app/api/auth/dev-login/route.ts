@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   // Create a JWT token for admin user
   const token = await encode({
     token: {
+      id: 'admin-dev',
       name: 'CRE Admin',
       email: 'admin@cre.ae',
       organizationId: 'cmnwqn5tk0000ohnoi0mpqe4x',

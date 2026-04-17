@@ -72,7 +72,7 @@ export default function MarketPage() {
             <CartesianGrid strokeDasharray="3 3" stroke="#222" />
             <XAxis dataKey="area" tick={{ fill: "#666", fontSize: 10 }} />
             <YAxis tick={{ fill: "#666", fontSize: 10 }} />
-            <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v: number) => aed(v)} />
+            <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v) => aed(Number(v))} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="avgRent" fill="#333" name="Market Avg" radius={[4, 4, 0, 0]} />
             <Bar dataKey="yourRent" fill="#E30613" name="Your Building" radius={[4, 4, 0, 0]} />
