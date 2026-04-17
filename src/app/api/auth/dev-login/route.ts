@@ -10,7 +10,7 @@ import { encode } from 'next-auth/jwt'
  * Disabled in production.
  */
 export async function GET(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.DISABLE_DEV_LOGIN === 'true') {
     return NextResponse.json({ error: 'Disabled in production' }, { status: 403 })
   }
 
