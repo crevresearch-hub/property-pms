@@ -61,7 +61,7 @@ export default function AlwaanLayout({ children }: { children: React.ReactNode }
       </main>
       <footer className="border-t border-slate-200 bg-white py-5">
         <div className="mx-auto max-w-[1400px] px-8 flex items-center justify-between">
-          <p className="text-xs text-slate-400">Alwaan Residence · CRE L.L.C. · Dubai, U.A.E.</p>
+          <p className="text-xs text-slate-400">Alwaan Residence · Alwaan L.L.C. · Dubai, U.A.E.</p>
           <p className="text-xs text-slate-300">Data: Building rent register + expense sheet</p>
         </div>
       </footer>

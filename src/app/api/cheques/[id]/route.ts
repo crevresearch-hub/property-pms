@@ -126,7 +126,7 @@ export async function PUT(
               <div style="max-width:600px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
                 <div style="border-bottom:3px solid ${headingColor};padding-bottom:14px;margin-bottom:18px;">
                   <h1 style="margin:0;font-size:20px;color:${headingColor};">${heading}</h1>
-                  <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">CRE L.L.C. · ${new Date().toLocaleDateString('en-GB')}</p>
+                  <p style="margin:4px 0 0 0;font-size:12px;color:#6b7280;">Alwaan L.L.C. · ${new Date().toLocaleDateString('en-GB')}</p>
                 </div>
                 <p style="margin:0 0 14px 0;">Dear ${tenant.name.replace(/[<>]/g, '')},</p>
                 <p style="margin:0 0 14px 0;">${isCleared

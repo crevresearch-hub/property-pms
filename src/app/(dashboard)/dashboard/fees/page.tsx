@@ -17,7 +17,7 @@ interface FeeStructure {
   [key: string]: { name: string; type: string; beneficiary: string; amount?: number; rate?: number; min?: number; months?: number }
 }
 
-const defaultForm = { tenantId: "", unitId: "", feeType: "", description: "", amount: "", beneficiary: "CRE" }
+const defaultForm = { tenantId: "", unitId: "", feeType: "", description: "", amount: "", beneficiary: "Alwaan" }
 const defaultCalcForm = { fee_type: "", annual_rent: "" }
 
 export default function FeesPage() {
@@ -169,7 +169,7 @@ export default function FeesPage() {
             <div><label className="mb-1 block text-xs font-medium text-slate-400">Amount (AED) *</label><input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" /></div>
           </div>
           <div><label className="mb-1 block text-xs font-medium text-slate-400">Description</label><input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" /></div>
-          <div><label className="mb-1 block text-xs font-medium text-slate-400">Beneficiary</label><select value={form.beneficiary} onChange={(e) => setForm({ ...form, beneficiary: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"><option value="CRE">CRE</option><option value="Landlord">Landlord</option><option value="Tenant">Tenant</option></select></div>
+          <div><label className="mb-1 block text-xs font-medium text-slate-400">Beneficiary</label><select value={form.beneficiary} onChange={(e) => setForm({ ...form, beneficiary: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"><option value="Alwaan">Alwaan</option><option value="Landlord">Landlord</option><option value="Tenant">Tenant</option></select></div>
         </div>
       </Modal>
     </div>

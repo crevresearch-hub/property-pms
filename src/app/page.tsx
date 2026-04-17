@@ -14,14 +14,14 @@ export default function HomePage() {
         {/* Logo */}
         <div className="mb-10 text-center">
           <img
-            alt="CRE"
+            alt="Alwaan"
             className="mx-auto h-24 w-auto sm:h-32"
           />
           <p className="mt-4 text-[11px] font-bold tracking-[0.4em] text-[#E30613]">
             PROPERTY MANAGEMENT SYSTEM
           </p>
           <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">
-            Welcome to CRE System
+            Welcome to Alwaan System
           </h1>
           <p className="mt-2 text-sm text-slate-400">
             Please select your portal to continue
@@ -42,7 +42,7 @@ export default function HomePage() {
               </div>
               <h2 className="text-xl font-bold text-slate-900">Staff Portal</h2>
               <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#E30613]">
-                For CRE Administrators & Staff
+                For Alwaan Administrators & Staff
               </p>
               <p className="mt-3 text-sm text-slate-600">
                 Manage owners, tenants, contracts, maintenance, and all building operations.

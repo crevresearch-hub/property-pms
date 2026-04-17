@@ -1866,7 +1866,7 @@ function PaymentPlan({
               <div className="border-b-4 border-[#E30613] pb-3 mb-5 flex items-start justify-between">
                 <div>
                   <h1 className="m-0 text-2xl font-bold text-[#E30613]">Payment Receipt</h1>
-                  <p className="m-0 text-xs text-slate-500">CRE L.L.C.</p>
+                  <p className="m-0 text-xs text-slate-500">Alwaan L.L.C.</p>
                 </div>
                 <div className="text-right">
                   <p className="m-0 text-[11px] text-slate-500">Receipt No.</p>

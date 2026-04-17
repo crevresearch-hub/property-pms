@@ -130,7 +130,7 @@ function layout(opts: {
             </tr>
             <tr>
               <td align="center" style="padding:20px 12px 8px 12px;font-size:11px;line-height:1.5;color:${TEXT_MUTED};">
-                <strong style="color:${TEXT_DARK};">CRE</strong> &middot; Dubai, UAE<br />
+                <strong style="color:${TEXT_DARK};">Alwaan</strong> &middot; Dubai, UAE<br />
                 This is an automated message &middot; Please do not reply directly to this email.
               </td>
             </tr>
@@ -163,7 +163,7 @@ function detailsTable(rows: Array<[string, string]>): string {
 /* ------------------------------------------------------------------ */
 
 export function welcomeOwnerTemplate(owner: OwnerLike, baseUrl: string) {
-  const subject = `Welcome to CRE, ${owner.ownerName}`
+  const subject = `Welcome to Alwaan, ${owner.ownerName}`
   const details = detailsTable([
     ['Building', owner.buildingName || '—'],
     ['Type', owner.buildingType || '—'],
@@ -174,7 +174,7 @@ export function welcomeOwnerTemplate(owner: OwnerLike, baseUrl: string) {
   const bodyHtml = `
     <p style="margin:0 0 14px 0;">Dear ${esc(owner.ownerName)},</p>
     <p style="margin:0 0 14px 0;">
-      Thank you for choosing <strong>CRE</strong> as your property management partner.
+      Thank you for choosing <strong>Alwaan</strong> as your property management partner.
       We're delighted to welcome <strong>${esc(owner.buildingName)}</strong> to our portfolio.
     </p>
     <p style="margin:0 0 10px 0;font-weight:600;">Your Building on File</p>
@@ -362,7 +362,7 @@ export function ownerActivatedTemplate(owner: OwnerLike, baseUrl: string) {
     <p style="margin:0 0 14px 0;">Dear ${esc(owner.ownerName)},</p>
     <p style="margin:0 0 14px 0;">
       Congratulations — <strong>${esc(owner.buildingName)}</strong> is officially
-      <strong style="color:#16a34a;">live</strong> in the CRE Property Management System.
+      <strong style="color:#16a34a;">live</strong> in the Alwaan Property Management System.
     </p>
     <p style="margin:14px 0 10px 0;font-weight:600;">From Here Onwards</p>
     <ul style="margin:0 0 14px 18px;padding:0;">
@@ -573,7 +573,7 @@ export function tenancyContractSignedTemplate(
       Welcome to your new home. A countersigned copy is on file for your records.
     </div>
     <p style="margin:14px 0 0 0;">
-      Thank you for choosing CRE.
+      Thank you for choosing Alwaan.
     </p>
   `
   return {

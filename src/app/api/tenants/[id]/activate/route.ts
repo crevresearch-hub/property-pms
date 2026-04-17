@@ -268,7 +268,7 @@ export async function POST(
   <div style="max-width:600px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
     <div style="height:4px;width:60px;background:#E30613;border-radius:2px;margin-bottom:20px;"></div>
     <h1 style="margin:0 0 12px 0;font-size:24px;color:#0b3d2e;">Congratulations, ${escapeHtml(tenant.name)}!</h1>
-    <p style="margin:0 0 12px 0;font-size:15px;">Welcome to <strong>CRE</strong>.</p>
+    <p style="margin:0 0 12px 0;font-size:15px;">Welcome to <strong>Alwaan</strong>.</p>
     <p style="margin:0 0 14px 0;">Your tenancy is now <strong style="color:#059669;">Active</strong>. You can now log in to your tenant portal to view your contract, pay rent, submit maintenance requests, and manage your account.</p>
 
     <table style="width:100%;margin:18px 0;border:1px solid #e5e7eb;border-radius:6px;background:#fafafa;border-collapse:separate;border-spacing:0;">
@@ -305,7 +305,7 @@ export async function POST(
       organizationId,
       to: tenant.email,
       toName: tenant.name,
-      subject: 'Welcome to CRE — Your Tenancy is Active',
+      subject: 'Welcome to Alwaan — Your Tenancy is Active',
       html,
       template: 'tenant_activated_welcome',
       triggeredBy: session.user.name,

@@ -102,7 +102,7 @@ export default function TenantViolationsPage() {
                   <p className="text-[11px] font-mono opacity-80">{v.violationNo}</p>
                   <p className="mt-0.5 text-sm font-semibold text-white">{v.type}</p>
                   <p className="text-[11px] opacity-75">
-                    Issued {fmt(v.createdAt)} by {v.issuedBy || "CRE"}
+                    Issued {fmt(v.createdAt)} by {v.issuedBy || "Alwaan"}
                     {v.unit?.unitNo ? ` · Unit ${v.unit.unitNo}` : ""}
                   </p>
                 </div>

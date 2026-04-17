@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
             <strong>Current annual rent:</strong> ${aed(unit.currentRent)}
           </p>
           ${body.message ? `<p style="margin:14px 0;padding:12px;background:#f9fafb;border-radius:6px;font-size:13px;">${String(body.message).replace(/[<>]/g, '')}</p>` : ''}
-          <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">— CRE</p>
+          <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">— Alwaan</p>
         </div>
       </body></html>`
     } else if (action === 'not-renew') {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
           <p>Your lease for <strong>Unit ${unit.unitNo}</strong> has been renewed. We are delighted to continue having you as our valued tenant.</p>
           <p>You will receive the new tenancy contract shortly for your signature. Once signed, the cheque schedule and Ejari renewal will be arranged.</p>
           ${body.message ? `<p style="margin:14px 0;padding:12px;background:#ecfdf5;border-radius:6px;font-size:13px;color:#065f46;">${String(body.message).replace(/[<>]/g, '')}</p>` : ''}
-          <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">— CRE</p>
+          <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">— Alwaan</p>
         </div>
       </body></html>`
     }

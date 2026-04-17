@@ -105,7 +105,7 @@ export function getDefaultContractContent(): ContractContent {
     ],
 
     feesFooterEn:
-      'All CRE-collected fees are inclusive of UAE VAT (5%). Late fees, bounced cheque fines, and replacement fees collected from tenants are retained by CRE as compensation for handling and follow-up. Early termination penalties go to the Landlord as compensation for lost rental income.',
+      'All CRE-collected fees are inclusive of UAE VAT (5%). Late fees, bounced cheque fines, and replacement fees collected from tenants are retained by Alwaan as compensation for handling and follow-up. Early termination penalties go to the Landlord as compensation for lost rental income.',
     feesFooterAr:
       'جميع الرسوم التي تحصلها CRE شاملة لضريبة القيمة المضافة 5%. الغرامات المتأخرة، رسوم الشيكات المرتجعة، ورسوم الاستبدال التي تحصل من المستأجرين تحتفظ بها CRE كتعويض عن المعالجة والمتابعة. غرامات الإنهاء المبكر تذهب للمالك كتعويض عن فقدان الدخل الإيجاري.',
 

@@ -107,7 +107,7 @@ export async function POST(
                 <h2 style="color:#b45309;margin:0 0 6px 0;">Owner Requested Changes</h2>
                 <p style="margin:0;color:#78350f;">Action required: Review the feedback and update the draft.</p>
               </div>
-              <p>Dear ${admin.name || 'CRE Admin'},</p>
+              <p>Dear ${admin.name || 'Alwaan Admin'},</p>
               <p><strong>${contract.owner.ownerName}</strong> reviewed the Property Management
               Agreement for <strong>${contract.owner.buildingName}</strong> and has requested
               changes before signing.</p>

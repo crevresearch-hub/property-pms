@@ -45,7 +45,7 @@ export default async function SignPage({
           <div className="text-[#E30613] text-5xl mb-4">⚠</div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Invalid Signature Link</h1>
           <p className="text-gray-600">
-            This signature link is invalid or has expired. Please contact CRE
+            This signature link is invalid or has expired. Please contact Alwaan
             for a new link.
           </p>
           <p className="mt-4 text-xs text-gray-400">info@cre.ae</p>
@@ -139,7 +139,7 @@ export default async function SignPage({
               <div className="text-emerald-600 text-5xl mb-3">✓</div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">This Agreement Has Already Been Signed</h2>
               <p className="text-gray-600">
-                Thank you. Your signature has been recorded. CRE will counter-sign and send you the final executed copy.
+                Thank you. Your signature has been recorded. Alwaan will counter-sign and send you the final executed copy.
               </p>
               {contract.ownerSignedAt && (
                 <p className="mt-3 text-xs text-gray-500">Signed on {new Date(contract.ownerSignedAt).toLocaleString('en-GB')}</p>
@@ -213,7 +213,7 @@ export default async function SignPage({
         <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
           <p className="font-semibold">What happens after I sign?</p>
           <p className="mt-1 text-blue-800">
-            After signing, the CRE team will review your documents and complete
+            After signing, the Alwaan team will review your documents and complete
             your tenancy setup. You&rsquo;ll receive a welcome email with your
             portal login credentials within <strong>24 hours</strong>.
           </p>
@@ -224,7 +224,7 @@ export default async function SignPage({
             <div className="text-emerald-600 text-5xl mb-3">✓</div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">This Contract Has Already Been Signed</h2>
             <p className="text-gray-600">
-              Thank you. CRE will complete the Ejari registration and send you the final executed copy shortly.
+              Thank you. Alwaan will complete the Ejari registration and send you the final executed copy shortly.
             </p>
             {tc.signedByTenantAt && (
               <p className="mt-3 text-xs text-gray-500">Signed on {new Date(tc.signedByTenantAt).toLocaleString('en-GB')}</p>

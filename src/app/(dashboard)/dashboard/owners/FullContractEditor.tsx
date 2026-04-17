@@ -342,7 +342,7 @@ function TabPanel({
           description="Fee table with service name, amount, remarks, and beneficiary."
           items={content.fees}
           onChange={items => update("fees", items)}
-          blank={{ serviceEn: "", serviceAr: "", amount: "", remarksEn: "", remarksAr: "", beneficiary: "CRE" }}
+          blank={{ serviceEn: "", serviceAr: "", amount: "", remarksEn: "", remarksAr: "", beneficiary: "Alwaan" }}
           renderRow={(f, _idx, change) => (
             <div className="space-y-3">
               <div className="grid gap-3 md:grid-cols-2">
@@ -361,7 +361,7 @@ function TabPanel({
                   onChange={e => change({ ...f, beneficiary: e.target.value })}
                   className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-[#E30613] focus:outline-none"
                 >
-                  <option value="CRE">CRE</option>
+                  <option value="Alwaan">Alwaan</option>
                   <option value="Landlord">Landlord</option>
                 </select>
               </div>

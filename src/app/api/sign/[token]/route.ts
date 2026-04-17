@@ -339,7 +339,7 @@ export async function POST(
                   <h2 style="color:#E30613;margin:0 0 6px 0;">Owner Has Signed the Agreement</h2>
                   <p style="margin:0;color:#000;">Action required: Counter-sign to activate the contract.</p>
                 </div>
-                <p>Dear ${admin.name || 'CRE Admin'},</p>
+                <p>Dear ${admin.name || 'Alwaan Admin'},</p>
                 <p><strong>${contract.owner.ownerName}</strong> has signed the Property Management Agreement for <strong>${contract.owner.buildingName}</strong>.</p>
                 <table style="border-collapse:collapse;margin:16px 0;">
                   <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Contract No:</td><td><strong>${contract.contractNo}</strong></td></tr>
@@ -570,7 +570,7 @@ export async function POST(
                 <h2 style="color:#E30613;margin:0 0 6px 0;">Tenant Has Signed the Tenancy Contract</h2>
                 <p style="margin:0;">Review documents and activate the tenant when ready.</p>
               </div>
-              <p>Dear ${admin.name || 'CRE Admin'},</p>
+              <p>Dear ${admin.name || 'Alwaan Admin'},</p>
               <p><strong>${signedByName}</strong> has signed tenancy contract <strong>${tc.contractNo}</strong> v${tc.version}.</p>
               ${
                 emiratesIdAttachment

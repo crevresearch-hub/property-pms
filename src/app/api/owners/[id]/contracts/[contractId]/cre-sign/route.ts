@@ -38,7 +38,7 @@ export async function POST(
       return NextResponse.json({ error: 'Contract not found' }, { status: 404 })
     }
     if (contract.creSignedAt) {
-      return NextResponse.json({ error: 'CRE has already counter-signed this contract.' }, { status: 410 })
+      return NextResponse.json({ error: 'Alwaan has already counter-signed this contract.' }, { status: 410 })
     }
 
     const now = new Date()

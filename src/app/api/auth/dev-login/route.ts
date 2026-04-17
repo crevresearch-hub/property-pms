@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const token = await encode({
     token: {
       id: 'admin-dev',
-      name: 'CRE Admin',
+      name: 'Alwaan Admin',
       email: 'admin@cre.ae',
       organizationId: 'cmo2o53dc0000ohh0dfneceit',
       role: 'admin',

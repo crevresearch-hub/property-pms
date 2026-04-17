@@ -97,7 +97,7 @@ export default function AlwaanCeoDashboard() {
           />
           <div className="relative z-20 px-8 py-10 flex items-end justify-between gap-6">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-[#E30613] font-bold mb-2">CRE</p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-[#E30613] font-bold mb-2">Alwaan</p>
               <h2 className="text-3xl font-black text-white tracking-tight">Alwaan Residence</h2>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/70">
                 <span className="flex items-center gap-1">

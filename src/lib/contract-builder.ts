@@ -841,7 +841,7 @@ ${biH('15', C.sectionHeaders.s15En, C.sectionHeaders.s15Ar)}
 <div class="footer-note">
   <div>${C.footerNoteEn}</div>
   <div class="ar-f" dir="rtl">${C.footerNoteAr}</div>
-  <div style="margin-top:8px"><strong>CRE</strong> &middot; Dubai, United Arab Emirates &middot; www.cre.ae &middot; info@cre.ae</div>
+  <div style="margin-top:8px"><strong>Alwaan</strong> &middot; Dubai, United Arab Emirates &middot; www.cre.ae &middot; info@cre.ae</div>
   <div>Generated: ${today} &middot; Reference: ${refNo}</div>
 </div>
 

@@ -298,7 +298,7 @@ export default function SignatureForm({ token, contractNo, version, defaultName,
               Your signature has been recorded.
             </p>
             <p className="text-gray-700 max-w-md mx-auto mt-3">
-              The CRE team will now review your documents and complete your
+              The Alwaan team will now review your documents and complete your
               tenancy setup. You&rsquo;ll receive a welcome email with your
               portal login credentials within <strong>24 hours</strong>.
             </p>
@@ -306,7 +306,7 @@ export default function SignatureForm({ token, contractNo, version, defaultName,
         ) : (
           <>
             <p className="text-gray-700 max-w-md mx-auto">
-              Your signature has been recorded. CRE will counter-sign and send
+              Your signature has been recorded. Alwaan will counter-sign and send
               you the final copy.
             </p>
             <p className="text-gray-500 text-sm mt-4">
@@ -327,7 +327,7 @@ export default function SignatureForm({ token, contractNo, version, defaultName,
         </div>
         <h2 className="text-2xl font-semibold text-gray-900 mb-3">Feedback Sent</h2>
         <p className="text-gray-700 max-w-md mx-auto">
-          Your feedback has been sent to CRE. They&rsquo;ll update the contract and send you
+          Your feedback has been sent to Alwaan. They&rsquo;ll update the contract and send you
           a new version shortly.
         </p>
         <p className="text-gray-500 text-sm mt-4">
@@ -370,7 +370,7 @@ export default function SignatureForm({ token, contractNo, version, defaultName,
 
         <p className="text-center text-xs text-gray-500 mt-5">
           Not sure about something? Choose &ldquo;Request Changes&rdquo; and tell us what to adjust &mdash;
-          CRE will send you a revised version to review.
+          Alwaan will send you a revised version to review.
         </p>
       </div>
     )
@@ -389,7 +389,7 @@ export default function SignatureForm({ token, contractNo, version, defaultName,
 
         <p className="text-sm text-gray-600 mb-4">
           Tell us what you&rsquo;d like changed in this agreement. Be as specific as you can
-          (e.g. the management fee, the start date, a particular clause). CRE will review your
+          (e.g. the management fee, the start date, a particular clause). Alwaan will review your
           feedback, update the draft, and send you a new version to sign.
         </p>
 

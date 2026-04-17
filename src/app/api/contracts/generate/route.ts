@@ -162,14 +162,14 @@ export async function POST(request: NextRequest) {
 <h2>7. FEES AND PENALTIES</h2>
 <table class="fees-table">
   <tr><th>Item</th><th>Amount (AED)</th><th>Beneficiary</th></tr>
-  <tr><td>Bounced Cheque Fine</td><td>${calculateFee('bounced_cheque').toFixed(2)}</td><td>CRE</td></tr>
-  <tr><td>Cheque Replacement Fee</td><td>${calculateFee('cheque_replacement').toFixed(2)}</td><td>CRE</td></tr>
-  <tr><td>Cheque Postponement Fee</td><td>${calculateFee('cheque_postponement').toFixed(2)}</td><td>CRE</td></tr>
-  <tr><td>Late Renewal (within 15 days)</td><td>${calculateFee('late_renewal_15').toFixed(2)}</td><td>CRE</td></tr>
-  <tr><td>Late Renewal (within 30 days)</td><td>${calculateFee('late_renewal_30').toFixed(2)}</td><td>CRE</td></tr>
+  <tr><td>Bounced Cheque Fine</td><td>${calculateFee('bounced_cheque').toFixed(2)}</td><td>Alwaan</td></tr>
+  <tr><td>Cheque Replacement Fee</td><td>${calculateFee('cheque_replacement').toFixed(2)}</td><td>Alwaan</td></tr>
+  <tr><td>Cheque Postponement Fee</td><td>${calculateFee('cheque_postponement').toFixed(2)}</td><td>Alwaan</td></tr>
+  <tr><td>Late Renewal (within 15 days)</td><td>${calculateFee('late_renewal_15').toFixed(2)}</td><td>Alwaan</td></tr>
+  <tr><td>Late Renewal (within 30 days)</td><td>${calculateFee('late_renewal_30').toFixed(2)}</td><td>Alwaan</td></tr>
   <tr><td>Early Termination Penalty</td><td>${calculateFee(`early_termination_${unitTypeKey}`, rent).toFixed(2)}</td><td>Landlord</td></tr>
-  <tr><td>Name Change / Transfer</td><td>${calculateFee(`name_change_${unitTypeKey}`, rent).toFixed(2)}</td><td>CRE</td></tr>
-  <tr><td>Certification Letter</td><td>${calculateFee('certification_letter').toFixed(2)}</td><td>CRE</td></tr>
+  <tr><td>Name Change / Transfer</td><td>${calculateFee(`name_change_${unitTypeKey}`, rent).toFixed(2)}</td><td>Alwaan</td></tr>
+  <tr><td>Certification Letter</td><td>${calculateFee('certification_letter').toFixed(2)}</td><td>Alwaan</td></tr>
 </table>
 
 <h2>8. EARLY TERMINATION</h2>

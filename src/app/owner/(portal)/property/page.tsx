@@ -93,7 +93,7 @@ export default function PropertyPage() {
               <Field label="Owner Name" value={data?.owner.name || "—"} />
               <Field label="Email" value={data?.owner.email || "—"} />
               <Field label="Service Type" value={data?.owner.serviceType || "—"} />
-              <Field label="PM Company" value="CRE L.L.C." />
+              <Field label="PM Company" value="Alwaan L.L.C." />
             </div>
             <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
               <p className="text-[10px] uppercase text-white/30 font-bold mb-1">Unit Mix</p>
@@ -169,7 +169,7 @@ export default function PropertyPage() {
       <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
         <h3 className="text-sm font-bold mb-2">Contact Property Management</h3>
         <p className="text-xs text-white/50">
-          For amendments, requests or support regarding your property, contact CRE at{" "}
+          For amendments, requests or support regarding your property, contact Alwaan at{" "}
           <a href="mailto:info@cre.ae" className="text-[#E30613] underline">info@cre.ae</a> or call{" "}
           <a href="tel:+97148004488" className="text-[#E30613] underline">+971 4 800 4488</a>.
         </p>
