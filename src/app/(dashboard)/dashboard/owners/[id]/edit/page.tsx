@@ -460,7 +460,7 @@ export default function OwnerEditPage() {
       }
       await loadOwner()
       // If owner already signed, send final package email (PM + DLD)
-      if (owner.contractSignedAt) {
+      if (owner?.contractSignedAt) {
         try {
           const fres = await fetch(`/api/owners/${ownerId}/send-final-package`, { method: "POST" })
           if (fres.ok) toast.success("Final package email sent to owner (PM + DLD)")
