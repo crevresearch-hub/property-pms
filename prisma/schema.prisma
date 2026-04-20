@@ -78,6 +78,7 @@ model Unit {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   unitNo         String
   unitType       String       @default("")
+  sqFt           Float        @default(0)
   contractStart  String       @default("")
   contractEnd    String       @default("")
   currentRent    Float        @default(0)
@@ -720,6 +721,7 @@ model PropertyOwner {
   iban            String       @default("")
   bankName        String       @default("")
   tradeLicense    String       @default("")  // For company owners
+  passwordHash    String       @default("")  // For owner portal login
 
   // Building / Property Info
   buildingName       String

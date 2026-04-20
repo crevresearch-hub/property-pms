@@ -42,8 +42,8 @@ function htmlToText(html: string): string {
 
 export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY || ''
-  const fromEmail = process.env.EMAIL_FROM || 'CRE <onboarding@resend.dev>'
-  const replyTo = process.env.EMAIL_REPLY_TO || 'info@cre.ae'
+  const fromEmail = process.env.EMAIL_FROM || 'Alwaan <onboarding@resend.dev>'
+  const replyTo = process.env.EMAIL_REPLY_TO || 'info@alwaan.ae'
 
   const plainBody = htmlToText(opts.html)
   const testMode = !apiKey || apiKey.trim() === ''

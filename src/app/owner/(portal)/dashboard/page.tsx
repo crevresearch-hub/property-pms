@@ -1,155 +1,242 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Building2, Users, Banknote, Clock, DoorOpen, ChevronRight } from "lucide-react"
-import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { useState, useEffect } from "react"
+import { Building2, Users, DoorOpen, Percent, Banknote, Clock } from "lucide-react"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts"
 
-interface OwnerData {
-  owner: { name: string; buildingName: string; area: string; serviceType: string }
-  totals: { totalUnits: number; occupied: number; vacant: number; annualRentRoll: number; collected: number; pending: number }
-  units: Array<{ id: string; unitNo: string; unitType: string; status: string; contractEnd: string; annualRent: number; totalCollected: number; pending: number; tenant: { name: string; email: string; status: string } | null; contract: { contractNo: string; contractEnd: string } | null }>
+interface DashboardData {
+  owner: { ownerName: string; buildingName: string; area: string; emirate: string; email: string; phone: string }
+  totals: { units: number; occupied: number; vacant: number; occupancyPct: number; annualRentRoll: number; collected: number; pending: number }
+  chequeBuckets: { pendingAll: number; dueNext30: number; overdue: number; cleared: number; bounced: number }
+  cashflowProjection: Array<{ month: string; expected: number; cleared: number }>
+  units: Array<{ id: string; unitNo: string; unitType: string; status: string; contractEnd: string; annualRent: number; collected: number; pending: number; tenant: { name: string; email: string; phone: string } | null }>
+  cheques: Array<{ id: string; chequeNo: string; bankName: string; amount: number; chequeDate: string; status: string; tenantName: string; unitNo: string }>
+  invoices: Array<{ id: string; invoiceNo: string; totalAmount: number; paidAmount: number; status: string; dueDate: string; tenantName: string; unitNo: string }>
 }
 
-const aed = (n: number) => `AED ${Number(n || 0).toLocaleString()}`
-const PIE = ["#E30613", "#333"]
+function formatAed(n: number): string {
+  if (!n) return "AED 0"
+  return `AED ${new Intl.NumberFormat("en-US").format(Math.round(n))}`
+}
 
-export default function OwnerDashPage() {
-  const router = useRouter()
-  const [data, setData] = useState<OwnerData | null>(null)
+function StatusPill({ value }: { value: string }) {
+  const map: Record<string, string> = {
+    Occupied: "bg-green-500/20 text-green-400",
+    Vacant: "bg-red-500/20 text-red-400",
+    Reserved: "bg-amber-500/20 text-amber-400",
+    "Under Maintenance": "bg-orange-500/20 text-orange-400",
+    Cleared: "bg-green-500/20 text-green-400",
+    Bounced: "bg-red-500/20 text-red-400",
+    Received: "bg-blue-500/20 text-blue-400",
+    Pending: "bg-amber-500/20 text-amber-400",
+    Deposited: "bg-blue-500/20 text-blue-400",
+    Paid: "bg-green-500/20 text-green-400",
+    Overdue: "bg-red-500/20 text-red-400",
+    Unpaid: "bg-amber-500/20 text-amber-400",
+  }
+  const cls = map[value] || "bg-slate-500/20 text-slate-400"
+  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{value}</span>
+}
+
+function KpiCard({ label, value, icon, accent = "amber" }: { label: string; value: string | number; icon: React.ReactNode; accent?: "amber" | "green" | "red" | "blue" }) {
+  const accents = {
+    amber: "from-amber-500/20 to-amber-600/5 border-amber-500/30",
+    green: "from-green-500/20 to-green-600/5 border-green-500/30",
+    red: "from-red-500/20 to-red-600/5 border-red-500/30",
+    blue: "from-blue-500/20 to-blue-600/5 border-blue-500/30",
+  }
+  return (
+    <div className={`rounded-xl border bg-gradient-to-br ${accents[accent]} p-4`}>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+        <span className="text-slate-500">{icon}</span>
+      </div>
+      <p className="mt-2 text-2xl font-bold text-white">{value}</p>
+    </div>
+  )
+}
+
+export default function OwnerDashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     fetch("/api/owner/dashboard")
-      .then(async (r) => { if (r.status === 401) { router.replace("/owner/login"); return }; const d = await r.json(); if (r.ok) setData(d) })
+      .then(async (r) => {
+        if (!r.ok) throw new Error((await r.json()).error || "Failed to load")
+        return r.json()
+      })
+      .then(setData)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [router])
+  }, [])
 
-  if (loading) return <Loader />
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-800 bg-red-900/20 p-4 text-sm text-red-400">{error}</div>
+    )
+  }
+
   if (!data) return null
-
-  const { totals, units } = data
-  const occPct = totals.totalUnits > 0 ? Math.round((totals.occupied / totals.totalUnits) * 100) : 0
-  const colPct = totals.annualRentRoll > 0 ? Math.round((totals.collected / totals.annualRentRoll) * 100) : 0
-  const occData = [{ name: "Occupied", value: totals.occupied }, { name: "Vacant", value: totals.vacant }]
-  const rentData = units.filter((u) => u.annualRent > 0).sort((a, b) => b.annualRent - a.annualRent).map((u) => ({ name: u.unitNo, rent: u.annualRent, collected: u.totalCollected }))
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
-      <div className="rounded-2xl border border-[#E30613]/30 bg-[#E30613]/5 p-6 flex items-start justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-widest text-[#E30613] font-bold">Alwaan Residence</p>
-          <h2 className="mt-1 text-2xl font-bold">Overview Dashboard</h2>
-          <p className="text-sm text-white/40">{data.owner.area} · {data.owner.serviceType}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] uppercase text-white/40">Annual Rent Roll</p>
-          <p className="text-3xl font-bold text-[#E30613]">{aed(totals.annualRentRoll)}</p>
-        </div>
+      <div>
+        <h2 className="text-2xl font-bold text-white">Welcome, {data.owner.ownerName}</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          {data.owner.buildingName} · {data.owner.area}, {data.owner.emirate}
+        </p>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Kpi label="Total Units" value={String(totals.totalUnits)} />
-        <Kpi label="Occupied" value={String(totals.occupied)} accent />
-        <Kpi label="Vacant" value={String(totals.vacant)} />
-        <Kpi label="Collected" value={aed(totals.collected)} sub={`${colPct}%`} />
-        <Kpi label="Pending" value={aed(totals.pending)} warning={totals.pending > 0} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiCard label="Total Units" value={data.totals.units} icon={<Building2 className="h-5 w-5" />} accent="blue" />
+        <KpiCard label="Occupied" value={`${data.totals.occupied} / ${data.totals.units}`} icon={<Users className="h-5 w-5" />} accent="green" />
+        <KpiCard label="Vacant" value={data.totals.vacant} icon={<DoorOpen className="h-5 w-5" />} accent="red" />
+        <KpiCard label="Occupancy" value={`${data.totals.occupancyPct}%`} icon={<Percent className="h-5 w-5" />} accent="amber" />
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <h3 className="mb-2 text-xs font-bold uppercase text-white/40">Occupancy</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={occData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value">
-                {occData.map((_, i) => <Cell key={i} fill={PIE[i]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <p className="text-center text-2xl font-bold text-[#E30613]">{occPct}%</p>
-        </div>
-        <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-white/5 p-5">
-          <h3 className="mb-2 text-xs font-bold uppercase text-white/40">Rent vs Collected per Unit</h3>
-          <ResponsiveContainer width="100%" height={210}>
-            <ComposedChart data={rentData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="name" tick={{ fill: "#555", fontSize: 10 }} />
-              <YAxis tick={{ fill: "#555", fontSize: 10 }} />
-              <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: 8 }} formatter={(v) => aed(Number(v))} />
-              <Bar dataKey="rent" fill="#E30613" name="Annual Rent" radius={[4, 4, 0, 0]} />
-              <Line type="monotone" dataKey="collected" stroke="#fff" strokeWidth={2} name="Collected" dot={{ r: 3, fill: "#fff" }} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <KpiCard label="Annual Rent Roll" value={formatAed(data.totals.annualRentRoll)} icon={<Banknote className="h-5 w-5" />} accent="amber" />
+        <KpiCard label="Collected" value={formatAed(data.totals.collected)} icon={<Banknote className="h-5 w-5" />} accent="green" />
+        <KpiCard label="Pending" value={formatAed(data.totals.pending)} icon={<Clock className="h-5 w-5" />} accent="red" />
       </div>
 
-      {/* Units */}
-      <div className="rounded-2xl border border-white/10 overflow-hidden">
-        <div className="border-b border-white/10 bg-white/5 px-5 py-3 flex items-center justify-between">
-          <h3 className="text-sm font-bold">All Units ({units.length})</h3>
-          <div className="flex gap-2 text-[10px]">
-            <span className="rounded-full bg-[#E30613]/20 text-[#E30613] px-2 py-0.5 font-semibold">{totals.occupied} Occupied</span>
-            <span className="rounded-full bg-white/10 text-white/50 px-2 py-0.5 font-semibold">{totals.vacant} Vacant</span>
+      {/* Cheque status */}
+      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+        <h3 className="mb-4 text-sm font-semibold text-white">Cheque Status Summary</h3>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="rounded-lg bg-white/5 p-3">
+            <p className="text-[10px] text-slate-400">Due Next 30 Days</p>
+            <p className="mt-1 text-sm font-semibold text-amber-400">{formatAed(data.chequeBuckets.dueNext30)}</p>
+          </div>
+          <div className="rounded-lg bg-white/5 p-3">
+            <p className="text-[10px] text-slate-400">Overdue</p>
+            <p className="mt-1 text-sm font-semibold text-red-400">{formatAed(data.chequeBuckets.overdue)}</p>
+          </div>
+          <div className="rounded-lg bg-white/5 p-3">
+            <p className="text-[10px] text-slate-400">Cleared</p>
+            <p className="mt-1 text-sm font-semibold text-green-400">{formatAed(data.chequeBuckets.cleared)}</p>
+          </div>
+          <div className="rounded-lg bg-white/5 p-3">
+            <p className="text-[10px] text-slate-400">Bounced</p>
+            <p className="mt-1 text-sm font-semibold text-red-400">{formatAed(data.chequeBuckets.bounced)}</p>
+          </div>
+          <div className="rounded-lg bg-white/5 p-3">
+            <p className="text-[10px] text-slate-400">All Pending</p>
+            <p className="mt-1 text-sm font-semibold text-blue-400">{formatAed(data.chequeBuckets.pendingAll)}</p>
           </div>
         </div>
-        <div className="divide-y divide-white/5">
-          {units.map((u) => (
-            <div key={u.id} onClick={() => setExpanded(expanded === u.id ? null : u.id)} className="cursor-pointer hover:bg-white/[0.03]">
-              <div className="flex items-center justify-between px-5 py-3">
-                <div className="flex items-center gap-3">
-                  <div className={`h-2 w-2 rounded-full ${u.status === "Occupied" ? "bg-[#E30613]" : "bg-white/20"}`} />
-                  <div>
-                    <p className="text-sm font-semibold">Unit {u.unitNo} <span className="text-white/30 text-xs">{u.unitType}</span></p>
-                    <p className="text-xs text-white/30">{u.tenant?.name || "Vacant"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-right text-xs">
-                  <div><p className="font-bold">{aed(u.annualRent)}</p><p className="text-white/30">rent</p></div>
-                  <div><p className="text-[#E30613] font-semibold">{aed(u.totalCollected)}</p><p className="text-white/30">collected</p></div>
-                  <div><p className={u.pending > 0 ? "font-semibold" : "text-white/30"}>{aed(u.pending)}</p><p className="text-white/30">pending</p></div>
-                  <ChevronRight className={`h-4 w-4 text-white/20 transition-transform ${expanded === u.id ? "rotate-90" : ""}`} />
-                </div>
-              </div>
-              {expanded === u.id && u.tenant && (
-                <div className="border-t border-white/5 bg-white/[0.02] px-5 py-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  <div><p className="text-white/30">Tenant</p><p>{u.tenant.name}</p></div>
-                  <div><p className="text-white/30">Email</p><p>{u.tenant.email}</p></div>
-                  <div><p className="text-white/30">Contract</p><p>{u.contract?.contractNo || "—"}</p></div>
-                  <div><p className="text-white/30">Ends</p><p>{u.contract?.contractEnd || u.contractEnd || "—"}</p></div>
-                </div>
+      </section>
+
+      {/* Cashflow projection */}
+      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+        <h3 className="mb-4 text-sm font-semibold text-white">12-Month Cashflow Projection</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.cashflowProjection}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v / 1000}k`} />
+              <Tooltip formatter={(v) => formatAed(Number(v))} contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
+              <Legend />
+              <Bar dataKey="expected" fill="#f59e0b" name="Expected" />
+              <Bar dataKey="cleared" fill="#22c55e" name="Cleared" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      {/* Units table */}
+      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-white">Units ({data.units.length})</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-slate-400">
+              <tr>
+                <th className="px-2 py-2">Unit</th>
+                <th className="px-2 py-2">Type</th>
+                <th className="px-2 py-2">Tenant</th>
+                <th className="px-2 py-2">Annual Rent</th>
+                <th className="px-2 py-2">Collected</th>
+                <th className="px-2 py-2">Pending</th>
+                <th className="px-2 py-2">Status</th>
+                <th className="px-2 py-2">Contract End</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {data.units.map((u) => (
+                <tr key={u.id} className="text-slate-300">
+                  <td className="px-2 py-2 font-mono">{u.unitNo}</td>
+                  <td className="px-2 py-2">{u.unitType}</td>
+                  <td className="px-2 py-2">{u.tenant?.name || <span className="text-slate-600">—</span>}</td>
+                  <td className="px-2 py-2">{formatAed(u.annualRent)}</td>
+                  <td className="px-2 py-2 text-green-400">{formatAed(u.collected)}</td>
+                  <td className="px-2 py-2 text-red-400">{formatAed(u.pending)}</td>
+                  <td className="px-2 py-2"><StatusPill value={u.status} /></td>
+                  <td className="px-2 py-2">{u.contractEnd || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Recent cheques */}
+      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-white">Recent Cheques</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-slate-400">
+              <tr>
+                <th className="px-2 py-2">Date</th>
+                <th className="px-2 py-2">Cheque No</th>
+                <th className="px-2 py-2">Bank</th>
+                <th className="px-2 py-2">Unit</th>
+                <th className="px-2 py-2">Tenant</th>
+                <th className="px-2 py-2">Amount</th>
+                <th className="px-2 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {data.cheques.slice(0, 20).map((c) => (
+                <tr key={c.id} className="text-slate-300">
+                  <td className="px-2 py-2">{c.chequeDate}</td>
+                  <td className="px-2 py-2 font-mono">{c.chequeNo}</td>
+                  <td className="px-2 py-2">{c.bankName}</td>
+                  <td className="px-2 py-2">{c.unitNo}</td>
+                  <td className="px-2 py-2">{c.tenantName}</td>
+                  <td className="px-2 py-2">{formatAed(c.amount)}</td>
+                  <td className="px-2 py-2"><StatusPill value={c.status} /></td>
+                </tr>
+              ))}
+              {data.cheques.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-2 py-6 text-center text-slate-500">No cheques</td>
+                </tr>
               )}
-            </div>
-          ))}
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      {/* Vacancy alert */}
-      {totals.vacant > 0 && (
-        <div className="rounded-2xl border border-[#E30613]/30 bg-[#E30613]/5 p-5 flex items-start gap-3">
-          <DoorOpen className="h-5 w-5 text-[#E30613] mt-0.5" />
-          <div>
-            <p className="text-sm font-bold">{totals.vacant} Vacant Unit{totals.vacant === 1 ? "" : "s"}</p>
-            <p className="text-xs text-white/50">Potential lost revenue: <strong className="text-[#E30613]">{aed(totals.occupied > 0 ? Math.round((totals.annualRentRoll / totals.occupied) * totals.vacant) : 0)}</strong> annually.</p>
-          </div>
-        </div>
-      )}
+      </section>
     </div>
   )
 }
-
-function Kpi({ label, value, sub, accent, warning }: { label: string; value: string; sub?: string; accent?: boolean; warning?: boolean }) {
-  return (
-    <div className={`rounded-xl border p-3 ${warning ? "border-[#E30613]/40 bg-[#E30613]/10" : accent ? "border-[#E30613]/20 bg-[#E30613]/5" : "border-white/10 bg-white/5"}`}>
-      <p className="text-[10px] uppercase font-bold text-white/40">{label}</p>
-      <p className={`text-lg font-bold ${warning ? "text-[#E30613]" : "text-white"}`}>{value}</p>
-      {sub && <p className="text-[10px] text-white/30">{sub}</p>}
-    </div>
-  )
-}
-function Loader() { return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E30613] border-t-transparent" /></div> }

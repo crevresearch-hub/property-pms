@@ -7,12 +7,12 @@ import { createNotification } from '@/lib/notifications'
  * Public (unauthenticated) "Request Changes" endpoint for the owner sign page.
  * The signatureToken acts as the bearer credential.
  *
- * The owner uses this when reviewing the PM Agreement to ask CRE to amend
+ * The owner uses this when reviewing the PM Agreement to ask Alwaan to amend
  * the draft before they sign. We:
  *   1. Mark the contract status "Changes Requested" (not Signed).
  *   2. Prepend the owner's feedback to contract.notes.
- *   3. Create an in-app notification for CRE staff.
- *   4. Email every active CRE admin a link to the owner edit page so they
+ *   3. Create an in-app notification for Alwaan staff.
+ *   4. Email every active Alwaan admin a link to the owner edit page so they
  *      can update the draft and resend.
  */
 export async function POST(
@@ -67,7 +67,7 @@ export async function POST(
       },
     })
 
-    // In-app notification for CRE staff
+    // In-app notification for Alwaan staff
     await createNotification(
       contract.organizationId,
       'staff',
@@ -77,7 +77,7 @@ export async function POST(
       'system'
     )
 
-    // Email all CRE admins
+    // Email all Alwaan admins
     try {
       const baseUrl = process.env.NEXTAUTH_URL || ''
       const editUrl = `${baseUrl}/dashboard/owners/${contract.owner.id}/edit`
@@ -128,7 +128,7 @@ export async function POST(
               <p style="color:#6b7280;font-size:12px;">After updating, re-send the agreement so
               the owner can review and sign the new version.</p>
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-              <p style="color:#6b7280;font-size:12px;">CRE · CRE System · Dubai, UAE</p>
+              <p style="color:#6b7280;font-size:12px;">Alwaan · Alwaan System · Dubai, UAE</p>
             </div>
           `,
           template: 'owner_change_request',

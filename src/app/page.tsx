@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Building2, Users } from "lucide-react"
+import { BarChart3, Building2, Users, Crown } from "lucide-react"
 
 export default function HomePage() {
   return (
@@ -25,8 +25,38 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Two portal cards */}
-        <div className="grid w-full max-w-3xl grid-cols-1 gap-5 sm:grid-cols-2">
+        {/* Portal cards */}
+        <div className="grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* CEO Dashboard */}
+          <Link
+            href="/ceo/alwaan"
+            className="group relative overflow-hidden rounded-2xl border-2 border-amber-300/30 bg-white p-7 transition-all hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-400/20"
+          >
+            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-amber-400/5 transition-all group-hover:bg-amber-400/10" />
+            <div className="relative">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-500 shadow-lg shadow-amber-500/30">
+                <BarChart3 className="h-7 w-7 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">CEO Dashboard</h2>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-amber-600">
+                Executive Overview
+              </p>
+              <p className="mt-3 text-sm text-slate-600">
+                Real-time financials, occupancy analytics, P&L, cash flow, and market intelligence.
+              </p>
+              <ul className="mt-4 space-y-1 text-xs text-slate-500">
+                <li>• Revenue & Expense Overview</li>
+                <li>• P&L Statement & Cash Flow</li>
+                <li>• Unit Analysis & Occupancy</li>
+                <li>• Market Intelligence</li>
+              </ul>
+              <div className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white group-hover:bg-amber-600">
+                Open Dashboard
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </div>
+            </div>
+          </Link>
+
           {/* Staff Portal */}
           <Link
             href="/login"
@@ -39,19 +69,49 @@ export default function HomePage() {
               </div>
               <h2 className="text-xl font-bold text-slate-900">Staff Portal</h2>
               <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#E30613]">
-                For Alwaan Administrators & Staff
+                Admin & Property Management
               </p>
               <p className="mt-3 text-sm text-slate-600">
-                Manage owners, tenants, contracts, maintenance, and all building operations.
+                Manage tenants, contracts, cheques, maintenance, and all building operations.
               </p>
               <ul className="mt-4 space-y-1 text-xs text-slate-500">
-                <li>• Property Owners & PM Agreements</li>
                 <li>• Tenant Onboarding & Contracts</li>
                 <li>• Cheque Tracking & Renewals</li>
+                <li>• Invoices & Payments</li>
                 <li>• Maintenance, Vendors & Reports</li>
               </ul>
               <div className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#E30613] px-4 py-2 text-sm font-semibold text-white group-hover:bg-[#c20510]">
                 Sign in as Staff
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </div>
+            </div>
+          </Link>
+
+          {/* Owner Portal */}
+          <Link
+            href="/owner/login"
+            className="group relative overflow-hidden rounded-2xl border-2 border-amber-600/30 bg-white p-7 transition-all hover:border-amber-600 hover:shadow-2xl hover:shadow-amber-600/20"
+          >
+            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-amber-600/5 transition-all group-hover:bg-amber-600/10" />
+            <div className="relative">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-600 shadow-lg shadow-amber-600/30">
+                <Crown className="h-7 w-7 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">Owner Portal</h2>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-amber-700">
+                For Building Owners
+              </p>
+              <p className="mt-3 text-sm text-slate-600">
+                View your building performance, rent collection, units, and tenants in real time.
+              </p>
+              <ul className="mt-4 space-y-1 text-xs text-slate-500">
+                <li>• Occupancy & Rent Roll</li>
+                <li>• Cheque Status & Cashflow</li>
+                <li>• Unit-by-Unit Collection</li>
+                <li>• Recent Tenant Activity</li>
+              </ul>
+              <div className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white group-hover:bg-amber-700">
+                Sign in as Owner
                 <span className="transition-transform group-hover:translate-x-1">→</span>
               </div>
             </div>
@@ -91,10 +151,10 @@ export default function HomePage() {
         {/* Footer */}
         <footer className="mt-10 text-center">
           <p className="text-xs text-slate-500">
-            CRE &copy; {new Date().getFullYear()} &middot; Dubai, United Arab Emirates
+            Alwaan &copy; {new Date().getFullYear()} &middot; Dubai, United Arab Emirates
           </p>
           <p className="mt-1 text-[11px] text-slate-600">
-            Need help? Contact us at <a href="mailto:info@cre.ae" className="text-[#E30613] hover:underline">info@cre.ae</a>
+            Need help? Contact us at <a href="mailto:info@alwaan.ae" className="text-[#E30613] hover:underline">info@alwaan.ae</a>
           </p>
         </footer>
       </div>

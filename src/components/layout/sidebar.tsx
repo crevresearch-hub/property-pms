@@ -29,6 +29,7 @@ import {
   UserCog,
   Handshake,
   Mail,
+  Upload,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
@@ -48,9 +49,14 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   {
+    title: "Overview",
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
     title: "Properties & Tenants",
     items: [
-      { label: "Property Owners", href: "/dashboard/owners", icon: Handshake },
       { label: "Units", href: "/dashboard/units", icon: Building2 },
       { label: "Tenants", href: "/dashboard/tenants", icon: Users },
       { label: "Cheque Tracker", href: "/dashboard/cheques", icon: BookCheck },
@@ -82,6 +88,8 @@ const navGroups: NavGroup[] = [
   {
     title: "Admin",
     items: [
+      { label: "Import Data", href: "/dashboard/import", icon: Upload },
+      { label: "Import Tenants (Folder)", href: "/dashboard/import/tenants", icon: Upload },
       { label: "Settings", href: "/dashboard/settings", icon: Settings },
       { label: "Users", href: "/dashboard/users", icon: UserCog, adminOnly: true },
     ],

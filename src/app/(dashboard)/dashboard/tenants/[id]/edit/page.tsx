@@ -616,7 +616,12 @@ export default function TenantEditPage() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
                   {[{ doc: frontDoc, label: "Front Side" }, { doc: backDoc, label: "Back Side" }].map((it) => (
-                    <EidImageCard key={it.label} doc={it.doc} label={it.label} onOpen={setLightbox} />
+                    <EidImageCard
+                      key={it.label}
+                      doc={it.doc ? { id: it.doc.id, filename: it.doc.filename, originalFilename: it.doc.originalFilename } : undefined}
+                      label={it.label}
+                      onOpen={setLightbox}
+                    />
                   ))}
                 </div>
               </section>
@@ -1970,10 +1975,11 @@ function EidImageCard({
   label,
   onOpen,
 }: {
-  doc: { id: string } | undefined
+  doc: { id: string; filename?: string; originalFilename?: string } | undefined
   label: string
   onOpen: (v: { url: string; label: string }) => void
 }) {
+  const isPdf = doc?.filename?.toLowerCase().endsWith('.pdf') || doc?.originalFilename?.toLowerCase().endsWith('.pdf') || false
   const [scale, setScale] = useState(1)
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -2034,7 +2040,23 @@ function EidImageCard({
           </div>
         )}
       </div>
-      {doc ? (
+      {doc && isPdf ? (
+        <div className="relative overflow-hidden rounded-md border border-slate-200 bg-white" style={{ height: 260 }}>
+          <iframe
+            src={`/api/documents/${doc.id}/file#toolbar=0&navpanes=0`}
+            title={`Emirates ID ${label} PDF`}
+            className="h-full w-full"
+          />
+          <a
+            href={`/api/documents/${doc.id}/file`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-2 right-2 rounded bg-[#E30613] px-2 py-1 text-[10px] font-semibold text-white shadow hover:bg-[#c20510]"
+          >
+            Open PDF
+          </a>
+        </div>
+      ) : doc ? (
         <div
           className="relative overflow-hidden rounded-md border border-slate-200 bg-white"
           style={{ height: 260, cursor: scale > 1 ? (dragRef.current ? "grabbing" : "grab") : "zoom-in" }}

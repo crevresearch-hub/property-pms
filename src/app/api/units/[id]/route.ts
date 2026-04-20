@@ -93,6 +93,7 @@ export async function PUT(
       data: {
         ...(body.unitNo !== undefined && { unitNo: body.unitNo }),
         ...(body.unitType !== undefined && { unitType: body.unitType }),
+        ...(body.sqFt !== undefined && { sqFt: parseFloat(body.sqFt) || 0 }),
         ...(body.contractStart !== undefined && { contractStart: body.contractStart }),
         ...(body.contractEnd !== undefined && { contractEnd: body.contractEnd }),
         ...(body.currentRent !== undefined && { currentRent: parseFloat(body.currentRent) }),

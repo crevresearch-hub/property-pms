@@ -122,7 +122,7 @@ export async function POST(
 
         <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">
           This is a system-generated receipt. Please retain for your records. For any queries, contact
-          <a href="mailto:info@cre.ae" style="color:#E30613;">info@cre.ae</a>.
+          <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a>.
         </p>
       </div>
     </body></html>`

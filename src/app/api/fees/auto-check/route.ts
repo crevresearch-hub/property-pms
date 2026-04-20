@@ -73,7 +73,7 @@ export async function POST() {
           feeType,
           description: `Auto-generated: Contract expired ${unit.contractEnd}, ${daysExpired} days overdue`,
           amount,
-          beneficiary: 'CRE',
+          beneficiary: 'Alwaan',
           status: 'Pending',
         },
       })

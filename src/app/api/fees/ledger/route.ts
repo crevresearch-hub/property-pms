@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         feeType,
         description: description || '',
         amount: parseFloat(amount),
-        beneficiary: beneficiary || 'CRE',
+        beneficiary: beneficiary || 'Alwaan',
         status: 'Pending',
       },
       include: {

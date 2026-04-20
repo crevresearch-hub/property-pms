@@ -1,16 +1,16 @@
 /**
- * DLD-style Tenancy Contract HTML builder (CRE-branded edition).
+ * DLD-style Tenancy Contract HTML builder (Alwaan-branded edition).
  *
  * Replicates the official Dubai Land Department (DLD) bilingual
  * Unified Tenancy Contract layout used by Alwaan,
- * restyled with CRE red/black/white branding.
+ * restyled with Alwaan red/black/white branding.
  *
  *   - Government of Dubai + DLD logos header (served from /public)
  *   - Owner / Lessor / Tenant / Property / Contract tables
  *   - Bilingual EN/AR terms & conditions (side-by-side)
- *   - Know-Your-Rights, Ejari attachments, 5 CRE addendum points
+ *   - Know-Your-Rights, Ejari attachments, 5 Alwaan addendum points
  *   - Signature blocks for Tenant + Lessor
- *   - CRE footer logo + DLD official footer
+ *   - Alwaan footer logo + DLD official footer
  *
  * Output is a fully self-contained HTML document (A4, print-ready)
  * safe to store in TenancyContract.htmlBody.
@@ -385,7 +385,7 @@ export function buildDldTenancyContractHTML(
   ol.additional > li { margin: 6px 0; font-size: 10.5px; list-style: none; color: #000; }
   .add-num { font-weight: 700; color: #E30613; margin-right: 4px; }
 
-  /* CRE footer brand */
+  /* Alwaan footer brand */
   .cre-brand-footer {
     margin-top: 22px;
     padding: 12px 0 8px 0;
@@ -452,7 +452,7 @@ export function buildDldTenancyContractHTML(
     <tr><th>Lessor's Emirates ID</th><td>784-XXXX-XXXXXXX-X</td>
         <th>License No.</th><td>DED-591234</td></tr>
     <tr><th>Licensing Authority</th><td>DED (Department of Economic Development)</td>
-        <th>Lessor's Email</th><td>info@cre.ae</td></tr>
+        <th>Lessor's Email</th><td>info@alwaan.ae</td></tr>
     <tr><th>Lessor's Phone</th><td>+971 4 000 0000</td>
         <th>Licensing Jurisdiction</th><td>Emirate of Dubai</td></tr>
   </table>
@@ -542,7 +542,7 @@ export function buildDldTenancyContractHTML(
   </div>
 
   <!-- ============ SECTION 9: ADDITIONAL TERMS ============ -->
-  <h2 class="section-title"><span>9. Additional Terms (CRE Addendum)</span><span class="ar">شروط إضافية</span></h2>
+  <h2 class="section-title"><span>9. Additional Terms (Alwaan Addendum)</span><span class="ar">شروط إضافية</span></h2>
   <ol class="additional">
     ${additionalHtml}
   </ol>
@@ -559,7 +559,7 @@ export function buildDldTenancyContractHTML(
     </div>
   </div>
 
-  <!-- ============ CRE BRAND FOOTER ============ -->
+  <!-- ============ ALWAAN BRAND FOOTER ============ -->
   <div class="cre-brand-footer">
     <img src="${esc(creLogoSrc)}" alt="Alwaan"/>
     <span class="tag">Managed by Alwaan · Dubai, U.A.E.</span>

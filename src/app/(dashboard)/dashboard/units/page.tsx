@@ -27,6 +27,7 @@ interface UnitRow {
   id: string
   unitNo: string
   unitType: string
+  sqFt: number
   contractStart: string
   contractEnd: string
   currentRent: number
@@ -40,6 +41,7 @@ interface UnitRow {
 const defaultForm = {
   unitNo: "",
   unitType: "",
+  sqFt: "",
   contractStart: "",
   contractEnd: "",
   currentRent: "",
@@ -73,6 +75,7 @@ export default function UnitsPage() {
   const [editId, setEditId] = useState("")
   const [saving, setSaving] = useState(false)
   const [statusFilter, setStatusFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
 
   const fetchUnits = useCallback(async () => {
     try {
@@ -111,6 +114,7 @@ export default function UnitsPage() {
         body: JSON.stringify({
           unitNo: form.unitNo,
           unitType: form.unitType,
+          sqFt: form.sqFt,
           contractStart: form.contractStart,
           contractEnd: form.contractEnd,
           currentRent: form.currentRent,
@@ -138,6 +142,7 @@ export default function UnitsPage() {
     setForm({
       unitNo: unit.unitNo,
       unitType: unit.unitType,
+      sqFt: unit.sqFt ? String(unit.sqFt) : "",
       contractStart: unit.contractStart,
       contractEnd: unit.contractEnd,
       currentRent: String(unit.currentRent),
@@ -157,6 +162,7 @@ export default function UnitsPage() {
         body: JSON.stringify({
           unitNo: form.unitNo,
           unitType: form.unitType,
+          sqFt: form.sqFt,
           contractStart: form.contractStart,
           contractEnd: form.contractEnd,
           currentRent: form.currentRent,
@@ -193,43 +199,71 @@ export default function UnitsPage() {
     }
   }
 
-  const filteredUnits = statusFilter === "all"
-    ? units
-    : units.filter((u) => u.status === statusFilter)
+  const filteredUnits = units.filter((u) => {
+    const statusOk = statusFilter === "all" || u.status === statusFilter
+    const typeOk = typeFilter === "all" || u.unitType === typeFilter
+    return statusOk && typeOk
+  })
 
   const occupied = units.filter((u) => u.status === "Occupied").length
   const vacant = units.filter((u) => u.status === "Vacant").length
+  const underMaintenance = units.filter((u) => u.status === "Under Maintenance").length
+  const reserved = units.filter((u) => u.status === "Reserved").length
   const occupancy = units.length > 0
     ? Math.round((occupied / units.length) * 100)
     : 0
 
+  const statusCounts: Record<string, number> = {
+    all: units.length,
+    Occupied: occupied,
+    Vacant: vacant,
+    "Under Maintenance": underMaintenance,
+    Reserved: reserved,
+  }
+
+  const unitTypes = ["Studio", "1 BHK", "2 BHK", "3 BHK", "Penthouse", "Shop", "Office", "Commercial"]
+  const unitsByStatus = statusFilter === "all" ? units : units.filter((u) => u.status === statusFilter)
+  const typeCounts: Record<string, number> = { all: unitsByStatus.length }
+  for (const t of unitTypes) {
+    typeCounts[t] = unitsByStatus.filter((u) => u.unitType === t).length
+  }
+
   const columns: Column<UnitRow>[] = [
-    { key: "unitNo", header: "Unit No", sortable: true },
-    { key: "unitType", header: "Type", sortable: true },
+    { key: "unitNo", header: "Unit No", sortable: true, filterable: true },
+    { key: "unitType", header: "Type", sortable: true, filterable: true },
     {
       key: "tenant",
       header: "Tenant",
+      filterable: true,
+      filterValue: (row) => row.tenant?.name || "",
       render: (row) => row.tenant?.name || <span className="text-slate-600">--</span>,
     },
     {
       key: "currentRent",
       header: "Rent",
       sortable: true,
+      filterable: true,
+      filterValue: (row) => formatCurrency(row.currentRent),
       render: (row) => formatCurrency(row.currentRent),
     },
     {
       key: "contractStart",
       header: "Contract Start",
+      filterable: true,
+      filterValue: (row) => row.contractStart ? formatDate(row.contractStart) : "",
       render: (row) => row.contractStart ? formatDate(row.contractStart) : "--",
     },
     {
       key: "contractEnd",
       header: "Contract End",
+      filterable: true,
+      filterValue: (row) => row.contractEnd ? formatDate(row.contractEnd) : "",
       render: (row) => row.contractEnd ? formatDate(row.contractEnd) : "--",
     },
     {
       key: "status",
       header: "Status",
+      filterable: true,
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
@@ -284,6 +318,18 @@ export default function UnitsPage() {
             <option value="Commercial">Commercial</option>
           </select>
         </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-400">Square Feet</label>
+        <input
+          type="number"
+          min="0"
+          step="any"
+          value={form.sqFt}
+          onChange={(e) => setForm({ ...form, sqFt: e.target.value })}
+          placeholder="e.g. 850"
+          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -401,7 +447,7 @@ export default function UnitsPage() {
       </div>
 
       {/* Status Filter */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {["all", "Occupied", "Vacant", "Under Maintenance", "Reserved"].map((s) => (
           <button
             key={s}
@@ -413,8 +459,42 @@ export default function UnitsPage() {
             }`}
           >
             {s === "all" ? "All" : s}
+            <span
+              className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                statusFilter === s ? "bg-amber-500/30" : "bg-slate-700"
+              }`}
+            >
+              {statusCounts[s] ?? 0}
+            </span>
           </button>
         ))}
+      </div>
+
+      {/* Unit Type Filter */}
+      <div>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">By Type</p>
+        <div className="flex flex-wrap gap-2">
+          {["all", ...unitTypes].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                typeFilter === t
+                  ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
+                  : "bg-slate-800 text-slate-400 hover:text-white"
+              }`}
+            >
+              {t === "all" ? "All Types" : t}
+              <span
+                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  typeFilter === t ? "bg-blue-500/30" : "bg-slate-700"
+                }`}
+              >
+                {typeCounts[t] ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <DataTable

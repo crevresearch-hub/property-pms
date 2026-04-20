@@ -1,114 +1,121 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState, FormEvent } from "react"
+import { useRouter } from "next/navigation"
 
-function LoginInner() {
+export default function OwnerLoginPage() {
   const router = useRouter()
-  const search = useSearchParams()
-  const token = search.get("token")
   const [email, setEmail] = useState("")
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  useEffect(() => {
-    if (!token) return
-    setBusy(true)
-    setMsg({ ok: true, text: "Signing you in…" })
-    fetch("/api/owner/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    })
-      .then(async (r) => {
-        const d = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(d.error || "Sign-in failed")
-        router.replace("/owner/dashboard")
-      })
-      .catch((e) => {
-        setBusy(false)
-        setMsg({ ok: false, text: e instanceof Error ? e.message : "Sign-in failed" })
-      })
-  }, [token, router])
-
-  async function sendLink(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!email.trim()) return
-    setBusy(true); setMsg(null)
+    setError("")
+    setIsLoading(true)
     try {
-      const r = await fetch("/api/owner/auth", {
+      const res = await fetch("/api/owner/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email, password }),
       })
-      const d = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(d.error || "Failed")
-      setMsg({ ok: true, text: "✓ If an owner account exists for that email, a sign-in link has been sent. Check your inbox." })
-    } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : "Failed" })
+      const data = await res.json()
+      if (!res.ok) setError(data.error || "Login failed")
+      else {
+        router.push("/owner/dashboard")
+        router.refresh()
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.")
     } finally {
-      setBusy(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-white/10 shadow-2xl p-8">
-        <div className="mb-6 text-center">
-          <div className="mx-auto h-1 w-12 bg-[#E30613] rounded mb-3"></div>
-          <h1 className="text-xl font-bold text-white">Owner Portal</h1>
-          <p className="mt-1 text-xs text-slate-400">Alwaan L.L.C.</p>
-        </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-amber-950 via-amber-900 to-amber-950">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-amber-500/15 blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-yellow-500/15 blur-3xl" />
+      </div>
 
-        {token && busy ? (
-          <div className="text-center text-sm text-slate-300 py-8">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-[#E30613] border-t-transparent mb-3"></div>
-            Signing you in…
+      <div className="relative z-10 w-full max-w-md px-4">
+        <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl sm:p-10">
+          <div className="mb-8 text-center">
+            <div className="mt-4 inline-block rounded-full bg-amber-100 px-4 py-1">
+              <p className="text-[10px] font-bold tracking-[0.3em] text-amber-700">
+                OWNER PORTAL
+              </p>
+            </div>
+            <h2 className="mt-3 text-xl font-bold text-slate-900">Property Owner Sign In</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              View your building&apos;s performance, rent collection, and tenants
+            </p>
           </div>
-        ) : (
-          <form onSubmit={sendLink} className="space-y-4">
-            <label className="block">
-              <span className="block text-xs font-medium text-slate-300 mb-1">Email</span>
+
+          {error && (
+            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                Email Address
+              </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
                 required
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-[#E30613]"
+                autoComplete="email"
+                autoFocus
+                placeholder="you@email.com"
+                className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-600/20"
               />
-            </label>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                placeholder="Your password"
+                className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-600/20"
+              />
+            </div>
+
             <button
               type="submit"
-              disabled={busy || !email.trim()}
-              className="w-full rounded-lg bg-[#E30613] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#c20510] disabled:opacity-50"
+              disabled={isLoading}
+              className="relative mt-2 flex w-full items-center justify-center rounded-lg bg-amber-600 px-4 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-500/30 transition-all hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy ? "Sending…" : "Send sign-in link"}
+              {isLoading ? "Signing in..." : "Sign In"}
             </button>
-            <p className="text-[11px] text-slate-500 text-center">
-              We&rsquo;ll email you a one-click sign-in link. No password needed.
-            </p>
           </form>
-        )}
 
-        {msg && (
-          <div className={`mt-4 rounded-lg border p-3 text-xs ${
-            msg.ok
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : "border-red-500/30 bg-red-500/10 text-red-300"
-          }`}>
-            {msg.text}
+          <div className="mt-8 border-t border-slate-100 pt-6 text-center space-y-2">
+            <p className="text-xs text-slate-500">
+              Are you staff?{" "}
+              <a href="/login" className="font-semibold text-[#E30613] hover:underline">
+                Sign in here →
+              </a>
+            </p>
+            <p className="text-xs text-slate-400">
+              Alwaan &copy; {new Date().getFullYear()}
+            </p>
           </div>
-        )}
+        </div>
       </div>
     </div>
-  )
-}
-
-export default function OwnerLoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-950"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E30613] border-t-transparent" /></div>}>
-      <LoginInner />
-    </Suspense>
   )
 }

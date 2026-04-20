@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const organizationId = session.user.organizationId
     const body = await request.json()
 
-    const { unitNo, unitType, contractStart, contractEnd, currentRent, status, notes, tenantId } = body
+    const { unitNo, unitType, sqFt, contractStart, contractEnd, currentRent, status, notes, tenantId } = body
 
     if (!unitNo) {
       return NextResponse.json({ error: 'Unit number is required' }, { status: 400 })
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
         organizationId,
         unitNo,
         unitType: unitType || '',
+        sqFt: sqFt ? parseFloat(sqFt) : 0,
         contractStart: contractStart || '',
         contractEnd: contractEnd || '',
         currentRent: currentRent ? parseFloat(currentRent) : 0,

@@ -5,11 +5,18 @@ import { encode } from 'next-auth/jwt'
 /**
  * GET /api/auth/dev-login
  *
- * Dev-only one-click PM/CEO sign-in. Sets the NextAuth session cookie
- * directly so the user lands on the dashboard without a login form.
+ * Dev-only one-click PM/CEO sign-in. Gated behind ENABLE_DEV_LOGIN=true;
+ * the endpoint 404s in any environment without that flag set.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.NEXTAUTH_SECRET || 'super-secret-key-change-in-production-abc123xyz'
+  if (process.env.ENABLE_DEV_LOGIN !== 'true') {
+    return new NextResponse('Not Found', { status: 404 })
+  }
+
+  const secret = process.env.NEXTAUTH_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'NEXTAUTH_SECRET not configured' }, { status: 500 })
+  }
 
   // Create a JWT token for admin user
   const token = await encode({

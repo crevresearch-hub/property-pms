@@ -3,9 +3,14 @@ import prisma from '@/lib/prisma'
 
 /**
  * GET /api/tenant/auth/dev-login?email=<tenant-email>
- * Dev-only one-click tenant sign-in.
+ * Dev-only one-click tenant sign-in. Gated behind ENABLE_DEV_LOGIN=true;
+ * the endpoint 404s in any environment without that flag set.
  */
 export async function GET(request: NextRequest) {
+  if (process.env.ENABLE_DEV_LOGIN !== 'true') {
+    return new NextResponse('Not Found', { status: 404 })
+  }
+
   const email = (request.nextUrl.searchParams.get('email') || '').trim().toLowerCase()
   if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })
 

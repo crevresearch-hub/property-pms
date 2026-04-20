@@ -94,7 +94,7 @@ export async function GET(
 
       const htmlBody = buildContractHTML(
         ownerForBuilder,
-        contract.owner.organization?.name || 'CRE',
+        contract.owner.organization?.name || 'Alwaan',
         baseUrl,
         primaryImagePath
       )
@@ -207,7 +207,7 @@ async function saveEidAttachment(
       originalFilename: `Emirates ID (self-uploaded).${ext}`,
       filePath: `uploads/tenant_${tenantId}/${filename}`,
       fileSize: buffer.length,
-      status: 'Uploaded', // CRE must verify before approving
+      status: 'Uploaded', // Alwaan must verify before approving
     },
   })
 }
@@ -318,7 +318,7 @@ export async function POST(
         'staff',
         '',
         'Owner Signed Contract',
-        `Owner ${signedByName} signed ${contract.contractNo} v${contract.version} – awaiting CRE counter-signature`,
+        `Owner ${signedByName} signed ${contract.contractNo} v${contract.version} – awaiting Alwaan counter-signature`,
         'system'
       )
 
@@ -354,7 +354,7 @@ export async function POST(
                   </a>
                 </p>
                 <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-                <p style="color:#6b7280;font-size:12px;">CRE · CRE System · Dubai, UAE</p>
+                <p style="color:#6b7280;font-size:12px;">Alwaan · Alwaan System · Dubai, UAE</p>
               </div>
             `,
             template: 'admin_owner_signed',
@@ -583,7 +583,7 @@ export async function POST(
                 </a>
               </p>
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-              <p style="color:#6b7280;font-size:12px;">CRE · CRE System · Dubai, UAE</p>
+              <p style="color:#6b7280;font-size:12px;">Alwaan · Alwaan System · Dubai, UAE</p>
             </div>
           `,
           template: 'admin_tenant_signed',

@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
             <p style="text-align:center;margin:18px 0;">
               <a href="${portalUrl}" style="display:inline-block;background:#E30613;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">View &amp; Acknowledge</a>
             </p>
-            <p style="margin:14px 0 0 0;font-size:11px;color:#6b7280;">For any disputes contact <a href="mailto:info@cre.ae" style="color:#E30613;">info@cre.ae</a> within 7 days.</p>
+            <p style="margin:14px 0 0 0;font-size:11px;color:#6b7280;">For any disputes contact <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a> within 7 days.</p>
           </div>
         </body></html>`
         await sendEmail({

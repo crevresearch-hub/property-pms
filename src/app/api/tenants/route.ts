@@ -20,6 +20,7 @@ export async function GET() {
           select: {
             id: true,
             unitNo: true,
+            unitType: true,
             status: true,
             currentRent: true,
           },
@@ -32,6 +33,16 @@ export async function GET() {
         },
       },
       orderBy: { name: 'asc' },
+    })
+
+    // Sort by unit number (numeric), tenants without a unit go last
+    tenants.sort((a, b) => {
+      const au = a.units[0]?.unitNo || ''
+      const bu = b.units[0]?.unitNo || ''
+      if (!au && !bu) return 0
+      if (!au) return 1
+      if (!bu) return -1
+      return au.localeCompare(bu, undefined, { numeric: true })
     })
 
     // Add document status flags

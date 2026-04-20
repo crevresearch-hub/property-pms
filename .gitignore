@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local-only uploaded files (Vercel filesystem is read-only anyway)
+/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

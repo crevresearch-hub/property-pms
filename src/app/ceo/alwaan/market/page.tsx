@@ -109,7 +109,7 @@ export default function MarketPage() {
       </div>
 
       <section className="rounded-2xl border border-slate-200 bg-white border-slate-200 shadow-sm p-5 text-xs text-slate-400">
-        <p><strong className="text-white/60">Disclaimer:</strong> Market data is indicative and sourced from publicly available RERA / DLD statistics and CRE internal benchmarks. For official valuations, consult a certified RERA-approved valuator.</p>
+        <p><strong className="text-white/60">Disclaimer:</strong> Market data is indicative and sourced from publicly available RERA / DLD statistics and Alwaan internal benchmarks. For official valuations, consult a certified RERA-approved valuator.</p>
       </section>
     </div>
   )

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
           <h1 style="margin:0 0 12px 0;font-size:22px;color:#111;">Lease Renewal — Friendly Reminder</h1>
           <p>Dear ${safeName},</p>
           <p>This is a reminder that your lease for <strong>Unit ${unit.unitNo}</strong> ends on <strong>${unit.contractEnd}</strong>${daysLeft > 0 ? ` (${daysLeft} days from today)` : ''}.</p>
-          <p>If you would like to renew, please reply to this email or contact us at <a href="mailto:info@cre.ae" style="color:#E30613;">info@cre.ae</a> so we can prepare a new contract.</p>
+          <p>If you would like to renew, please reply to this email or contact us at <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a> so we can prepare a new contract.</p>
           <p style="margin:14px 0;padding:12px;background:#fff5f5;border-left:4px solid #E30613;border-radius:4px;">
             <strong>Current annual rent:</strong> ${aed(unit.currentRent)}
           </p>
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
           <p>This is to confirm that your lease for <strong>Unit ${unit.unitNo}</strong> will <strong>not be renewed</strong>. The contract ends on <strong>${unit.contractEnd}</strong>.</p>
           <p>Please coordinate with us regarding the move-out inspection, security deposit refund, and final settlement.</p>
           ${body.message ? `<p style="margin:14px 0;padding:12px;background:#f9fafb;border-radius:6px;font-size:13px;">${String(body.message).replace(/[<>]/g, '')}</p>` : ''}
-          <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">For any questions: <a href="mailto:info@cre.ae" style="color:#E30613;">info@cre.ae</a></p>
+          <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">For any questions: <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a></p>
         </div>
       </body></html>`
     } else if (action === 'congrats') {

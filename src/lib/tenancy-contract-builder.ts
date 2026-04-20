@@ -457,7 +457,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
   
   <h1>TENANCY CONTRACT</h1>
   <h1 class="ar" dir="rtl" lang="ar">عقد إيجار</h1>
-  <div class="sub">CRE – Property Management</div>
+  <div class="sub">Alwaan – Property Management</div>
 </div>
 
 <div class="meta">
@@ -480,7 +480,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
     <h3 style="margin-top:8px;">Property Manager</h3>
     <div class="kv">
       <div><span class="k">Acting on behalf of the Landlord:</span></div>
-      <div><strong>CRE (CRE)</strong></div>
+      <div><strong>Alwaan L.L.C.</strong></div>
       <div>Dubai, United Arab Emirates</div>
     </div>
     <h3 style="margin-top:8px;">Tenant</h3>
@@ -617,7 +617,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
     <div class="sig-box">
       <div class="role">LANDLORD / MANAGEMENT</div>
       Name: ${esc(owner?.ownerName || '__________')}<br/>
-      For: CRE<br/>
+      For: Alwaan<br/>
       Date: __________<br/>
       Signature: __________
     </div>
@@ -660,7 +660,7 @@ export function buildTenancyContractHTML(data: BuildTenancyContractInput): strin
 </div>
 
 <div class="footer-note">
-  CRE &middot; Dubai, UAE &middot; Governed by UAE Federal Law and Dubai Real Estate Law No. 26 of 2007<br/>
+  Alwaan &middot; Dubai, UAE &middot; Governed by UAE Federal Law and Dubai Real Estate Law No. 26 of 2007<br/>
   Contract Ref: ${esc(contract.contractNo)} v${esc(contract.version)} &middot; Generated ${today}
 </div>
 

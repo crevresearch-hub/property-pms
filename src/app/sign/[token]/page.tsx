@@ -48,7 +48,7 @@ export default async function SignPage({
             This signature link is invalid or has expired. Please contact Alwaan
             for a new link.
           </p>
-          <p className="mt-4 text-xs text-gray-400">info@cre.ae</p>
+          <p className="mt-4 text-xs text-gray-400">info@alwaan.ae</p>
         </div>
       </div>
     )
@@ -85,7 +85,7 @@ export default async function SignPage({
 
       htmlBody = buildContractHTML(
         ownerForBuilder,
-        contract.owner.organization?.name || 'CRE',
+        contract.owner.organization?.name || 'Alwaan',
         baseUrl,
         primaryImagePath
       )
@@ -156,8 +156,8 @@ export default async function SignPage({
           )}
 
           <p className="text-center text-xs text-gray-500 mt-8">
-            CRE &middot; Dubai, UAE &middot;{' '}
-            <Link href="mailto:info@cre.ae" className="underline">info@cre.ae</Link>
+            Alwaan &middot; Dubai, UAE &middot;{' '}
+            <Link href="mailto:info@alwaan.ae" className="underline">info@alwaan.ae</Link>
           </p>
         </div>
       </div>
@@ -241,8 +241,8 @@ export default async function SignPage({
         )}
 
         <p className="text-center text-xs text-gray-500 mt-8">
-          CRE &middot; Dubai, UAE &middot;{' '}
-          <Link href="mailto:info@cre.ae" className="underline">info@cre.ae</Link>
+          Alwaan &middot; Dubai, UAE &middot;{' '}
+          <Link href="mailto:info@alwaan.ae" className="underline">info@alwaan.ae</Link>
         </p>
       </div>
     </div>

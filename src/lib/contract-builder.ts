@@ -157,85 +157,85 @@ export function buildContractHTML(
       service: { en: 'New Lease Commission (Residential)', ar: 'عمولة عقد إيجار جديد (سكني)' },
       amount: '5% of annual rent (or AED 1,050 min, VAT inclusive)',
       remarks: { en: 'For each new lease concluded', ar: 'لكل عقد إيجار جديد يتم إبرامه' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'New Lease Commission (Commercial)', ar: 'عمولة عقد إيجار جديد (تجاري)' },
       amount: '10% of annual rent (or AED 1,050 min, VAT inclusive)',
       remarks: { en: 'For each new lease concluded', ar: 'لكل عقد إيجار جديد يتم إبرامه' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Renewal Fee (Residential)', ar: 'رسوم تجديد العقد (سكني)' },
       amount: 'AED 850 (VAT inclusive)',
       remarks: { en: 'For each tenancy renewal', ar: 'لكل تجديد عقد إيجار' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Renewal Fee (Commercial)', ar: 'رسوم تجديد العقد (تجاري)' },
       amount: 'AED 1,500 (VAT inclusive)',
       remarks: { en: 'For each tenancy renewal', ar: 'لكل تجديد عقد إيجار' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'EJARI Registration', ar: 'تسجيل إيجاري' },
       amount: 'AED 250 (VAT inclusive)',
       remarks: { en: 'For Dubai properties only', ar: 'للعقارات في إمارة دبي فقط' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Municipality Service Charge', ar: 'رسوم خدمة البلدية' },
       amount: 'AED 210 (VAT inclusive)',
       remarks: { en: 'For lease registration on Municipality system', ar: 'لتسجيل العقد في نظام البلدية' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Cheque Replacement', ar: 'استبدال الشيك' },
       amount: 'AED 262.50 (VAT inclusive)',
       remarks: { en: 'Per replacement after receipt issuance', ar: 'لكل استبدال بعد إصدار الإيصال' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Cheque Postponement', ar: 'تأجيل الشيك' },
       amount: 'AED 262.50 (VAT inclusive)',
       remarks: { en: 'Max 1 month from original date', ar: 'بحد أقصى شهر من التاريخ الأصلي' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Returned/Bounced Cheque', ar: 'الشيك المرتجع' },
       amount: 'AED 525 (VAT inclusive)',
       remarks: { en: 'For each cheque returned by bank', ar: 'لكل شيك يرتجع من البنك' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Late Renewal (within 15 days)', ar: 'تأخير التجديد (خلال 15 يوم)' },
       amount: 'AED 525 (VAT inclusive)',
       remarks: { en: 'Renewal within 15 days of expiry', ar: 'تجديد خلال 15 يوم من انتهاء العقد' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Late Renewal (within 30 days)', ar: 'تأخير التجديد (خلال 30 يوم)' },
       amount: 'AED 1,050 (VAT inclusive)',
       remarks: { en: 'Renewal within 30 days of expiry', ar: 'تجديد خلال 30 يوم من انتهاء العقد' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Name Change / Lease Transfer (Residential)', ar: 'تغيير الاسم / نقل العقد (سكني)' },
       amount: '5% of annual rent',
       remarks: { en: 'Changing lessor during lease period', ar: 'تغيير المستأجر خلال فترة العقد' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Name Change / Lease Transfer (Commercial)', ar: 'تغيير الاسم / نقل العقد (تجاري)' },
       amount: '10% of annual rent',
       remarks: { en: 'Changing lessor during lease period', ar: 'تغيير المستأجر خلال فترة العقد' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Certification Letters', ar: 'رسائل التصديق' },
       amount: 'AED 100',
       remarks: { en: 'Per certification requested by tenant', ar: 'لكل تصديق يطلبه المستأجر' },
-      beneficiary: 'CRE',
+      beneficiary: 'Alwaan',
     },
     {
       service: { en: 'Early Termination (Residential)', ar: 'الإنهاء المبكر (سكني)' },
@@ -268,14 +268,14 @@ export function buildContractHTML(
     { en: 'Pay all building-related service charges (chiller, A/C central system, fire & life safety, common area maintenance, etc.).', ar: 'دفع جميع رسوم خدمات المبنى (التبريد، نظام التكييف المركزي، أنظمة الحريق والسلامة، صيانة المناطق المشتركة).' },
     { en: 'Maintain a valid building insurance policy covering structure and third-party liability.', ar: 'الاحتفاظ بوثيقة تأمين سارية تغطي هيكل المبنى والمسؤولية تجاه الغير.' },
     { en: 'Approve in writing any major repair or capital expenditure exceeding the agreed approval threshold.', ar: 'الموافقة كتابياً على أي إصلاحات كبيرة أو نفقات رأسمالية تتجاوز سقف الموافقة المتفق عليه.' },
-    { en: 'Provide CRE with a Power of Attorney or written authorization to act on behalf of the Owner for EJARI registration, legal cases, and government dealings as required.', ar: 'تزويد CRE بتوكيل أو تفويض كتابي للتصرف نيابة عن المالك في تسجيل إيجاري، القضايا القانونية، والتعاملات الحكومية.' },
+    { en: 'Provide Alwaan with a Power of Attorney or written authorization to act on behalf of the Owner for EJARI registration, legal cases, and government dealings as required.', ar: 'تزويد Alwaan بتوكيل أو تفويض كتابي للتصرف نيابة عن المالك في تسجيل إيجاري، القضايا القانونية، والتعاملات الحكومية.' },
     { en: 'Provide unit/building access for inspections, viewings, and maintenance work.', ar: 'توفير إمكانية الوصول إلى الوحدات/المبنى للفحص والمعاينة وأعمال الصيانة.' },
     { en: 'Settle any outstanding utility bills, fees, or fines existing prior to the handover date.', ar: 'تسوية أي فواتير خدمات أو رسوم أو غرامات معلقة قبل تاريخ التسليم.' },
-    { en: 'Notify CRE in writing of any changes to ownership, banking details, or contact information.', ar: 'إخطار CRE كتابياً بأي تغييرات في الملكية، البيانات المصرفية، أو معلومات الاتصال.' },
-    { en: 'Refrain from communicating directly with tenants regarding lease matters during the term of this Agreement; all such communications shall be channeled through CRE.', ar: 'الامتناع عن التواصل المباشر مع المستأجرين بشأن أمور الإيجار خلال مدة هذه الاتفاقية؛ تتم جميع الاتصالات عبر CRE.' },
+    { en: 'Notify Alwaan in writing of any changes to ownership, banking details, or contact information.', ar: 'إخطار Alwaan كتابياً بأي تغييرات في الملكية، البيانات المصرفية، أو معلومات الاتصال.' },
+    { en: 'Refrain from communicating directly with tenants regarding lease matters during the term of this Agreement; all such communications shall be channeled through Alwaan.', ar: 'الامتناع عن التواصل المباشر مع المستأجرين بشأن أمور الإيجار خلال مدة هذه الاتفاقية؛ تتم جميع الاتصالات عبر Alwaan.' },
   ]
 
-  // CRE OBLIGATIONS (from editable content)
+  // Alwaan OBLIGATIONS (from editable content)
   const creObligations: { en: string; ar: string }[] = C.creObligations.length ? C.creObligations : [
     { en: 'Use best efforts to maintain occupancy levels above 90% through active marketing and competitive pricing.', ar: 'بذل قصارى الجهود للحفاظ على معدل إشغال يتجاوز 90% من خلال التسويق النشط والتسعير التنافسي.' },
     { en: 'Collect rent on the contractually agreed due dates and deposit cheques on the same day of receipt where possible.', ar: 'تحصيل الإيجارات في تواريخ الاستحقاق المتعاقد عليها وإيداع الشيكات في نفس يوم استلامها قدر الإمكان.' },
@@ -642,14 +642,14 @@ ${biH('1', C.sectionHeaders.s1En, C.sectionHeaders.s1Ar)}
   <div class="party-card">
     <h3><span>PROPERTY MANAGER (SECOND PARTY)</span><span class="h-ar" dir="rtl">مدير العقار (الطرف الثاني)</span></h3>
     <div class="kv">
-      <div><span class="k">Company / الشركة:</span> <span class="v">CRE (CRE)</span></div>
+      <div><span class="k">Company / الشركة:</span> <span class="v">Alwaan L.L.C.</span></div>
       <div><span class="k">Type / النوع:</span> <span class="v">Property Management Company</span></div>
       <div><span class="k">RERA License:</span> <span class="v">_______________</span></div>
       <div><span class="k">Trade License:</span> <span class="v">_______________</span></div>
       <div><span class="k">Address:</span> <span class="v">Dubai, United Arab Emirates</span></div>
       <div><span class="k">Phone:</span> <span class="v">+971 _______</span></div>
-      <div><span class="k">Email:</span> <span class="v">info@cre.ae</span></div>
-      <div><span class="k">Website:</span> <span class="v">www.cre.ae</span></div>
+      <div><span class="k">Email:</span> <span class="v">info@alwaan.ae</span></div>
+      <div><span class="k">Website:</span> <span class="v">www.alwaan.ae</span></div>
     </div>
   </div>
 </div>
@@ -737,7 +737,7 @@ ${biH('6', C.sectionHeaders.s6En, C.sectionHeaders.s6Ar)}
   ${ownerObligations.map((c, i) => biLi(i + 1, c.en, c.ar)).join('')}
 </div>
 
-<!-- SECTION 7: CRE OBLIGATIONS -->
+<!-- SECTION 7: Alwaan OBLIGATIONS -->
 ${biH('7', C.sectionHeaders.s7En, C.sectionHeaders.s7Ar)}
 <div class="bi-list">
   ${creObligations.map((c, i) => biLi(i + 1, c.en, c.ar)).join('')}
@@ -802,12 +802,12 @@ ${biH('15', C.sectionHeaders.s15En, C.sectionHeaders.s15Ar)}
       `}
     </div>
     <div class="sig-box">
-      <div class="role"><span>CRE (SECOND PARTY)</span><span class="ar-r" dir="rtl">CRE (الطرف الثاني)</span></div>
+      <div class="role"><span>Alwaan (SECOND PARTY)</span><span class="ar-r" dir="rtl">Alwaan (الطرف الثاني)</span></div>
       <div class="name-line">Name: ${tenantSafe(o.signedByCREName || '')}</div>
       <div class="name-line">Title: Director / Property Management</div>
       ${o.creSignatureImage ? `
         <div class="name-line">Date: ${fmtSigDate(o.creSignedAt)}</div>
-        <img src="${o.creSignatureImage}" alt="CRE signature" style="max-height:60px;display:block;margin:4px 0;border-bottom:1px solid #333;padding-bottom:2px" />
+        <img src="${o.creSignatureImage}" alt="Alwaan signature" style="max-height:60px;display:block;margin:4px 0;border-bottom:1px solid #333;padding-bottom:2px" />
         <div class="name-line" style="font-size:10px;color:#555">Electronically counter-signed</div>
       ` : `
         <div class="name-line">Date: _____________________</div>
@@ -833,7 +833,7 @@ ${biH('15', C.sectionHeaders.s15En, C.sectionHeaders.s15Ar)}
   </div>
   <div class="seal-area">
     <div class="seal">OWNER STAMP / SEAL<br/><span class="ar-text" dir="rtl">ختم المالك</span></div>
-    <div class="seal">CRE COMPANY STAMP / SEAL<br/><span class="ar-text" dir="rtl">ختم الشركة</span></div>
+    <div class="seal">Alwaan COMPANY STAMP / SEAL<br/><span class="ar-text" dir="rtl">ختم الشركة</span></div>
   </div>
 </div>
 
@@ -841,7 +841,7 @@ ${biH('15', C.sectionHeaders.s15En, C.sectionHeaders.s15Ar)}
 <div class="footer-note">
   <div>${C.footerNoteEn}</div>
   <div class="ar-f" dir="rtl">${C.footerNoteAr}</div>
-  <div style="margin-top:8px"><strong>Alwaan</strong> &middot; Dubai, United Arab Emirates &middot; www.cre.ae &middot; info@cre.ae</div>
+  <div style="margin-top:8px"><strong>Alwaan</strong> &middot; Dubai, United Arab Emirates &middot; www.alwaan.ae &middot; info@alwaan.ae</div>
   <div>Generated: ${today} &middot; Reference: ${refNo}</div>
 </div>
 

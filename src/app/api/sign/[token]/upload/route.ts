@@ -18,7 +18,7 @@ import { buildDldTenancyContractHTML } from '@/lib/dld-tenancy-contract-builder'
  *   uploads/sign-tenant-eid/{contractId}/eid-{timestamp}.{ext}
  *
  * Also creates a TenantDocument row (docType="Emirates ID",
- * status="Uploaded") so CRE can verify / re-upload it from the
+ * status="Uploaded") so Alwaan can verify / re-upload it from the
  * tenant edit page before activation.
  */
 

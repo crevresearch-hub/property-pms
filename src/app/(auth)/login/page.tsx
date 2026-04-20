@@ -47,7 +47,7 @@ export default function LoginPage() {
       {/* Login card */}
       <div className="relative z-10 w-full max-w-md px-4">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl sm:p-10">
-          {/* CRE Logo */}
+          {/* Logo */}
           <div className="mb-8 text-center">
             <div className="mt-4 inline-block rounded-full bg-[#E30613]/10 px-4 py-1">
               <p className="text-[10px] font-bold tracking-[0.3em] text-[#E30613]">
@@ -56,7 +56,7 @@ export default function LoginPage() {
             </div>
             <h2 className="mt-3 text-xl font-bold text-slate-900">Staff Sign In</h2>
             <p className="mt-1 text-sm text-slate-500">
-              For CRE administrators and property management staff
+              For Alwaan administrators and property management staff
             </p>
           </div>
 
@@ -168,7 +168,7 @@ export default function LoginPage() {
             <p className="text-xs text-slate-400">
               <a href="/" className="hover:text-slate-600">← Back to home</a>
               {" · "}
-              CRE &copy; {new Date().getFullYear()}
+              Alwaan &copy; {new Date().getFullYear()}
             </p>
           </div>
         </div>

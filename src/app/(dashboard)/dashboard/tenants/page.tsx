@@ -48,7 +48,7 @@ interface TenantRow {
   companyTradeLicenseExpiry: string
   signatoryName: string
   signatoryTitle: string
-  units: { id: string; unitNo: string; status: string; currentRent: number }[]
+  units: { id: string; unitNo: string; unitType: string; status: string; currentRent: number }[]
   documents: { id: string; docType: string }[]
   has_ejari: boolean
   has_cheque: boolean
@@ -517,21 +517,36 @@ export default function TenantsPage() {
   )
 
   const columns: Column<TenantRow>[] = [
-    { key: "name", header: "Name", sortable: true },
-    { key: "phone", header: "Phone" },
-    { key: "email", header: "Email" },
+    { key: "name", header: "Name", sortable: true, filterable: true },
+    { key: "phone", header: "Phone", filterable: true },
+    { key: "email", header: "Email", filterable: true },
     {
       key: "units",
       header: "Unit",
+      sortable: true,
+      filterable: true,
+      filterValue: (row) => row.units.map((u) => u.unitNo).join(", "),
       render: (row) =>
         row.units.length > 0
           ? row.units.map((u) => u.unitNo).join(", ")
           : <span className="text-slate-600">--</span>,
     },
-    { key: "emiratesId", header: "Emirates ID" },
+    {
+      key: "unitType",
+      header: "Type",
+      filterable: true,
+      filterValue: (row) => row.units.map((u) => u.unitType).filter(Boolean).join(", "),
+      render: (row) =>
+        row.units.length > 0 && row.units[0].unitType
+          ? row.units.map((u) => u.unitType).filter(Boolean).join(", ")
+          : <span className="text-slate-600">--</span>,
+    },
+    { key: "nationality", header: "Nationality", filterable: true },
+    { key: "emiratesId", header: "Emirates ID", filterable: true },
     {
       key: "status",
       header: "Status",
+      filterable: true,
       render: (row) => (
         <StatusBadge status={row.status === "Pending" ? "Emailed to Client" : row.status} />
       ),
@@ -559,16 +574,14 @@ export default function TenantsPage() {
           >
             <Eye className="h-4 w-4" />
           </button>
-          {row.status !== "Active" && row.status !== "Terminated" && (
-            <Link
-              href={`/dashboard/tenants/${row.id}/edit`}
-              title="Edit"
-              onClick={(e) => e.stopPropagation()}
-              className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
-            >
-              <Pencil className="h-4 w-4" />
-            </Link>
-          )}
+          <Link
+            href={`/dashboard/tenants/${row.id}/edit`}
+            title="Edit"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
           {row.status === "Active" && (
             <button
               title="Tenant Portal"

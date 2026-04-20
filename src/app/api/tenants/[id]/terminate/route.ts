@@ -111,7 +111,7 @@ export async function POST(
           <p>Dear ${tenant.name},</p>
           <p>Your tenancy contract with Alwaan has been terminated${effectiveDate ? ` effective <strong>${effectiveDate}</strong>` : ''}.</p>
           <p style="margin:16px 0;padding:12px;background:#fff5f5;border-left:4px solid #E30613;border-radius:4px;"><strong>Reason:</strong><br/>${reason.replace(/[<>]/g, '')}</p>
-          <p>Your tenant portal access has been disabled. For any questions, please contact <a href="mailto:info@cre.ae" style="color:#E30613;">info@cre.ae</a>.</p>
+          <p>Your tenant portal access has been disabled. For any questions, please contact <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a>.</p>
         </div>
       </body></html>`
       await sendEmail({

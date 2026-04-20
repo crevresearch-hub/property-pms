@@ -1,5 +1,5 @@
 /**
- * CRE (CRE) email templates.
+ * Alwaan email templates.
  *
  * All templates return { subject, html } where `html` is a fully
  * self-contained, inline-styled email body. Email clients (Gmail,
@@ -187,7 +187,7 @@ export function welcomeOwnerTemplate(owner: OwnerLike, baseUrl: string) {
     </ol>
     <p style="margin:14px 0 0 0;">
       If you have any questions, simply reply to this email or contact us at
-      <a href="mailto:info@cre.ae" style="color:${BRAND_RED};text-decoration:none;">info@cre.ae</a>.
+      <a href="mailto:info@alwaan.ae" style="color:${BRAND_RED};text-decoration:none;">info@alwaan.ae</a>.
     </p>
   `
   return {
@@ -289,7 +289,7 @@ export function contractSentTemplate(owner: OwnerLike, contract: ContractLike, b
       <li style="margin-bottom:6px;">Click <strong>Review &amp; Sign Online</strong> above to open the secure signature page.</li>
       <li style="margin-bottom:6px;">Review the full bilingual agreement.</li>
       <li style="margin-bottom:6px;">Draw or type your signature and confirm.</li>
-      <li style="margin-bottom:6px;">You will receive a confirmation email once CRE counter-signs.</li>
+      <li style="margin-bottom:6px;">You will receive a confirmation email once Alwaan counter-signs.</li>
     </ol>
     <p style="margin:14px 0 0 0;color:${TEXT_MUTED};font-size:12px;">
       Contract No: ${esc(contract.contractNo)} &middot; Version ${esc(contract.version)}
@@ -335,7 +335,7 @@ export function contractSignedTemplate(owner: OwnerLike, contract: ContractLike,
       <li style="margin-bottom:6px;">You'll receive a go-live confirmation once your building is active in the PMS.</li>
     </ol>
     <p style="margin:14px 0 0 0;">
-      Thank you for entrusting CRE with the management of your property.
+      Thank you for entrusting Alwaan with the management of your property.
     </p>
   `
   return {
@@ -356,7 +356,7 @@ export function contractSignedTemplate(owner: OwnerLike, contract: ContractLike,
 /* ------------------------------------------------------------------ */
 
 export function ownerActivatedTemplate(owner: OwnerLike, baseUrl: string) {
-  const subject = `You're Live with CRE!`
+  const subject = `You're Live with Alwaan!`
   const portalUrl = `${baseUrl.replace(/\/$/, '')}/owner-portal`
   const bodyHtml = `
     <p style="margin:0 0 14px 0;">Dear ${esc(owner.ownerName)},</p>
@@ -379,8 +379,8 @@ export function ownerActivatedTemplate(owner: OwnerLike, baseUrl: string) {
     subject,
     html: layout({
       baseUrl,
-      preheader: `${owner.buildingName} is now live in the CRE PMS. Here's what to expect.`,
-      heading: 'You Are Live in the CRE PMS',
+      preheader: `${owner.buildingName} is now live in the Alwaan PMS. Here's what to expect.`,
+      heading: 'You Are Live in the Alwaan PMS',
       bodyHtml,
       ctaLabel: 'Open Owner Portal',
       ctaHref: portalUrl,
@@ -538,7 +538,7 @@ export function tenancyContractSentTemplate(
       <li style="margin-bottom:6px;">Click the button below to open the contract.</li>
       <li style="margin-bottom:6px;">Print, sign in the Tenant signature block, and scan.</li>
       <li style="margin-bottom:6px;">Email the signed copy back to
-        <a href="mailto:info@cre.ae" style="color:${BRAND_RED};text-decoration:none;">info@cre.ae</a>.</li>
+        <a href="mailto:info@alwaan.ae" style="color:${BRAND_RED};text-decoration:none;">info@alwaan.ae</a>.</li>
     </ol>
   `
   return {

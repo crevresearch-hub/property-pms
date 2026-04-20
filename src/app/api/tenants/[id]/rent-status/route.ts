@@ -135,7 +135,7 @@ export async function POST(
         ${upfront.cash > 0 ? `<p style="margin:14px 0 0 0;font-size:11px;color:#6b7280;">Upfront cash received: <strong>${aed(upfront.cash)}</strong></p>` : ''}
 
         <p style="margin:18px 0 0 0;font-size:11px;color:#6b7280;">
-          For any queries, contact <a href="mailto:info@cre.ae" style="color:#E30613;">info@cre.ae</a>.
+          For any queries, contact <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a>.
         </p>
       </div>
     </body></html>`

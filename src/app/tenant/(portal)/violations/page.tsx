@@ -139,7 +139,7 @@ export default function TenantViolationsPage() {
                 )}
                 {v.paidAt && <span className="text-emerald-300">✓ Paid {fmt(v.paidAt)}</span>}
                 <span className="ml-auto text-slate-400">
-                  Dispute? Email <a href="mailto:info@cre.ae" className="text-amber-300 underline">info@cre.ae</a> within 7 days.
+                  Dispute? Email <a href="mailto:info@alwaan.ae" className="text-amber-300 underline">info@alwaan.ae</a> within 7 days.
                 </span>
               </div>
             </div>

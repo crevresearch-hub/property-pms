@@ -105,15 +105,13 @@ export default function TenantLoginPage() {
 
           <div className="mt-8 border-t border-slate-100 pt-6 text-center space-y-2">
             <p className="text-xs text-slate-500">
-              Are you a CRE staff member?{" "}
+              Are you an Alwaan staff member?{" "}
               <a href="/login" className="font-semibold text-[#E30613] hover:underline">
                 Sign in here →
               </a>
             </p>
             <p className="text-xs text-slate-400">
-              <a href="/" className="hover:text-slate-600">← Back to home</a>
-              {" · "}
-              CRE &copy; {new Date().getFullYear()}
+              Alwaan &copy; {new Date().getFullYear()}
             </p>
           </div>
         </div>

@@ -96,7 +96,7 @@ export async function POST(
           <p style="text-align:center;margin:18px 0;">
             <a href="${portalUrl}" style="display:inline-block;background:#E30613;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Open Tenant Portal</a>
           </p>
-          <p style="margin:14px 0 0 0;font-size:11px;color:#6b7280;">For any queries: <a href="mailto:info@cre.ae" style="color:#E30613;">info@cre.ae</a></p>
+          <p style="margin:14px 0 0 0;font-size:11px;color:#6b7280;">For any queries: <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a></p>
         </div>
       </body></html>`
 

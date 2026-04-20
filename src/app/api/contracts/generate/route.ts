@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const isCommercial = unit.unitType.toLowerCase().includes('commercial') || unit.unitType.toLowerCase().includes('shop') || unit.unitType.toLowerCase().includes('office')
     const unitTypeKey = isCommercial ? 'commercial' : 'residential'
 
-    // Calculate all CRE fees
+    // Calculate all Alwaan fees
     const commissionFee = calculateFee(`new_lease_${unitTypeKey}`, rent)
     const ejariFee = calculateFee('ejari', rent)
     const municipalityFee = calculateFee('municipality', rent)

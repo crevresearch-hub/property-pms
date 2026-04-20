@@ -141,7 +141,7 @@ export default function WorkflowPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white">Operations Workflow</h1>
-        <p className="mt-1 text-sm text-slate-400">Complete CRE property management operations manual</p>
+        <p className="mt-1 text-sm text-slate-400">Complete Alwaan property management operations manual</p>
       </div>
 
       {sections.map((section, idx) => (

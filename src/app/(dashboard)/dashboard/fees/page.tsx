@@ -108,7 +108,7 @@ export default function FeesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-white">CRE Fees</h1><p className="mt-1 text-sm text-slate-400">{entries.length} fee entries</p></div>
+        <div><h1 className="text-2xl font-bold text-white">Alwaan Fees</h1><p className="mt-1 text-sm text-slate-400">{entries.length} fee entries</p></div>
         <div className="flex gap-2">
           <button onClick={handleAutoCheck} disabled={autoChecking} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50">
             <Zap className="h-4 w-4" /> {autoChecking ? "Checking..." : "Auto-Check Penalties"}

@@ -1,5 +1,5 @@
 /**
- * CRE Fee Structure from Operation Manual.
+ * Alwaan Fee Structure from Operation Manual.
  * All amounts are in AED and include VAT where applicable.
  */
 
@@ -19,68 +19,68 @@ export const FEE_STRUCTURE: Record<string, FeeDefinition> = {
     rate: 0.05,
     min: 1050,
     type: 'percentage',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   new_lease_commercial: {
     name: 'New Lease Commission (Commercial)',
     rate: 0.10,
     min: 1050,
     type: 'percentage',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   renewal_residential: {
     name: 'Renewal Fee (Residential)',
     amount: 850,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   renewal_commercial: {
     name: 'Renewal Fee (Commercial)',
     amount: 1500,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   ejari: {
     name: 'EJARI Registration',
     amount: 250,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   municipality: {
     name: 'Municipality Service Charge',
     amount: 210,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   cheque_replacement: {
     name: 'Cheque Replacement',
     amount: 262.50,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   cheque_postponement: {
     name: 'Cheque Postponement',
     amount: 262.50,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   bounced_cheque: {
     name: 'Bounced Cheque Fine',
     amount: 525,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   late_renewal_15: {
     name: 'Late Renewal (within 15 days)',
     amount: 525,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   late_renewal_30: {
     name: 'Late Renewal (within 30 days)',
     amount: 1050,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   early_termination_residential: {
     name: 'Early Termination (Residential)',
@@ -99,20 +99,20 @@ export const FEE_STRUCTURE: Record<string, FeeDefinition> = {
     rate: 0.05,
     min: 0,
     type: 'percentage',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   name_change_commercial: {
     name: 'Name Change / Transfer (Commercial)',
     rate: 0.10,
     min: 0,
     type: 'percentage',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   certification_letter: {
     name: 'Certification Letter',
     amount: 100,
     type: 'fixed',
-    beneficiary: 'CRE',
+    beneficiary: 'Alwaan',
   },
   security_deposit_residential: {
     name: 'Security Deposit (Residential)',

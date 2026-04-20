@@ -108,7 +108,7 @@ export async function POST() {
       where: { id: organizationId },
       select: { email: true },
     })
-    const contactEmail = org?.email || 'info@cre.ae'
+    const contactEmail = org?.email || 'info@alwaan.ae'
 
     const now = new Date()
     const todayStr = now.toISOString().slice(0, 10)
