@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BarChart3, Building2, Users, Crown } from "lucide-react"
+import { Building2, Users, Crown } from "lucide-react"
 
 export default function HomePage() {
   return (
@@ -26,37 +26,7 @@ export default function HomePage() {
         </div>
 
         {/* Portal cards */}
-        <div className="grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {/* CEO Dashboard */}
-          <Link
-            href="/ceo/alwaan"
-            className="group relative overflow-hidden rounded-2xl border-2 border-amber-300/30 bg-white p-7 transition-all hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-400/20"
-          >
-            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-amber-400/5 transition-all group-hover:bg-amber-400/10" />
-            <div className="relative">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-500 shadow-lg shadow-amber-500/30">
-                <BarChart3 className="h-7 w-7 text-white" />
-              </div>
-              <h2 className="text-xl font-bold text-slate-900">CEO Dashboard</h2>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-amber-600">
-                Executive Overview
-              </p>
-              <p className="mt-3 text-sm text-slate-600">
-                Real-time financials, occupancy analytics, P&L, cash flow, and market intelligence.
-              </p>
-              <ul className="mt-4 space-y-1 text-xs text-slate-500">
-                <li>• Revenue & Expense Overview</li>
-                <li>• P&L Statement & Cash Flow</li>
-                <li>• Unit Analysis & Occupancy</li>
-                <li>• Market Intelligence</li>
-              </ul>
-              <div className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white group-hover:bg-amber-600">
-                Open Dashboard
-                <span className="transition-transform group-hover:translate-x-1">→</span>
-              </div>
-            </div>
-          </Link>
-
+        <div className="grid w-full max-w-5xl grid-cols-1 gap-5 sm:grid-cols-3">
           {/* Staff Portal */}
           <Link
             href="/login"
