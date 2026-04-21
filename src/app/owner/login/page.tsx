@@ -1,18 +1,21 @@
 "use client"
 
 import { useState, FormEvent, useEffect, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 const ERROR_MESSAGES: Record<string, string> = {
   "no-token": "Sign-in link is missing.",
-  "invalid-or-expired": "This sign-in link is invalid or has expired. Please request a new one.",
+  "invalid-or-expired": "This sign-in link is invalid or has expired.",
   "owner-not-found": "No active owner account found. Contact management.",
 }
 
 function OwnerLoginInner() {
+  const router = useRouter()
   const params = useSearchParams()
   const errorFromUrl = params.get("error")
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [mode, setMode] = useState<"password" | "magic">("password")
   const [error, setError] = useState("")
   const [info, setInfo] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -23,7 +26,31 @@ function OwnerLoginInner() {
     }
   }, [errorFromUrl])
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handlePassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError("")
+    setInfo("")
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/owner/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) setError(data.error || "Login failed")
+      else {
+        router.push("/owner/dashboard")
+        router.refresh()
+      }
+    } catch {
+      setError("Unexpected error.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleMagic(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError("")
     setInfo("")
@@ -38,7 +65,7 @@ function OwnerLoginInner() {
       if (!res.ok) setError(data.error || "Failed to send link")
       else setInfo(data.message || "Sign-in link sent. Check your email.")
     } catch {
-      setError("Unexpected error. Please try again.")
+      setError("Unexpected error.")
     } finally {
       setIsLoading(false)
     }
@@ -58,9 +85,6 @@ function OwnerLoginInner() {
               <p className="text-[10px] font-bold tracking-[0.3em] text-amber-700">OWNER PORTAL</p>
             </div>
             <h2 className="mt-3 text-xl font-bold text-slate-900">Property Owner Sign In</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              We&apos;ll email you a one-click sign-in link. No password needed.
-            </p>
           </div>
 
           {error && (
@@ -75,32 +99,81 @@ function OwnerLoginInner() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-slate-700">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                autoFocus
-                placeholder="you@company.com"
-                className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-600/20"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="relative mt-2 flex w-full items-center justify-center rounded-lg bg-amber-600 px-4 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-500/30 transition-all hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLoading ? "Sending..." : "Send sign-in link"}
-            </button>
-          </form>
+          {mode === "password" ? (
+            <form onSubmit={handlePassword} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  autoFocus
+                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-600/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-600/20"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex w-full items-center justify-center rounded-lg bg-amber-600 px-4 py-3 text-sm font-bold uppercase tracking-wider text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
+              </button>
+              <p className="text-center text-xs text-slate-500">
+                Forgot password?{" "}
+                <button
+                  type="button"
+                  onClick={() => { setMode("magic"); setError(""); setInfo("") }}
+                  className="font-semibold text-amber-700 hover:underline"
+                >
+                  Email me a login link
+                </button>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleMagic} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  autoFocus
+                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-600/20"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex w-full items-center justify-center rounded-lg bg-amber-600 px-4 py-3 text-sm font-bold uppercase tracking-wider text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                {isLoading ? "Sending..." : "Send sign-in link"}
+              </button>
+              <p className="text-center text-xs text-slate-500">
+                <button
+                  type="button"
+                  onClick={() => { setMode("password"); setError(""); setInfo("") }}
+                  className="font-semibold text-amber-700 hover:underline"
+                >
+                  ← Back to password login
+                </button>
+              </p>
+            </form>
+          )}
 
           <div className="mt-8 border-t border-slate-100 pt-6 text-center space-y-2">
             <p className="text-xs text-slate-500">
