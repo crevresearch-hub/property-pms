@@ -90,6 +90,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Import Data", href: "/dashboard/import", icon: Upload },
       { label: "Import Tenants (Folder)", href: "/dashboard/import/tenants", icon: Upload },
+      { label: "Import Cheques (Excel)", href: "/dashboard/import/cheques", icon: Upload },
       { label: "Settings", href: "/dashboard/settings", icon: Settings },
       { label: "Users", href: "/dashboard/users", icon: UserCog, adminOnly: true },
     ],
