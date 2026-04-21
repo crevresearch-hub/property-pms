@@ -94,13 +94,12 @@ export function LastUpdatedBadge({ lastUpdated, refreshing, onRefresh }: { lastU
     const t = setInterval(() => setTick((v) => v + 1), 10_000)
     return () => clearInterval(t)
   }, [])
-  // tick is used to force re-render for time-ago display
   void tick
   return (
     <button
       onClick={onRefresh}
       disabled={refreshing}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-400 hover:text-white hover:bg-white/5 print:hidden"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-600 hover:text-slate-900 hover:border-[#E30613]/50 print:hidden"
       title="Refresh data"
     >
       <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
@@ -111,20 +110,20 @@ export function LastUpdatedBadge({ lastUpdated, refreshing, onRefresh }: { lastU
 
 export function StatusPill({ value }: { value: string }) {
   const map: Record<string, string> = {
-    Occupied: "bg-green-500/20 text-green-400",
-    Vacant: "bg-red-500/20 text-red-400",
-    Reserved: "bg-amber-500/20 text-amber-400",
-    "Under Maintenance": "bg-orange-500/20 text-orange-400",
-    Cleared: "bg-green-500/20 text-green-400",
-    Bounced: "bg-red-500/20 text-red-400",
-    Received: "bg-blue-500/20 text-blue-400",
-    Pending: "bg-amber-500/20 text-amber-400",
-    Deposited: "bg-blue-500/20 text-blue-400",
-    Paid: "bg-green-500/20 text-green-400",
-    Overdue: "bg-red-500/20 text-red-400",
-    Unpaid: "bg-amber-500/20 text-amber-400",
+    Occupied: "bg-green-100 text-green-700",
+    Vacant: "bg-red-100 text-red-700",
+    Reserved: "bg-amber-100 text-amber-700",
+    "Under Maintenance": "bg-orange-100 text-orange-700",
+    Cleared: "bg-green-100 text-green-700",
+    Bounced: "bg-red-100 text-red-700",
+    Received: "bg-blue-100 text-blue-700",
+    Pending: "bg-amber-100 text-amber-700",
+    Deposited: "bg-blue-100 text-blue-700",
+    Paid: "bg-green-100 text-green-700",
+    Overdue: "bg-red-100 text-red-700",
+    Unpaid: "bg-amber-100 text-amber-700",
   }
-  const cls = map[value] || "bg-slate-500/20 text-slate-400"
+  const cls = map[value] || "bg-slate-100 text-slate-700"
   return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{value}</span>
 }
 
@@ -135,35 +134,42 @@ export function KpiCard({
   accent?: "amber" | "green" | "red" | "blue" | "purple"; sub?: string
 }) {
   const accents = {
-    amber: "from-amber-500/20 to-amber-600/5 border-amber-500/30",
-    green: "from-green-500/20 to-green-600/5 border-green-500/30",
-    red: "from-red-500/20 to-red-600/5 border-red-500/30",
-    blue: "from-blue-500/20 to-blue-600/5 border-blue-500/30",
-    purple: "from-purple-500/20 to-purple-600/5 border-purple-500/30",
+    amber: "border-l-amber-500 bg-gradient-to-br from-amber-50 to-white",
+    green: "border-l-green-500 bg-gradient-to-br from-green-50 to-white",
+    red: "border-l-[#E30613] bg-gradient-to-br from-red-50 to-white",
+    blue: "border-l-blue-500 bg-gradient-to-br from-blue-50 to-white",
+    purple: "border-l-purple-500 bg-gradient-to-br from-purple-50 to-white",
+  }
+  const iconColors = {
+    amber: "text-amber-600",
+    green: "text-green-600",
+    red: "text-[#E30613]",
+    blue: "text-blue-600",
+    purple: "text-purple-600",
   }
   return (
-    <div className={`rounded-xl border bg-gradient-to-br ${accents[accent]} p-4`}>
+    <div className={`rounded-xl border border-slate-200 border-l-4 ${accents[accent]} p-4 shadow-sm`}>
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-        <span className="text-slate-500">{icon}</span>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+        <span className={iconColors[accent]}>{icon}</span>
       </div>
-      <p className="mt-2 text-2xl font-bold text-white">{value}</p>
-      {sub && <p className="mt-1 text-[11px] text-slate-400">{sub}</p>}
+      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+      {sub && <p className="mt-1 text-[11px] text-slate-500">{sub}</p>}
     </div>
   )
 }
 
 export function SkeletonKpi() {
   return (
-    <div className="rounded-xl border border-white/10 bg-gradient-to-br from-slate-800/40 to-slate-900/20 p-4 animate-pulse">
-      <div className="h-2 w-20 rounded bg-slate-700" />
-      <div className="mt-3 h-7 w-28 rounded bg-slate-700" />
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 animate-pulse">
+      <div className="h-2 w-20 rounded bg-slate-200" />
+      <div className="mt-3 h-7 w-28 rounded bg-slate-200" />
     </div>
   )
 }
 
 export function SkeletonBlock({ height = 200 }: { height?: number }) {
-  return <div className="animate-pulse rounded-xl border border-white/10 bg-slate-800/30" style={{ height }} />
+  return <div className="animate-pulse rounded-xl border border-slate-200 bg-slate-100" style={{ height }} />
 }
 
 export function LoadingSpinner() {
@@ -186,14 +192,14 @@ export function LoadingSpinner() {
 }
 
 export function ErrorBox({ message }: { message: string }) {
-  return <div className="rounded-lg border border-red-800 bg-red-900/20 p-4 text-sm text-red-400">{message}</div>
+  return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{message}</div>
 }
 
 export function PrintButton() {
   return (
     <button
       onClick={() => window.print()}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-400 hover:text-white hover:bg-white/5 print:hidden"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-600 hover:text-slate-900 hover:border-[#E30613]/50 print:hidden"
     >
       <Printer className="h-3 w-3" /> Print / PDF
     </button>
@@ -228,11 +234,11 @@ export function ExportCsvButton<T extends Record<string, unknown>>({
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-green-700/50 bg-green-900/20 px-2 py-1 text-[10px] font-semibold text-green-300 hover:bg-green-900/40 print:hidden"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-2 py-1 text-[10px] font-semibold text-green-700 hover:bg-green-100 print:hidden"
     >
       <Download className="h-3 w-3" /> Export CSV
     </button>
   )
 }
 
-export const CHART_COLORS = ["#f59e0b", "#22c55e", "#3b82f6", "#ef4444", "#a855f7", "#ec4899", "#14b8a6", "#eab308"]
+export const CHART_COLORS = ["#E30613", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#14b8a6", "#eab308"]

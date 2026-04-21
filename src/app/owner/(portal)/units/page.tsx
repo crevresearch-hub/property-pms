@@ -51,8 +51,8 @@ export default function OwnerUnitsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-white">Units</h2>
-          <p className="text-sm text-slate-400">Detailed view of every unit in {data.owner.buildingName}</p>
+          <h2 className="text-2xl font-bold text-slate-900">Units</h2>
+          <p className="text-sm text-slate-500">Detailed view of every unit in {data.owner.buildingName}</p>
         </div>
         <div className="flex items-center gap-2 print:hidden">
           <LastUpdatedBadge lastUpdated={lastUpdated} refreshing={refreshing} onRefresh={refresh} />
@@ -90,7 +90,7 @@ export default function OwnerUnitsPage() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-3">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 space-y-3">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -99,28 +99,28 @@ export default function OwnerUnitsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search unit no, tenant, type..."
-              className="w-full rounded-lg border border-white/10 bg-black/40 py-2 pl-9 pr-3 text-sm text-white outline-none placeholder-slate-500 focus:border-amber-500/50"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none placeholder-slate-500 focus:border-amber-500/50"
             />
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setTypeFilter("all")} className={`rounded-lg px-3 py-1 text-xs ${typeFilter === "all" ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30" : "bg-white/5 text-slate-400 hover:text-white"}`}>
+          <button onClick={() => setTypeFilter("all")} className={`rounded-lg px-3 py-1 text-xs ${typeFilter === "all" ? "bg-amber-100 text-amber-700 ring-1 ring-amber-400/60" : "bg-slate-50 text-slate-500 hover:text-slate-900"}`}>
             All Types <span className="ml-1 text-[10px]">({data.units.length})</span>
           </button>
           {types.map((t) => (
-            <button key={t} onClick={() => setTypeFilter(t)} className={`rounded-lg px-3 py-1 text-xs ${typeFilter === t ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30" : "bg-white/5 text-slate-400 hover:text-white"}`}>
+            <button key={t} onClick={() => setTypeFilter(t)} className={`rounded-lg px-3 py-1 text-xs ${typeFilter === t ? "bg-amber-100 text-amber-700 ring-1 ring-amber-400/60" : "bg-slate-50 text-slate-500 hover:text-slate-900"}`}>
               {t} <span className="ml-1 text-[10px]">({data.units.filter((u) => u.unitType === t).length})</span>
             </button>
           ))}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setStatusFilter("all")} className={`rounded-lg px-3 py-1 text-xs ${statusFilter === "all" ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30" : "bg-white/5 text-slate-400 hover:text-white"}`}>
+          <button onClick={() => setStatusFilter("all")} className={`rounded-lg px-3 py-1 text-xs ${statusFilter === "all" ? "bg-blue-100 text-blue-700 ring-1 ring-blue-400/60" : "bg-slate-50 text-slate-500 hover:text-slate-900"}`}>
             All Status
           </button>
           {statuses.map((s) => (
-            <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-lg px-3 py-1 text-xs ${statusFilter === s ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30" : "bg-white/5 text-slate-400 hover:text-white"}`}>
+            <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-lg px-3 py-1 text-xs ${statusFilter === s ? "bg-blue-100 text-blue-700 ring-1 ring-blue-400/60" : "bg-slate-50 text-slate-500 hover:text-slate-900"}`}>
               {s} <span className="ml-1 text-[10px]">({data.units.filter((u) => u.status === s).length})</span>
             </button>
           ))}
@@ -128,13 +128,13 @@ export default function OwnerUnitsPage() {
       </div>
 
       {/* Units table */}
-      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-        <div className="mb-3 text-xs text-slate-400">Showing {filtered.length} of {data.units.length} units</div>
+      <section className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+        <div className="mb-3 text-xs text-slate-500">Showing {filtered.length} of {data.units.length} units</div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="text-slate-400">
+            <thead className="text-slate-500">
               <tr>
-                <th onClick={() => toggleSort("unitNo")} className="px-3 py-2 cursor-pointer hover:text-white">
+                <th onClick={() => toggleSort("unitNo")} className="px-3 py-2 cursor-pointer hover:text-slate-900">
                   Unit {sortKey === "unitNo" && (sortDir === "asc" ? "▲" : "▼")}
                 </th>
                 <th className="px-3 py-2">Type</th>
@@ -142,32 +142,32 @@ export default function OwnerUnitsPage() {
                 <th className="px-3 py-2">Tenant</th>
                 <th className="px-3 py-2">Nationality</th>
                 <th className="px-3 py-2">Contract End</th>
-                <th onClick={() => toggleSort("annualRent")} className="px-3 py-2 cursor-pointer hover:text-white text-right">
+                <th onClick={() => toggleSort("annualRent")} className="px-3 py-2 cursor-pointer hover:text-slate-900 text-right">
                   Annual Rent {sortKey === "annualRent" && (sortDir === "asc" ? "▲" : "▼")}
                 </th>
-                <th onClick={() => toggleSort("rentPerSqft")} className="px-3 py-2 cursor-pointer hover:text-white text-right">
+                <th onClick={() => toggleSort("rentPerSqft")} className="px-3 py-2 cursor-pointer hover:text-slate-900 text-right">
                   AED/SqFt {sortKey === "rentPerSqft" && (sortDir === "asc" ? "▲" : "▼")}
                 </th>
                 <th className="px-3 py-2 text-right">Collected</th>
-                <th onClick={() => toggleSort("pending")} className="px-3 py-2 cursor-pointer hover:text-white text-right">
+                <th onClick={() => toggleSort("pending")} className="px-3 py-2 cursor-pointer hover:text-slate-900 text-right">
                   Pending {sortKey === "pending" && (sortDir === "asc" ? "▲" : "▼")}
                 </th>
                 <th className="px-3 py-2">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-100">
               {filtered.map((u) => (
-                <tr key={u.id} className="text-slate-300 hover:bg-white/5">
-                  <td className="px-3 py-2 font-mono font-semibold text-white">{u.unitNo}</td>
-                  <td className="px-3 py-2">{u.unitType || <span className="text-slate-600">—</span>}</td>
+                <tr key={u.id} className="text-slate-700 hover:bg-slate-50">
+                  <td className="px-3 py-2 font-mono font-semibold text-slate-900">{u.unitNo}</td>
+                  <td className="px-3 py-2">{u.unitType || <span className="text-slate-500">—</span>}</td>
                   <td className="px-3 py-2 text-right">{u.sqFt > 0 ? u.sqFt.toLocaleString() : "—"}</td>
-                  <td className="px-3 py-2">{u.tenant?.name || <span className="text-slate-600">Vacant</span>}</td>
-                  <td className="px-3 py-2 text-slate-400">{u.tenant?.nationality || "—"}</td>
+                  <td className="px-3 py-2">{u.tenant?.name || <span className="text-slate-500">Vacant</span>}</td>
+                  <td className="px-3 py-2 text-slate-500">{u.tenant?.nationality || "—"}</td>
                   <td className="px-3 py-2">{u.contractEnd || "—"}</td>
-                  <td className="px-3 py-2 text-right text-amber-400">{formatAed(u.annualRent)}</td>
+                  <td className="px-3 py-2 text-right text-amber-700">{formatAed(u.annualRent)}</td>
                   <td className="px-3 py-2 text-right">{u.rentPerSqft > 0 ? formatAed(u.rentPerSqft) : "—"}</td>
-                  <td className="px-3 py-2 text-right text-green-400">{formatAed(u.collected)}</td>
-                  <td className="px-3 py-2 text-right text-red-400">{u.pending > 0 ? formatAed(u.pending) : "—"}</td>
+                  <td className="px-3 py-2 text-right text-green-700">{formatAed(u.collected)}</td>
+                  <td className="px-3 py-2 text-right text-[#E30613]">{u.pending > 0 ? formatAed(u.pending) : "—"}</td>
                   <td className="px-3 py-2"><StatusPill value={u.status} /></td>
                 </tr>
               ))}

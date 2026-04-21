@@ -16,7 +16,7 @@ const tabs = [
 export function NavTabs() {
   const pathname = usePathname()
   return (
-    <nav className="border-b border-white/5 bg-black/20 sticky top-0 z-20 backdrop-blur">
+    <nav className="border-b border-slate-200 bg-white sticky top-0 z-20 shadow-sm">
       <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 scrollbar-hide">
         {tabs.map((t) => {
           const Icon = t.icon
@@ -27,8 +27,8 @@ export function NavTabs() {
               href={t.href}
               className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
                 active
-                  ? "border-amber-500 text-amber-400"
-                  : "border-transparent text-slate-400 hover:text-white"
+                  ? "border-[#E30613] text-[#E30613]"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
               }`}
             >
               <Icon className="h-4 w-4" /> {t.label}

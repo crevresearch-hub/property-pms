@@ -8,17 +8,17 @@ export default async function OwnerPortalLayout({ children }: { children: React.
   if (!session) redirect("/owner/login")
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-amber-950/40 to-slate-950 text-slate-100">
-      <header className="border-b border-white/10 bg-black/40 backdrop-blur">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b-2 border-[#E30613] bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div>
-            <p className="text-[10px] font-bold tracking-[0.3em] text-amber-400">OWNER PORTAL</p>
-            <h1 className="text-lg font-bold text-white">{session.buildingName || session.name}</h1>
+            <p className="text-[10px] font-bold tracking-[0.3em] text-[#E30613]">OWNER PORTAL</p>
+            <h1 className="text-lg font-bold text-slate-900">{session.buildingName || session.name}</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-semibold text-white">{session.name}</p>
-              <p className="text-xs text-slate-400">Property Owner</p>
+              <p className="text-sm font-semibold text-slate-900">{session.name}</p>
+              <p className="text-xs text-slate-500">Property Owner</p>
             </div>
             <LogoutButton />
           </div>
