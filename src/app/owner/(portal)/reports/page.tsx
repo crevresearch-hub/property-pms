@@ -1,7 +1,7 @@
 "use client"
 
 import { FileText, Download, TrendingUp, Banknote, Calendar } from "lucide-react"
-import { useDashboard, formatAed, LoadingSpinner, ErrorBox } from "../_shared"
+import { useDashboard, formatAed, LoadingSpinner, ErrorBox, PrintButton } from "../_shared"
 
 export default function OwnerReportsPage() {
   const { data, loading, error } = useDashboard()
@@ -50,9 +50,14 @@ export default function OwnerReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Reports</h2>
-        <p className="text-sm text-slate-400">Download your building&apos;s data in Excel-friendly format</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Reports</h2>
+          <p className="text-sm text-slate-400">Download your building&apos;s data in Excel-friendly format</p>
+        </div>
+        <div className="flex items-center gap-2 print:hidden">
+          <PrintButton />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

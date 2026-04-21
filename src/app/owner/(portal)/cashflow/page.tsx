@@ -2,10 +2,10 @@
 
 import { Wallet, Clock, CheckCircle2, XCircle, AlertTriangle } from "lucide-react"
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart, ComposedChart } from "recharts"
-import { useDashboard, formatAed, formatAedShort, KpiCard, LoadingSpinner, ErrorBox } from "../_shared"
+import { useDashboard, formatAed, formatAedShort, KpiCard, LoadingSpinner, ErrorBox, LastUpdatedBadge, PrintButton, ExportCsvButton } from "../_shared"
 
 export default function OwnerCashflowPage() {
-  const { data, loading, error } = useDashboard()
+  const { data, loading, error, lastUpdated, refreshing, refresh } = useDashboard()
   if (loading) return <LoadingSpinner />
   if (error) return <ErrorBox message={error} />
   if (!data) return null
@@ -19,9 +19,25 @@ export default function OwnerCashflowPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Cashflow</h2>
-        <p className="text-sm text-slate-400">Past 6 months + next 18 months projection</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Cashflow</h2>
+          <p className="text-sm text-slate-400">Past 6 months + next 18 months projection</p>
+        </div>
+        <div className="flex items-center gap-2 print:hidden">
+          <LastUpdatedBadge lastUpdated={lastUpdated} refreshing={refreshing} onRefresh={refresh} />
+          <ExportCsvButton
+            rows={data.cashflowProjection}
+            filename="cashflow"
+            columns={[
+              { key: "month", label: "Month" },
+              { key: "expected", label: "Expected" },
+              { key: "cleared", label: "Cleared" },
+              { key: "bounced", label: "Bounced" },
+            ]}
+          />
+          <PrintButton />
+        </div>
       </div>
 
       {/* Cheque bucket KPIs */}

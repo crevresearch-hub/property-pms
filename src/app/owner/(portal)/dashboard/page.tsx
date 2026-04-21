@@ -2,10 +2,10 @@
 
 import { Building2, Users, DoorOpen, Percent, Banknote, Clock, AlertTriangle, Wrench, Calendar, TrendingUp, Award, MapPin } from "lucide-react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadialBarChart, RadialBar } from "recharts"
-import { useDashboard, formatAed, formatAedShort, KpiCard, LoadingSpinner, ErrorBox, CHART_COLORS, StatusPill } from "../_shared"
+import { useDashboard, formatAed, formatAedShort, KpiCard, LoadingSpinner, ErrorBox, CHART_COLORS, StatusPill, LastUpdatedBadge, PrintButton } from "../_shared"
 
 export default function OwnerOverviewPage() {
-  const { data, loading, error } = useDashboard()
+  const { data, loading, error, lastUpdated, refreshing, refresh } = useDashboard()
 
   if (loading) return <LoadingSpinner />
   if (error) return <ErrorBox message={error} />
@@ -16,6 +16,12 @@ export default function OwnerOverviewPage() {
 
   return (
     <div className="space-y-6">
+      {/* Actions row */}
+      <div className="flex items-center justify-end gap-2 print:hidden">
+        <LastUpdatedBadge lastUpdated={lastUpdated} refreshing={refreshing} onRefresh={refresh} />
+        <PrintButton />
+      </div>
+
       {/* Hero */}
       <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-950/40 via-amber-900/20 to-transparent p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">

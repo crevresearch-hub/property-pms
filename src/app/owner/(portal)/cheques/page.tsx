@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from "react"
 import { Banknote, Search } from "lucide-react"
-import { useDashboard, formatAed, StatusPill, LoadingSpinner, ErrorBox, KpiCard } from "../_shared"
+import { useDashboard, formatAed, StatusPill, LoadingSpinner, ErrorBox, KpiCard, ExportCsvButton, LastUpdatedBadge, PrintButton } from "../_shared"
 
 export default function OwnerChequesPage() {
-  const { data, loading, error } = useDashboard()
+  const { data, loading, error, lastUpdated, refreshing, refresh } = useDashboard()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
@@ -33,9 +33,29 @@ export default function OwnerChequesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Cheques</h2>
-        <p className="text-sm text-slate-400">All cheques received and their status</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Cheques</h2>
+          <p className="text-sm text-slate-400">All cheques received and their status</p>
+        </div>
+        <div className="flex items-center gap-2 print:hidden">
+          <LastUpdatedBadge lastUpdated={lastUpdated} refreshing={refreshing} onRefresh={refresh} />
+          <ExportCsvButton
+            rows={filtered}
+            filename="cheques"
+            columns={[
+              { key: "chequeDate", label: "Date" },
+              { key: "chequeNo", label: "Cheque No" },
+              { key: "bankName", label: "Bank" },
+              { key: "unitNo", label: "Unit" },
+              { key: "tenantName", label: "Tenant" },
+              { key: "amount", label: "Amount" },
+              { key: "status", label: "Status" },
+              { key: "clearedDate", label: "Cleared Date" },
+            ]}
+          />
+          <PrintButton />
+        </div>
       </div>
 
       {/* KPIs */}

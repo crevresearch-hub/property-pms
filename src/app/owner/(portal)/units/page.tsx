@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from "react"
 import { Search, Building2 } from "lucide-react"
-import { useDashboard, formatAed, StatusPill, LoadingSpinner, ErrorBox, KpiCard } from "../_shared"
+import { useDashboard, formatAed, StatusPill, LoadingSpinner, ErrorBox, KpiCard, ExportCsvButton, LastUpdatedBadge, PrintButton } from "../_shared"
 
 export default function OwnerUnitsPage() {
-  const { data, loading, error } = useDashboard()
+  const { data, loading, error, lastUpdated, refreshing, refresh } = useDashboard()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -49,9 +49,36 @@ export default function OwnerUnitsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Units</h2>
-        <p className="text-sm text-slate-400">Detailed view of every unit in {data.owner.buildingName}</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Units</h2>
+          <p className="text-sm text-slate-400">Detailed view of every unit in {data.owner.buildingName}</p>
+        </div>
+        <div className="flex items-center gap-2 print:hidden">
+          <LastUpdatedBadge lastUpdated={lastUpdated} refreshing={refreshing} onRefresh={refresh} />
+          <ExportCsvButton
+            rows={filtered.map((u) => ({
+              unitNo: u.unitNo, unitType: u.unitType, sqFt: u.sqFt, tenant: u.tenant?.name || "",
+              nationality: u.tenant?.nationality || "", annualRent: u.annualRent, collected: u.collected,
+              pending: u.pending, status: u.status, contractStart: u.contractStart, contractEnd: u.contractEnd,
+            }))}
+            filename="units"
+            columns={[
+              { key: "unitNo", label: "Unit" },
+              { key: "unitType", label: "Type" },
+              { key: "sqFt", label: "Sq Ft" },
+              { key: "tenant", label: "Tenant" },
+              { key: "nationality", label: "Nationality" },
+              { key: "annualRent", label: "Annual Rent" },
+              { key: "collected", label: "Collected" },
+              { key: "pending", label: "Pending" },
+              { key: "status", label: "Status" },
+              { key: "contractStart", label: "Start" },
+              { key: "contractEnd", label: "End" },
+            ]}
+          />
+          <PrintButton />
+        </div>
       </div>
 
       {/* KPIs */}
