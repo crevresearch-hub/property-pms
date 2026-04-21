@@ -1,242 +1,246 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Building2, Users, DoorOpen, Percent, Banknote, Clock } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts"
+import { Building2, Users, DoorOpen, Percent, Banknote, Clock, AlertTriangle, Wrench, Calendar, TrendingUp, Award, MapPin } from "lucide-react"
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadialBarChart, RadialBar } from "recharts"
+import { useDashboard, formatAed, formatAedShort, KpiCard, LoadingSpinner, ErrorBox, CHART_COLORS, StatusPill } from "../_shared"
 
-interface DashboardData {
-  owner: { ownerName: string; buildingName: string; area: string; emirate: string; email: string; phone: string }
-  totals: { units: number; occupied: number; vacant: number; occupancyPct: number; annualRentRoll: number; collected: number; pending: number }
-  chequeBuckets: { pendingAll: number; dueNext30: number; overdue: number; cleared: number; bounced: number }
-  cashflowProjection: Array<{ month: string; expected: number; cleared: number }>
-  units: Array<{ id: string; unitNo: string; unitType: string; status: string; contractEnd: string; annualRent: number; collected: number; pending: number; tenant: { name: string; email: string; phone: string } | null }>
-  cheques: Array<{ id: string; chequeNo: string; bankName: string; amount: number; chequeDate: string; status: string; tenantName: string; unitNo: string }>
-  invoices: Array<{ id: string; invoiceNo: string; totalAmount: number; paidAmount: number; status: string; dueDate: string; tenantName: string; unitNo: string }>
-}
+export default function OwnerOverviewPage() {
+  const { data, loading, error } = useDashboard()
 
-function formatAed(n: number): string {
-  if (!n) return "AED 0"
-  return `AED ${new Intl.NumberFormat("en-US").format(Math.round(n))}`
-}
-
-function StatusPill({ value }: { value: string }) {
-  const map: Record<string, string> = {
-    Occupied: "bg-green-500/20 text-green-400",
-    Vacant: "bg-red-500/20 text-red-400",
-    Reserved: "bg-amber-500/20 text-amber-400",
-    "Under Maintenance": "bg-orange-500/20 text-orange-400",
-    Cleared: "bg-green-500/20 text-green-400",
-    Bounced: "bg-red-500/20 text-red-400",
-    Received: "bg-blue-500/20 text-blue-400",
-    Pending: "bg-amber-500/20 text-amber-400",
-    Deposited: "bg-blue-500/20 text-blue-400",
-    Paid: "bg-green-500/20 text-green-400",
-    Overdue: "bg-red-500/20 text-red-400",
-    Unpaid: "bg-amber-500/20 text-amber-400",
-  }
-  const cls = map[value] || "bg-slate-500/20 text-slate-400"
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{value}</span>
-}
-
-function KpiCard({ label, value, icon, accent = "amber" }: { label: string; value: string | number; icon: React.ReactNode; accent?: "amber" | "green" | "red" | "blue" }) {
-  const accents = {
-    amber: "from-amber-500/20 to-amber-600/5 border-amber-500/30",
-    green: "from-green-500/20 to-green-600/5 border-green-500/30",
-    red: "from-red-500/20 to-red-600/5 border-red-500/30",
-    blue: "from-blue-500/20 to-blue-600/5 border-blue-500/30",
-  }
-  return (
-    <div className={`rounded-xl border bg-gradient-to-br ${accents[accent]} p-4`}>
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-        <span className="text-slate-500">{icon}</span>
-      </div>
-      <p className="mt-2 text-2xl font-bold text-white">{value}</p>
-    </div>
-  )
-}
-
-export default function OwnerDashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-
-  useEffect(() => {
-    fetch("/api/owner/dashboard")
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error || "Failed to load")
-        return r.json()
-      })
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-lg border border-red-800 bg-red-900/20 p-4 text-sm text-red-400">{error}</div>
-    )
-  }
-
+  if (loading) return <LoadingSpinner />
+  if (error) return <ErrorBox message={error} />
   if (!data) return null
+
+  const occPct = data.totals.occupancyPct
+  const collectedPct = data.totals.annualRentRoll > 0 ? (data.totals.collected / data.totals.annualRentRoll) * 100 : 0
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Welcome, {data.owner.ownerName}</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          {data.owner.buildingName} · {data.owner.area}, {data.owner.emirate}
-        </p>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Total Units" value={data.totals.units} icon={<Building2 className="h-5 w-5" />} accent="blue" />
-        <KpiCard label="Occupied" value={`${data.totals.occupied} / ${data.totals.units}`} icon={<Users className="h-5 w-5" />} accent="green" />
-        <KpiCard label="Vacant" value={data.totals.vacant} icon={<DoorOpen className="h-5 w-5" />} accent="red" />
-        <KpiCard label="Occupancy" value={`${data.totals.occupancyPct}%`} icon={<Percent className="h-5 w-5" />} accent="amber" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <KpiCard label="Annual Rent Roll" value={formatAed(data.totals.annualRentRoll)} icon={<Banknote className="h-5 w-5" />} accent="amber" />
-        <KpiCard label="Collected" value={formatAed(data.totals.collected)} icon={<Banknote className="h-5 w-5" />} accent="green" />
-        <KpiCard label="Pending" value={formatAed(data.totals.pending)} icon={<Clock className="h-5 w-5" />} accent="red" />
-      </div>
-
-      {/* Cheque status */}
-      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-        <h3 className="mb-4 text-sm font-semibold text-white">Cheque Status Summary</h3>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <div className="rounded-lg bg-white/5 p-3">
-            <p className="text-[10px] text-slate-400">Due Next 30 Days</p>
-            <p className="mt-1 text-sm font-semibold text-amber-400">{formatAed(data.chequeBuckets.dueNext30)}</p>
+      {/* Hero */}
+      <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-950/40 via-amber-900/20 to-transparent p-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs text-amber-400">Welcome back,</p>
+            <h2 className="text-3xl font-bold text-white">{data.owner.ownerName}</h2>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-400">
+              <MapPin className="h-3.5 w-3.5" />
+              {data.owner.buildingName} · {data.owner.area || "Dubai"}, {data.owner.emirate || "UAE"}
+            </p>
           </div>
-          <div className="rounded-lg bg-white/5 p-3">
-            <p className="text-[10px] text-slate-400">Overdue</p>
-            <p className="mt-1 text-sm font-semibold text-red-400">{formatAed(data.chequeBuckets.overdue)}</p>
-          </div>
-          <div className="rounded-lg bg-white/5 p-3">
-            <p className="text-[10px] text-slate-400">Cleared</p>
-            <p className="mt-1 text-sm font-semibold text-green-400">{formatAed(data.chequeBuckets.cleared)}</p>
-          </div>
-          <div className="rounded-lg bg-white/5 p-3">
-            <p className="text-[10px] text-slate-400">Bounced</p>
-            <p className="mt-1 text-sm font-semibold text-red-400">{formatAed(data.chequeBuckets.bounced)}</p>
-          </div>
-          <div className="rounded-lg bg-white/5 p-3">
-            <p className="text-[10px] text-slate-400">All Pending</p>
-            <p className="mt-1 text-sm font-semibold text-blue-400">{formatAed(data.chequeBuckets.pendingAll)}</p>
+          <div className="flex gap-6">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-green-400">{occPct}%</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Occupancy</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-amber-400">{formatAedShort(data.totals.annualRentRoll)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Rent Roll</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-blue-400">{data.totals.units}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Units</p>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Cashflow projection */}
+      {/* KPI Row 1 */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiCard label="Total Units" value={data.totals.units} icon={<Building2 className="h-5 w-5" />} accent="blue" />
+        <KpiCard label="Occupied" value={`${data.totals.occupied}`} sub={`${data.totals.vacant} vacant`} icon={<Users className="h-5 w-5" />} accent="green" />
+        <KpiCard label="Occupancy Rate" value={`${data.totals.occupancyPct}%`} icon={<Percent className="h-5 w-5" />} accent="amber" />
+        <KpiCard label="Avg Rent / Sq Ft" value={formatAed(data.totals.avgRentPerSqft)} icon={<TrendingUp className="h-5 w-5" />} accent="purple" />
+      </div>
+
+      {/* KPI Row 2 - Financial */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <KpiCard label="Annual Rent Roll" value={formatAedShort(data.totals.annualRentRoll)} icon={<Banknote className="h-5 w-5" />} accent="amber" />
+        <KpiCard label="Collected YTD" value={formatAedShort(data.totals.collected)} sub={`${Math.round(collectedPct)}% collected`} icon={<Banknote className="h-5 w-5" />} accent="green" />
+        <KpiCard label="Pending" value={formatAedShort(data.totals.pending)} icon={<Clock className="h-5 w-5" />} accent="red" />
+        <KpiCard label="Net Operating Income" value={formatAedShort(data.totals.netOperatingIncome)} sub={`${data.totals.profitMargin.toFixed(1)}% margin`} icon={<TrendingUp className="h-5 w-5" />} accent="purple" />
+      </div>
+
+      {/* Alerts */}
+      {(data.chequeBuckets.overdue > 0 || data.totals.overdueInvoices > 0 || data.totals.vacant > 0) && (
+        <div className="rounded-xl border border-red-500/30 bg-red-900/10 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <h3 className="text-sm font-semibold text-red-300">Attention Required</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {data.chequeBuckets.overdue > 0 && (
+              <div className="rounded-lg bg-red-950/40 p-3">
+                <p className="text-xs text-red-300">Overdue cheques</p>
+                <p className="text-lg font-bold text-red-400">{formatAed(data.chequeBuckets.overdue)}</p>
+              </div>
+            )}
+            {data.totals.overdueInvoices > 0 && (
+              <div className="rounded-lg bg-red-950/40 p-3">
+                <p className="text-xs text-red-300">Overdue invoices</p>
+                <p className="text-lg font-bold text-red-400">{data.totals.overdueInvoices} invoices</p>
+              </div>
+            )}
+            {data.totals.vacant > 0 && (
+              <div className="rounded-lg bg-red-950/40 p-3">
+                <p className="text-xs text-red-300">Vacant units</p>
+                <p className="text-lg font-bold text-red-400">{data.totals.vacant} units</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Occupancy radial */}
+        <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+          <h3 className="mb-4 text-sm font-semibold text-white">Occupancy</h3>
+          <div className="h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadialBarChart innerRadius="40%" outerRadius="100%" data={[{ name: "Occupancy", value: occPct, fill: "#22c55e" }, { name: "Gap", value: 100 - occPct, fill: "#1f2937" }]} startAngle={90} endAngle={-270}>
+                <RadialBar background dataKey="value" cornerRadius={10} />
+                <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-white" style={{ fontSize: 32, fontWeight: 700 }}>
+                  {occPct}%
+                </text>
+              </RadialBarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-2 text-center text-xs text-slate-400">
+            {data.totals.occupied} occupied · {data.totals.vacant} vacant
+          </div>
+        </section>
+
+        {/* Unit Type pie */}
+        <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+          <h3 className="mb-4 text-sm font-semibold text-white">Unit Mix</h3>
+          <div className="h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data.unitTypeBreakdown}
+                  dataKey="count"
+                  nameKey="type"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label={((props: { type?: string; count?: number }) => `${props.type ?? ""}: ${props.count ?? 0}`) as unknown as undefined}
+                  labelLine={false}
+                >
+                  {data.unitTypeBreakdown.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
+
+      {/* 6-Month mini cashflow */}
       <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-        <h3 className="mb-4 text-sm font-semibold text-white">12-Month Cashflow Projection</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-white">Recent + Upcoming Cashflow (12 months)</h3>
+          <a href="/owner/cashflow" className="text-xs text-amber-400 hover:underline">See full cashflow →</a>
+        </div>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data.cashflowProjection}>
+            <BarChart data={data.cashflowProjection.slice(3, 15)}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v / 1000}k`} />
+              <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
               <Tooltip formatter={(v) => formatAed(Number(v))} contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
               <Legend />
-              <Bar dataKey="expected" fill="#f59e0b" name="Expected" />
-              <Bar dataKey="cleared" fill="#22c55e" name="Cleared" />
+              <Bar dataKey="cleared" stackId="a" fill="#22c55e" name="Cleared" />
+              <Bar dataKey="expected" stackId="a" fill="#f59e0b" name="Expected" />
+              <Bar dataKey="bounced" stackId="a" fill="#ef4444" name="Bounced" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </section>
 
-      {/* Units table */}
-      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-white">Units ({data.units.length})</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-slate-400">
-              <tr>
-                <th className="px-2 py-2">Unit</th>
-                <th className="px-2 py-2">Type</th>
-                <th className="px-2 py-2">Tenant</th>
-                <th className="px-2 py-2">Annual Rent</th>
-                <th className="px-2 py-2">Collected</th>
-                <th className="px-2 py-2">Pending</th>
-                <th className="px-2 py-2">Status</th>
-                <th className="px-2 py-2">Contract End</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {data.units.map((u) => (
-                <tr key={u.id} className="text-slate-300">
-                  <td className="px-2 py-2 font-mono">{u.unitNo}</td>
-                  <td className="px-2 py-2">{u.unitType}</td>
-                  <td className="px-2 py-2">{u.tenant?.name || <span className="text-slate-600">—</span>}</td>
-                  <td className="px-2 py-2">{formatAed(u.annualRent)}</td>
-                  <td className="px-2 py-2 text-green-400">{formatAed(u.collected)}</td>
-                  <td className="px-2 py-2 text-red-400">{formatAed(u.pending)}</td>
-                  <td className="px-2 py-2"><StatusPill value={u.status} /></td>
-                  <td className="px-2 py-2">{u.contractEnd || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {/* Top performers + Upcoming renewals */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Award className="h-4 w-4 text-amber-400" />
+            <h3 className="text-sm font-semibold text-white">Top 10 Rent Contributors</h3>
+          </div>
+          <div className="space-y-1">
+            {data.topContributors.slice(0, 10).map((u, i) => (
+              <div key={u.unitNo} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2">
+                <span className="text-xs font-mono text-slate-500 w-5">{i + 1}</span>
+                <span className="text-xs font-mono text-slate-300 w-14">{u.unitNo}</span>
+                <span className="text-xs text-slate-200 flex-1 truncate">{u.tenant?.name || "Vacant"}</span>
+                <span className="text-xs font-semibold text-amber-400">{formatAed(u.annualRent)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      {/* Recent cheques */}
-      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-white">Recent Cheques</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-slate-400">
-              <tr>
-                <th className="px-2 py-2">Date</th>
-                <th className="px-2 py-2">Cheque No</th>
-                <th className="px-2 py-2">Bank</th>
-                <th className="px-2 py-2">Unit</th>
-                <th className="px-2 py-2">Tenant</th>
-                <th className="px-2 py-2">Amount</th>
-                <th className="px-2 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {data.cheques.slice(0, 20).map((c) => (
-                <tr key={c.id} className="text-slate-300">
-                  <td className="px-2 py-2">{c.chequeDate}</td>
-                  <td className="px-2 py-2 font-mono">{c.chequeNo}</td>
-                  <td className="px-2 py-2">{c.bankName}</td>
-                  <td className="px-2 py-2">{c.unitNo}</td>
-                  <td className="px-2 py-2">{c.tenantName}</td>
-                  <td className="px-2 py-2">{formatAed(c.amount)}</td>
-                  <td className="px-2 py-2"><StatusPill value={c.status} /></td>
-                </tr>
+        <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-blue-400" />
+            <h3 className="text-sm font-semibold text-white">Upcoming Renewals (90 days)</h3>
+          </div>
+          {data.upcomingRenewals.length === 0 ? (
+            <p className="rounded-lg bg-white/5 p-4 text-center text-xs text-slate-400">No leases ending in the next 90 days</p>
+          ) : (
+            <div className="space-y-1">
+              {data.upcomingRenewals.slice(0, 10).map((u) => (
+                <div key={u.unitNo} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2">
+                  <span className="text-xs font-mono text-slate-300 w-14">{u.unitNo}</span>
+                  <span className="text-xs text-slate-200 flex-1 truncate">{u.tenant?.name || "Vacant"}</span>
+                  <span className="text-xs text-slate-400">{u.contractEnd}</span>
+                  <span className="text-xs font-semibold text-amber-400">{formatAedShort(u.annualRent)}</span>
+                </div>
               ))}
-              {data.cheques.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-2 py-6 text-center text-slate-500">No cheques</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Maintenance + Complaints */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-orange-400" />
+            <h3 className="text-sm font-semibold text-white">Recent Maintenance Tickets</h3>
+          </div>
+          {data.tickets.length === 0 ? (
+            <p className="rounded-lg bg-white/5 p-4 text-center text-xs text-slate-400">No tickets</p>
+          ) : (
+            <div className="space-y-1">
+              {data.tickets.slice(0, 8).map((t) => (
+                <div key={t.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2">
+                  <span className="text-xs font-mono text-slate-500 w-16">{t.ticketNo}</span>
+                  <span className="text-xs text-slate-200 flex-1 truncate">{t.title}</span>
+                  <StatusPill value={t.priority} />
+                  <StatusPill value={t.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <DoorOpen className="h-4 w-4 text-red-400" />
+            <h3 className="text-sm font-semibold text-white">Collection Issues (Top 5)</h3>
+          </div>
+          {data.worstCollection.length === 0 ? (
+            <p className="rounded-lg bg-white/5 p-4 text-center text-xs text-slate-400">All clean</p>
+          ) : (
+            <div className="space-y-1">
+              {data.worstCollection.map((u) => (
+                <div key={u.unitNo} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2">
+                  <span className="text-xs font-mono text-slate-300 w-14">{u.unitNo}</span>
+                  <span className="text-xs text-slate-200 flex-1 truncate">{u.tenant?.name || "Vacant"}</span>
+                  <span className="text-xs font-semibold text-red-400">{formatAed(u.pending)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { getOwnerSessionFromCookies } from "@/lib/owner-auth"
-import { LayoutDashboard } from "lucide-react"
 import { LogoutButton } from "./logout-button"
+import { NavTabs } from "./nav-tabs"
 
 export default async function OwnerPortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getOwnerSessionFromCookies()
@@ -26,16 +25,7 @@ export default async function OwnerPortalLayout({ children }: { children: React.
         </div>
       </header>
 
-      <nav className="border-b border-white/5 bg-black/20">
-        <div className="mx-auto flex max-w-7xl gap-1 px-6">
-          <Link
-            href="/owner/dashboard"
-            className="flex items-center gap-2 border-b-2 border-amber-500 px-4 py-3 text-sm font-semibold text-amber-400"
-          >
-            <LayoutDashboard className="h-4 w-4" /> Dashboard
-          </Link>
-        </div>
-      </nav>
+      <NavTabs />
 
       <main className="mx-auto max-w-7xl px-6 py-6">{children}</main>
     </div>
