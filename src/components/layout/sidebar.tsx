@@ -91,6 +91,7 @@ const navGroups: NavGroup[] = [
       { label: "Import Data", href: "/dashboard/import", icon: Upload },
       { label: "Import Tenants (Folder)", href: "/dashboard/import/tenants", icon: Upload },
       { label: "Import Cheques (Excel)", href: "/dashboard/import/cheques", icon: Upload },
+      { label: "Import Lease Data (Full)", href: "/dashboard/import/lease-data", icon: Upload },
       { label: "Settings", href: "/dashboard/settings", icon: Settings },
       { label: "Users", href: "/dashboard/users", icon: UserCog, adminOnly: true },
     ],
