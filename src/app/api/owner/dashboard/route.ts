@@ -26,10 +26,12 @@ export async function GET(request: NextRequest) {
     })
     if (!owner) return NextResponse.json({ error: 'Owner not found' }, { status: 404 })
 
+    // Match units by building name anywhere in notes (handles "BUILDING:X" and "Building: X" formats).
+    // Fall back to all units if building name is empty.
     const units = await prisma.unit.findMany({
       where: {
         organizationId: owner.organizationId,
-        notes: { contains: `BUILDING:${owner.buildingName}` },
+        ...(owner.buildingName ? { notes: { contains: owner.buildingName, mode: 'insensitive' } } : {}),
       },
       include: {
         tenant: { select: { id: true, name: true, email: true, phone: true, status: true } },
