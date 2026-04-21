@@ -60,6 +60,7 @@ const navGroups: NavGroup[] = [
       { label: "Units", href: "/dashboard/units", icon: Building2 },
       { label: "Tenants", href: "/dashboard/tenants", icon: Users },
       { label: "Cheque Tracker", href: "/dashboard/cheques", icon: BookCheck },
+      { label: "Bank Reconciliation", href: "/dashboard/reconciliation", icon: BookCheck },
       { label: "Renewals", href: "/dashboard/renewals", icon: RefreshCw },
       { label: "Invoices", href: "/dashboard/invoices", icon: FileText },
       { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
