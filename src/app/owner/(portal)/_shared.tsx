@@ -13,7 +13,7 @@ export interface DashboardData {
     grossRevenue: number; netOperatingIncome: number; profitMargin: number; avgRentPerSqft: number
   }
   chequeBuckets: { pendingAll: number; dueNext30: number; dueNext90: number; overdue: number; cleared: number; bounced: number; total: number }
-  cashflowProjection: Array<{ month: string; expected: number; cleared: number; bounced: number }>
+  cashflowProjection: Array<{ key: string; month: string; expected: number; cleared: number; bounced: number }>
   unitTypeBreakdown: Array<{ type: string; count: number; rent: number; sqft: number }>
   nationalityBreakdown: Array<{ nationality: string; count: number }>
   units: Array<{

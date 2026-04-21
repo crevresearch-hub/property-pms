@@ -111,12 +111,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Monthly projection (24 months backward + forward)
-    const monthly: Record<string, { month: string; expected: number; cleared: number; bounced: number }> = {}
+    const monthly: Record<string, { key: string; month: string; expected: number; cleared: number; bounced: number }> = {}
     const now = new Date()
     for (let i = -6; i < 18; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       monthly[key] = {
+        key,
         month: d.toLocaleString('en-GB', { month: 'short', year: '2-digit' }),
         expected: 0,
         cleared: 0,

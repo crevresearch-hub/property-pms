@@ -1,12 +1,27 @@
 "use client"
 
-import { useMemo } from "react"
-import { Clock, CheckCircle2, XCircle, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Clock, CheckCircle2, XCircle, AlertTriangle, TrendingUp, TrendingDown, ChevronDown, ChevronRight } from "lucide-react"
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart, ComposedChart } from "recharts"
-import { useDashboard, formatAed, formatAedShort, KpiCard, LoadingSpinner, ErrorBox, LastUpdatedBadge, PrintButton, ExportCsvButton } from "../_shared"
+import { useDashboard, formatAed, formatAedShort, KpiCard, LoadingSpinner, ErrorBox, LastUpdatedBadge, PrintButton, ExportCsvButton, StatusPill } from "../_shared"
 
 export default function OwnerCashflowPage() {
   const { data, loading, error, lastUpdated, refreshing, refresh } = useDashboard()
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null)
+
+  // Group actual cheques by month
+  type Cheque = { id: string; chequeNo: string; bankName: string; amount: number; chequeDate: string; clearedDate: string; status: string; tenantName: string; unitNo: string }
+  const chequesByMonth = useMemo<Record<string, Cheque[]>>(() => {
+    const map: Record<string, Cheque[]> = {}
+    if (!data) return map
+    for (const c of data.cheques) {
+      if (!c.chequeDate) continue
+      const key = c.chequeDate.slice(0, 7)
+      if (!map[key]) map[key] = []
+      map[key].push(c)
+    }
+    return map
+  }, [data])
 
   const enriched = useMemo(() => {
     if (!data) return []
@@ -132,13 +147,15 @@ export default function OwnerCashflowPage() {
         </div>
       </section>
 
-      {/* Month-by-month detailed table */}
+      {/* Month-by-month detailed table with drill-down */}
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">Month-by-Month Breakdown</h3>
+        <p className="mb-3 text-xs text-slate-500">Click any month to see the actual cheques behind the numbers.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
+                <th className="px-3 py-2 w-8"></th>
                 <th className="px-3 py-2">Month</th>
                 <th className="px-3 py-2 text-right">Income Received</th>
                 <th className="px-3 py-2 text-right">Pending / Expected</th>
@@ -149,23 +166,79 @@ export default function OwnerCashflowPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {enriched.map((m) => (
-                <tr key={m.month} className="text-slate-700 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-semibold text-slate-900">{m.month}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-green-700">{formatAed(m.cleared)}</td>
-                  <td className="px-3 py-2 text-right text-amber-700">{formatAed(m.expected)}</td>
-                  <td className="px-3 py-2 text-right text-[#E30613]">{m.bounced > 0 ? formatAed(m.bounced) : "—"}</td>
-                  <td className={`px-3 py-2 text-right font-semibold ${m.netInflow >= 0 ? "text-green-700" : "text-[#E30613]"}`}>{formatAed(m.netInflow)}</td>
-                  <td className={`px-3 py-2 text-right font-mono ${m.cumulative >= 0 ? "text-slate-900" : "text-[#E30613]"}`}>{formatAed(m.cumulative)}</td>
-                  <td className="px-3 py-2 text-right">
-                    {m.cleared + m.expected + m.bounced > 0 ? (
-                      <span className={m.collectionRate >= 80 ? "text-green-700" : m.collectionRate >= 50 ? "text-amber-700" : "text-[#E30613]"}>
-                        {m.collectionRate.toFixed(0)}%
-                      </span>
-                    ) : "—"}
-                  </td>
-                </tr>
-              ))}
+              {enriched.map((m) => {
+                const isExpanded = expandedMonth === m.key
+                const monthCheques = chequesByMonth[m.key] || []
+                return (
+                  <>
+                    <tr
+                      key={m.key}
+                      onClick={() => setExpandedMonth(isExpanded ? null : m.key)}
+                      className="text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <td className="px-3 py-2 text-slate-400">
+                        {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-slate-900">{m.month}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-green-700">{formatAed(m.cleared)}</td>
+                      <td className="px-3 py-2 text-right text-amber-700">{formatAed(m.expected)}</td>
+                      <td className="px-3 py-2 text-right text-[#E30613]">{m.bounced > 0 ? formatAed(m.bounced) : "—"}</td>
+                      <td className={`px-3 py-2 text-right font-semibold ${m.netInflow >= 0 ? "text-green-700" : "text-[#E30613]"}`}>{formatAed(m.netInflow)}</td>
+                      <td className={`px-3 py-2 text-right font-mono ${m.cumulative >= 0 ? "text-slate-900" : "text-[#E30613]"}`}>{formatAed(m.cumulative)}</td>
+                      <td className="px-3 py-2 text-right">
+                        {m.cleared + m.expected + m.bounced > 0 ? (
+                          <span className={m.collectionRate >= 80 ? "text-green-700" : m.collectionRate >= 50 ? "text-amber-700" : "text-[#E30613]"}>
+                            {m.collectionRate.toFixed(0)}%
+                          </span>
+                        ) : "—"}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr key={m.key + "-exp"}>
+                        <td colSpan={8} className="bg-slate-50 px-3 py-3">
+                          {monthCheques.length === 0 ? (
+                            <p className="text-center text-xs text-slate-500 py-2">No cheques for this month</p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <p className="mb-2 text-[11px] font-semibold text-slate-600">
+                                {monthCheques.length} cheques in {m.month}
+                              </p>
+                              <table className="w-full text-[11px]">
+                                <thead className="text-slate-500">
+                                  <tr>
+                                    <th className="px-2 py-1 text-left">Date</th>
+                                    <th className="px-2 py-1 text-left">Cheque No</th>
+                                    <th className="px-2 py-1 text-left">Bank</th>
+                                    <th className="px-2 py-1 text-left">Unit</th>
+                                    <th className="px-2 py-1 text-left">Tenant</th>
+                                    <th className="px-2 py-1 text-right">Amount</th>
+                                    <th className="px-2 py-1 text-left">Status</th>
+                                    <th className="px-2 py-1 text-left">Cleared On</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-200">
+                                  {monthCheques.map((c) => (
+                                    <tr key={c.id} className="text-slate-700">
+                                      <td className="px-2 py-1 font-mono">{c.chequeDate}</td>
+                                      <td className="px-2 py-1 font-mono">{c.chequeNo || "—"}</td>
+                                      <td className="px-2 py-1">{c.bankName || "—"}</td>
+                                      <td className="px-2 py-1 font-mono">{c.unitNo}</td>
+                                      <td className="px-2 py-1">{c.tenantName}</td>
+                                      <td className="px-2 py-1 text-right font-semibold text-slate-900">{formatAed(c.amount)}</td>
+                                      <td className="px-2 py-1"><StatusPill value={c.status} /></td>
+                                      <td className="px-2 py-1 font-mono text-slate-500">{c.clearedDate || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )
+              })}
             </tbody>
           </table>
         </div>
