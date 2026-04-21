@@ -188,10 +188,11 @@ export default function ChequesPage() {
     { key: "tenant", header: "Tenant", render: (r) => r.tenant?.name || "--" },
     { key: "unit", header: "Unit", render: (r) => r.unit?.unitNo || "--" },
     { key: "chequeNo", header: "Cheque #", sortable: true },
-    { key: "chequeDate", header: "Date", sortable: true, render: (r) => r.chequeDate ? formatDate(r.chequeDate) : "--" },
+    { key: "chequeDate", header: "Cheque Date", sortable: true, render: (r) => r.chequeDate ? formatDate(r.chequeDate) : "--" },
     { key: "amount", header: "Amount", sortable: true, render: (r) => formatCurrency(r.amount) },
     { key: "bankName", header: "Bank" },
     { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
+    { key: "clearedDate", header: "Cleared On", render: (r) => r.clearedDate ? formatDate(r.clearedDate) : "--" },
     { key: "seq", header: "Seq", render: (r) => `${r.sequenceNo}/${r.totalCheques}` },
     {
       key: "actions",
@@ -411,6 +412,8 @@ function ChequeFilters({
       if (dateRange !== "all") {
         const d = c.chequeDate || ""
         if (!d) return false
+        if (dateRange === "today" && d !== today) return false
+        if (dateRange === "cleared-today" && c.clearedDate !== today) return false
         if (dateRange === "overdue" && !(d < today && c.status !== "Cleared" && c.status !== "Replaced")) return false
         if (dateRange === "this-week" && !(d >= today && d <= in7Str)) return false
         if (dateRange === "this-month" && !(d >= thisMonthStart && d <= today.slice(0, 7) + "-31")) return false
@@ -464,9 +467,11 @@ function ChequeFilters({
           </div>
         </div>
         <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Due Date</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">When</p>
           <div className="flex flex-wrap gap-1.5">
             <DateButton value="all" label="Anytime" />
+            <DateButton value="today" label="📅 Due Today" />
+            <DateButton value="cleared-today" label="✓ Cleared Today" />
             <DateButton value="overdue" label="🔴 Overdue" />
             <DateButton value="this-week" label="This Week" />
             <DateButton value="this-month" label="This Month" />

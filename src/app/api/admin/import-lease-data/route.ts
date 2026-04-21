@@ -43,6 +43,31 @@ function parseAmount(v: unknown): number {
   return isNaN(n) ? 0 : n
 }
 
+/** Case-insensitive, space/underscore/tolerant column lookup */
+function pickCol<T = unknown>(row: Record<string, unknown>, candidates: string[]): T | undefined {
+  const normalize = (s: string) => s.toLowerCase().replace(/[\s_\-.]+/g, '')
+  const keyMap = new Map<string, string>()
+  for (const k of Object.keys(row)) keyMap.set(normalize(k), k)
+  for (const c of candidates) {
+    const actual = keyMap.get(normalize(c))
+    if (actual !== undefined) {
+      const v = row[actual]
+      if (v !== undefined && v !== null && v !== '') return v as T
+    }
+  }
+  return undefined
+}
+
+function pickChequeField(row: Record<string, unknown>, n: number, field: 'Number' | 'Date' | 'Amount'): unknown {
+  return pickCol(row, [
+    `Cheque ${n} ${field}`,
+    `cheque_${n}_${field.toLowerCase()}`,
+    `cheque${n}${field}`,
+    `Cheque${n}${field}`,
+    `Cheque ${n}${field}`,
+  ])
+}
+
 interface LeaseRow {
   'Unit Number'?: string | number
   'Tenant Full Name'?: string
@@ -93,12 +118,12 @@ export async function POST(request: NextRequest) {
     }
 
     for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
+      const row = rows[i] as Record<string, unknown>
       const rowNum = i + 2
 
-      const unitNo = cleanValue(row['Unit Number'])
+      const unitNo = cleanValue(pickCol(row, ['Unit Number', 'Unit No', 'UnitNo', 'Unit', 'unit_number', 'unit_no']))
       if (!unitNo) {
-        summary.errors.push({ row: rowNum, unitNo: '', reason: 'Unit Number is empty' })
+        summary.errors.push({ row: rowNum, unitNo: '', reason: 'Unit Number is empty (tried: Unit Number, Unit No, Unit). Your columns: ' + Object.keys(row).slice(0, 5).join(', ') })
         continue
       }
 
@@ -113,17 +138,17 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const tenantName = cleanValue(row['Tenant Full Name'])
-      const phone = cleanValue(row['Tenant Phone'])
-      const email = cleanValue(row['Tenant Email'])
-      const nationality = cleanValue(row['Nationality'])
-      const emiratesId = cleanValue(row['Emirates ID Number'])
-      const emiratesIdExpiry = parseDate(row['Emirates ID Expiry'])
-      const passportNo = cleanValue(row['Passport Number'])
-      const passportExpiry = parseDate(row['Passport Expiry'])
-      const contractStart = parseDate(row['Lease Start Date'])
-      const contractEnd = parseDate(row['Lease End Date'])
-      const annualRent = parseAmount(row['Annual Rent (AED)'])
+      const tenantName = cleanValue(pickCol(row, ['Tenant Full Name', 'Tenant Name', 'Full Name', 'Name']))
+      const phone = cleanValue(pickCol(row, ['Tenant Phone', 'Phone', 'Mobile', 'Mobile No', 'Contact']))
+      const email = cleanValue(pickCol(row, ['Tenant Email', 'Email', 'E-mail']))
+      const nationality = cleanValue(pickCol(row, ['Nationality']))
+      const emiratesId = cleanValue(pickCol(row, ['Emirates ID Number', 'Emirates ID', 'EID', 'EID Number']))
+      const emiratesIdExpiry = parseDate(pickCol(row, ['Emirates ID Expiry', 'EID Expiry']))
+      const passportNo = cleanValue(pickCol(row, ['Passport Number', 'Passport No', 'Passport']))
+      const passportExpiry = parseDate(pickCol(row, ['Passport Expiry']))
+      const contractStart = parseDate(pickCol(row, ['Lease Start Date', 'Start Date', 'Contract Start']))
+      const contractEnd = parseDate(pickCol(row, ['Lease End Date', 'End Date', 'Contract End']))
+      const annualRent = parseAmount(pickCol(row, ['Annual Rent (AED)', 'Annual Rent', 'Rent', 'Annual Amount']))
 
       // Find or create tenant
       let tenant = unit.tenant
@@ -179,9 +204,9 @@ export async function POST(request: NextRequest) {
       // Extract cheques (columns "Cheque 1 Number" through "Cheque 12 Number")
       let chequesThisRow = 0
       for (let n = 1; n <= 12; n++) {
-        const chequeNo = cleanValue(row[`Cheque ${n} Number`])
-        const chequeDate = parseDate(row[`Cheque ${n} Date`])
-        const amount = parseAmount(row[`Cheque ${n} Amount`])
+        const chequeNo = cleanValue(pickChequeField(row, n, 'Number'))
+        const chequeDate = parseDate(pickChequeField(row, n, 'Date'))
+        const amount = parseAmount(pickChequeField(row, n, 'Amount'))
 
         if (!chequeNo && !chequeDate && !amount) continue
 
@@ -212,7 +237,7 @@ export async function POST(request: NextRequest) {
               status: 'Received',
               paymentType: 'Rent',
               sequenceNo: n,
-              totalCheques: parseAmount(row['Number of Cheques']) || 0,
+              totalCheques: parseAmount(pickCol(row, ['Number of Cheques', 'Total Cheques'])) || 0,
             },
           })
           summary.chequesCreated++
