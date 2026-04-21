@@ -4,6 +4,7 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { isCloudUrl } from '@/lib/storage'
 
 const MIME_BY_EXT: Record<string, string> = {
   pdf: 'application/pdf',
@@ -29,6 +30,12 @@ export async function GET(
     })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    // If the file is on cloud storage (Vercel Blob), redirect to its public URL.
+    if (isCloudUrl(doc.filePath)) {
+      return NextResponse.redirect(doc.filePath, 307)
+    }
+
+    // Otherwise read from local disk (dev).
     const fullPath = path.join(process.cwd(), doc.filePath)
     const buf = await readFile(fullPath).catch(() => null)
     if (!buf) return NextResponse.json({ error: 'File missing on disk' }, { status: 410 })

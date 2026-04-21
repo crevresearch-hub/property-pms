@@ -5,9 +5,10 @@ import prisma from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { parseEjari } from '@/lib/ejari-parser'
 import { normalizeUnitType } from '@/lib/unit-type-mapper'
-import { readFile, readdir, mkdir, writeFile } from 'fs/promises'
+import { readFile, readdir } from 'fs/promises'
 import path from 'path'
 import { PDFParse } from 'pdf-parse'
+import { saveFile } from '@/lib/storage'
 
 async function extractPdfText(buf: Buffer): Promise<string> {
   try {
@@ -41,9 +42,6 @@ async function copyPdfAsDocument(
   srcPath: string,
   docType: string
 ) {
-  const uploadDir = path.join(process.cwd(), 'uploads', `tenant_${tenantId}`)
-  await mkdir(uploadDir, { recursive: true }).catch(() => {})
-
   const buf = await readFile(srcPath)
   const originalFilename = path.basename(srcPath)
   const timestamp = Date.now()
@@ -52,9 +50,8 @@ async function copyPdfAsDocument(
     .replace(/[^a-zA-Z0-9_-]/g, '_')
     .substring(0, 50)
   const filename = `${timestamp}_${safeName}.pdf`
-  const destPath = path.join(uploadDir, filename)
 
-  await writeFile(destPath, buf).catch(() => {})
+  const saved = await saveFile(buf, tenantId, filename, 'application/pdf')
 
   await prisma.tenantDocument.create({
     data: {
@@ -63,8 +60,8 @@ async function copyPdfAsDocument(
       docType,
       filename,
       originalFilename,
-      filePath: `uploads/tenant_${tenantId}/${filename}`,
-      fileSize: buf.length,
+      filePath: saved.filePath,
+      fileSize: saved.size,
       status: 'Uploaded',
     },
   })

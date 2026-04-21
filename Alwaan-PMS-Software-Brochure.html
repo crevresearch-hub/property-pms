@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alwaan PMS — Software Overview</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  color: #0a0a0a;
+  line-height: 1.65;
+  background: #fff;
+}
+.page {
+  max-width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 20mm;
+  page-break-after: always;
+  background: #fff;
+}
+.page:last-child { page-break-after: auto; }
+
+/* COVER */
+.cover {
+  background: linear-gradient(135deg, #E30613 0%, #a20410 50%, #111 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 40mm 20mm;
+  position: relative;
+  overflow: hidden;
+}
+.cover::before {
+  content: '';
+  position: absolute; top: -30%; right: -30%;
+  width: 80%; height: 140%;
+  background: radial-gradient(circle, rgba(255,255,255,.08), transparent 60%);
+}
+.cover-top { position: relative; }
+.cover-brand { font-size: 12px; letter-spacing: 4px; font-weight: 700; opacity: 0.8; }
+.cover h1 {
+  font-size: 64px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -2px;
+  margin: 20mm 0 8mm;
+  position: relative;
+}
+.cover .tagline {
+  font-size: 22px;
+  opacity: 0.85;
+  max-width: 150mm;
+  font-weight: 300;
+  position: relative;
+}
+.cover-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 11px;
+  opacity: 0.7;
+  position: relative;
+}
+
+/* GENERAL */
+h2 {
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 8mm;
+  letter-spacing: -0.5px;
+  color: #0a0a0a;
+  border-bottom: 3px solid #E30613;
+  padding-bottom: 4mm;
+  display: inline-block;
+}
+h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0a0a0a;
+  margin: 6mm 0 2mm;
+}
+.section-intro {
+  font-size: 14px;
+  color: #444;
+  margin-bottom: 8mm;
+  max-width: 160mm;
+}
+.chapter-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  font-weight: 700;
+  color: #E30613;
+  margin-bottom: 3mm;
+  text-transform: uppercase;
+}
+
+/* PORTALS */
+.portal-card {
+  border-left: 4px solid #E30613;
+  padding: 6mm 8mm;
+  margin-bottom: 6mm;
+  background: #fafafa;
+  page-break-inside: avoid;
+}
+.portal-card.staff { border-color: #E30613; }
+.portal-card.owner { border-color: #d97706; }
+.portal-card.tenant { border-color: #059669; }
+.portal-card h3 { margin-top: 0; font-size: 18px; }
+.portal-card .role {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #666;
+  text-transform: uppercase;
+}
+.portal-card ul {
+  list-style: none;
+  margin-top: 3mm;
+  columns: 2;
+  column-gap: 10mm;
+}
+.portal-card li {
+  font-size: 12px;
+  color: #333;
+  padding: 1.5mm 0;
+  break-inside: avoid;
+}
+.portal-card li::before {
+  content: '• ';
+  color: #E30613;
+  font-weight: bold;
+}
+
+/* FEATURE GRID */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5mm;
+}
+.feature {
+  border: 1px solid #e5e7eb;
+  padding: 6mm;
+  border-radius: 4mm;
+  page-break-inside: avoid;
+}
+.feature .ico {
+  display: inline-block;
+  width: 10mm;
+  height: 10mm;
+  background: linear-gradient(135deg, #E30613, #a20410);
+  color: #fff;
+  border-radius: 2mm;
+  text-align: center;
+  line-height: 10mm;
+  font-size: 16px;
+  margin-bottom: 3mm;
+}
+.feature h4 { font-size: 13px; font-weight: 700; margin-bottom: 2mm; }
+.feature p { font-size: 11px; color: #555; line-height: 1.5; }
+
+/* TECH */
+.tech-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2mm;
+  margin-top: 4mm;
+}
+.tech-badges span {
+  background: #111;
+  color: #fff;
+  padding: 2mm 4mm;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* VALUE PROPS */
+.value-prop {
+  display: flex;
+  gap: 6mm;
+  padding: 5mm 0;
+  border-bottom: 1px solid #e5e7eb;
+  page-break-inside: avoid;
+}
+.value-prop:last-child { border: none; }
+.value-prop .num {
+  font-size: 28px;
+  font-weight: 900;
+  color: #E30613;
+  min-width: 12mm;
+  line-height: 1;
+}
+.value-prop h4 { font-size: 14px; margin-bottom: 1mm; }
+.value-prop p { font-size: 12px; color: #555; }
+
+/* SECURITY */
+.security-list {
+  list-style: none;
+  margin-top: 4mm;
+}
+.security-list li {
+  padding: 3mm 0;
+  border-bottom: 1px solid #eee;
+  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 4mm;
+}
+.security-list li:last-child { border: none; }
+.security-list .tick {
+  min-width: 6mm;
+  height: 6mm;
+  background: #059669;
+  color: #fff;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 6mm;
+  font-weight: bold;
+  font-size: 10px;
+}
+
+/* BACK COVER */
+.back-cover {
+  background: #0a0a0a;
+  color: #fff;
+  padding: 40mm 20mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 297mm;
+}
+.back-cover h2 { color: #fff; font-size: 40px; border: none; }
+.back-cover p { font-size: 16px; opacity: 0.8; margin: 6mm 0; max-width: 150mm; }
+.back-cover .contact { margin-top: 15mm; padding-top: 8mm; border-top: 1px solid rgba(255,255,255,.2); }
+.back-cover .contact strong { color: #E30613; }
+
+/* PRINT */
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { margin: 0; padding: 18mm; box-shadow: none; }
+  @page { size: A4; margin: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 — COVER -->
+<div class="page cover">
+  <div class="cover-top">
+    <div class="cover-brand">ALWAAN PROPERTY MANAGEMENT SYSTEM</div>
+    <h1>Property<br>Management,<br>Redefined.</h1>
+    <p class="tagline">A complete cloud-based platform for modern property management — built for Dubai real estate operators who want every process in one place.</p>
+  </div>
+  <div class="cover-bottom">
+    <div>Software Overview · 2026</div>
+    <div>Presented by CRE Research Hub</div>
+  </div>
+</div>
+
+<!-- PAGE 2 — WHAT IT IS -->
+<div class="page">
+  <div class="chapter-label">Chapter 1</div>
+  <h2>What the System Does</h2>
+  <p class="section-intro">
+    Alwaan PMS is a single unified platform that replaces spreadsheets, paper files, WhatsApp threads, and separate apps. It covers the entire lifecycle of a rental property — from the moment a tenant signs their Ejari to the day they move out.
+  </p>
+
+  <h3>End-to-End Coverage</h3>
+  <p style="font-size: 13px; color: #555; margin-bottom: 5mm;">
+    The system handles every operational task in a property management company, including:
+  </p>
+  <ul style="padding-left: 5mm; color: #333; font-size: 12px; line-height: 2;">
+    <li>📄 Digital tenant onboarding with Emirates ID scanning</li>
+    <li>🏠 Unit inventory with occupancy tracking</li>
+    <li>📋 Tenancy contract generation (DLD / Ejari format ready)</li>
+    <li>💳 Post-dated cheque management with bank reconciliation</li>
+    <li>📧 Automated email notifications for rent, renewals, violations</li>
+    <li>🛠️ Maintenance ticket workflow between tenant → staff → vendor</li>
+    <li>📊 Real-time financial dashboards for executives and owners</li>
+    <li>📁 Secure document storage (EID, Ejari, cheques, passport)</li>
+    <li>🔐 Role-based login for staff, owners, and tenants</li>
+    <li>💰 Invoice generation, payment tracking, overdue alerts</li>
+  </ul>
+
+  <h3 style="margin-top: 10mm;">The Problem It Solves</h3>
+  <p style="font-size: 13px; color: #444; margin-top: 3mm;">
+    Most UAE property management companies rely on Excel files, paper ledgers, and disconnected tools. Information gets lost. Cheques get misplaced. Owners have to ask for updates by phone. Tenants can't find their invoices. Staff spend hours answering the same questions.
+  </p>
+  <p style="font-size: 13px; color: #444; margin-top: 3mm;">
+    Alwaan PMS eliminates these pain points by giving every stakeholder — staff, owner, tenant — their own secure portal with real-time visibility into what matters to them.
+  </p>
+</div>
+
+<!-- PAGE 3 — THREE PORTALS -->
+<div class="page">
+  <div class="chapter-label">Chapter 2</div>
+  <h2>Three Portals, One Database</h2>
+  <p class="section-intro">
+    The system is split into three role-based portals. Everyone sees the same underlying data, but the interface is tailored to what each person actually needs.
+  </p>
+
+  <div class="portal-card staff">
+    <div class="role">Staff Portal</div>
+    <h3>Daily Operations — For Property Managers</h3>
+    <p style="font-size: 12px; color: #444; margin-bottom: 3mm;">
+      The full control panel. Staff handle tenants, contracts, cheques, maintenance, and reporting from here.
+    </p>
+    <ul>
+      <li>Tenant onboarding wizard</li>
+      <li>Emirates ID auto-fill (OCR)</li>
+      <li>Ejari contract generator</li>
+      <li>Cheque tracker with filters</li>
+      <li>Bank reconciliation tool</li>
+      <li>Invoice &amp; payment management</li>
+      <li>Maintenance ticket system</li>
+      <li>Vendor management</li>
+      <li>DEWA reading log</li>
+      <li>Bulk Excel/PDF imports</li>
+      <li>Email log audit trail</li>
+      <li>Staff performance KPIs</li>
+    </ul>
+  </div>
+
+  <div class="portal-card owner">
+    <div class="role">Owner Portal</div>
+    <h3>Executive Visibility — For Building Owners</h3>
+    <p style="font-size: 12px; color: #444; margin-bottom: 3mm;">
+      A beautiful owner-facing dashboard showing their building's performance in real time. No more calling the manager to ask "how's rent collection this month?"
+    </p>
+    <ul>
+      <li>Real-time occupancy &amp; rent roll</li>
+      <li>Full P&amp;L statement</li>
+      <li>Monthly cashflow with drill-down</li>
+      <li>Per-unit yield analysis</li>
+      <li>Top performing units</li>
+      <li>Collection rate &amp; overdue alerts</li>
+      <li>Cheque calendar view</li>
+      <li>CSV / PDF export</li>
+      <li>Magic-link login (no password)</li>
+      <li>Auto-refresh every 60s</li>
+      <li>Print-friendly reports</li>
+      <li>Mobile responsive</li>
+    </ul>
+  </div>
+
+  <div class="portal-card tenant">
+    <div class="role">Tenant Portal</div>
+    <h3>Self-Service — For Residents</h3>
+    <p style="font-size: 12px; color: #444; margin-bottom: 3mm;">
+      Tenants can answer their own questions 24/7 — reducing calls to the office and speeding up issue resolution.
+    </p>
+    <ul>
+      <li>View unit &amp; lease details</li>
+      <li>Download invoices &amp; receipts</li>
+      <li>Submit maintenance requests</li>
+      <li>Upload required documents</li>
+      <li>Raise complaints &amp; track status</li>
+      <li>Request lease renewal</li>
+      <li>View violations &amp; fines</li>
+      <li>Secure document storage</li>
+    </ul>
+  </div>
+</div>
+
+<!-- PAGE 4 — KEY CAPABILITIES -->
+<div class="page">
+  <div class="chapter-label">Chapter 3</div>
+  <h2>Key Capabilities</h2>
+  <p class="section-intro">
+    Nine core features that set Alwaan PMS apart from legacy property management software.
+  </p>
+
+  <div class="grid">
+    <div class="feature">
+      <div class="ico">🆔</div>
+      <h4>Emirates ID OCR</h4>
+      <p>Upload the EID photo. Name, ID number, nationality, DOB, expiry, visa, and passport auto-fill.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">📄</div>
+      <h4>Ejari PDF Parser</h4>
+      <p>Drag in the DLD Ejari contract. Owner, property, tenant, and lease terms extracted instantly.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">💳</div>
+      <h4>Cheque Lifecycle Tracker</h4>
+      <p>Received → Deposited → Cleared / Bounced. Due-today filters, overdue alerts, status workflow.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">🏦</div>
+      <h4>Bank Reconciliation</h4>
+      <p>Upload your bank statement. System auto-matches credits to cheques by number, amount, date.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">📊</div>
+      <h4>Live Executive Dashboards</h4>
+      <p>Occupancy, rent roll, NOI, cashflow — updated every 60 seconds. No manual reports needed.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">📥</div>
+      <h4>Bulk Import Tools</h4>
+      <p>Upload Excel with tenants, units, cheques, leases. Preview &amp; validate before committing.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">📧</div>
+      <h4>Email Automation</h4>
+      <p>Auto-notify tenants about rent due, violations, renewal reminders, contract signing links.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">📤</div>
+      <h4>Export Anywhere</h4>
+      <p>Any table, any page — one click to CSV. Print any dashboard as a client-ready PDF.</p>
+    </div>
+    <div class="feature">
+      <div class="ico">🔐</div>
+      <h4>Role-Based Security</h4>
+      <p>Encrypted passwords, magic links, httpOnly cookies, SSL. Each role sees only their own data.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 5 — WHY IT MATTERS -->
+<div class="page">
+  <div class="chapter-label">Chapter 4</div>
+  <h2>Why It Matters</h2>
+  <p class="section-intro">
+    Moving from spreadsheets and paper files to a proper system delivers measurable benefits across operations, finance, and client satisfaction.
+  </p>
+
+  <div class="value-prop">
+    <div class="num">1</div>
+    <div>
+      <h4>Zero Data Loss</h4>
+      <p>Cheques don't get misplaced. Ejari contracts aren't lost in WhatsApp. EIDs are always available. Everything is digitally stored, backed up, and searchable.</p>
+    </div>
+  </div>
+
+  <div class="value-prop">
+    <div class="num">2</div>
+    <div>
+      <h4>Instant Client Transparency</h4>
+      <p>Owners log in and see their building's performance in real time. No need to prepare monthly reports by hand. No awkward phone calls asking "where's my rent?"</p>
+    </div>
+  </div>
+
+  <div class="value-prop">
+    <div class="num">3</div>
+    <div>
+      <h4>Reduced Staff Workload</h4>
+      <p>Tenants self-serve for invoices, maintenance, documents. Staff no longer answer the same 10 questions 100 times a week.</p>
+    </div>
+  </div>
+
+  <div class="value-prop">
+    <div class="num">4</div>
+    <div>
+      <h4>Faster Reconciliation</h4>
+      <p>Upload a bank statement and have it auto-matched to cheques in seconds. What used to take a full day of Excel work is done in minutes.</p>
+    </div>
+  </div>
+
+  <div class="value-prop">
+    <div class="num">5</div>
+    <div>
+      <h4>Compliant Audit Trail</h4>
+      <p>Every action — who changed what, when — is logged automatically. Complete transparency for DLD audits, owner queries, legal disputes.</p>
+    </div>
+  </div>
+
+  <div class="value-prop">
+    <div class="num">6</div>
+    <div>
+      <h4>Scales With You</h4>
+      <p>Whether you manage 400 units or 4,000, the same system handles it. No new software to buy when you grow.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 6 — SECURITY & TECH -->
+<div class="page">
+  <div class="chapter-label">Chapter 5</div>
+  <h2>Security &amp; Technology</h2>
+  <p class="section-intro">
+    The system is built on modern, battle-tested infrastructure — the same technology that powers global SaaS applications.
+  </p>
+
+  <h3>Security Measures</h3>
+  <ul class="security-list">
+    <li><span class="tick">✓</span> <div><strong>SSL/TLS encryption</strong> — all data in transit is HTTPS-encrypted end-to-end</div></li>
+    <li><span class="tick">✓</span> <div><strong>Bcrypt password hashing</strong> — passwords are never stored in plain text</div></li>
+    <li><span class="tick">✓</span> <div><strong>HMAC-signed magic links</strong> — time-limited, tamper-proof login URLs</div></li>
+    <li><span class="tick">✓</span> <div><strong>HttpOnly session cookies</strong> — protection against XSS attacks</div></li>
+    <li><span class="tick">✓</span> <div><strong>Role-based data isolation</strong> — owners only see their building; tenants only see their unit</div></li>
+    <li><span class="tick">✓</span> <div><strong>Automated database backups</strong> — point-in-time recovery</div></li>
+    <li><span class="tick">✓</span> <div><strong>Every action logged</strong> — complete audit trail of who did what</div></li>
+    <li><span class="tick">✓</span> <div><strong>Cloud-hosted</strong> — 99.9% uptime guarantee</div></li>
+  </ul>
+
+  <h3 style="margin-top: 10mm;">Technology Stack</h3>
+  <p style="font-size: 12px; color: #555;">
+    Enterprise-grade components selected for performance, reliability, and long-term support:
+  </p>
+  <div class="tech-badges">
+    <span>Next.js 16 (React)</span>
+    <span>TypeScript</span>
+    <span>PostgreSQL</span>
+    <span>Prisma ORM</span>
+    <span>Vercel Cloud</span>
+    <span>Neon Database</span>
+    <span>Tailwind CSS</span>
+    <span>Resend Email</span>
+    <span>Recharts</span>
+    <span>pdf-parse</span>
+    <span>OCR.space</span>
+    <span>bcrypt</span>
+  </div>
+
+  <h3 style="margin-top: 10mm;">Deployment &amp; Access</h3>
+  <p style="font-size: 12px; color: #555; line-height: 1.8;">
+    The system is hosted on globally-distributed cloud infrastructure (Vercel). Users access it via any modern web browser on desktop, tablet, or phone — no installation needed. Mobile-responsive design works seamlessly on iPhone, iPad, Android, and laptop.
+  </p>
+</div>
+
+<!-- PAGE 7 — BACK COVER -->
+<div class="page back-cover">
+  <div>
+    <div class="cover-brand" style="color: #E30613;">READY WHEN YOU ARE</div>
+    <h2>Your Building,<br>Online, Today.</h2>
+    <p>
+      The Alwaan PMS is fully built, deployed, and ready to serve staff, owners, and tenants. We can walk you through every screen in a 30-minute demo and tailor the experience to your exact workflow.
+    </p>
+    <p>
+      No long implementation timelines. No paper contracts to sign. No servers to install. Just a URL — and your entire property operation becomes digital.
+    </p>
+  </div>
+  <div class="contact">
+    <strong>Get Started</strong>
+    <p style="margin-top: 4mm; font-size: 13px;">
+      Email: info@alwaan.ae<br>
+      Web: alwaan.ae<br>
+      Dubai, United Arab Emirates
+    </p>
+  </div>
+</div>
+
+</body>
+</html>

@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
-import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import { saveFile } from '@/lib/storage'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,11 +37,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    // Create upload directory
-    const uploadDir = path.join(process.cwd(), 'uploads', `tenant_${tenantId}`)
-    await mkdir(uploadDir, { recursive: true }).catch(() => {})
-
-    // Generate unique filename
     const timestamp = Date.now()
     const ext = path.extname(file.name)
     const safeName = file.name
@@ -49,14 +44,12 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .substring(0, 50)
     const filename = `${timestamp}_${safeName}${ext}`
-    const filePath = path.join(uploadDir, filename)
 
-    // Write file to disk
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer).catch(() => {})
 
-    // Record in database
+    const saved = await saveFile(buffer, tenantId, filename, file.type || 'application/octet-stream')
+
     const document = await prisma.tenantDocument.create({
       data: {
         organizationId,
@@ -64,8 +57,8 @@ export async function POST(request: NextRequest) {
         docType: docType || 'Other',
         filename,
         originalFilename: file.name,
-        filePath: `uploads/tenant_${tenantId}/${filename}`,
-        fileSize: buffer.length,
+        filePath: saved.filePath,
+        fileSize: saved.size,
         expiryDate: expiryDate || '',
         status: 'Uploaded',
       },
