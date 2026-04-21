@@ -407,11 +407,16 @@ function ChequeFilters({
 
   const tenantOptions = useMemo(() => {
     const m = new Map<string, string>()
+    // All tenants who have a unit (not just those with cheques)
+    for (const u of allUnits) {
+      if (u.tenantId && u.tenant?.name) m.set(u.tenantId, u.tenant.name)
+    }
+    // Also include any tenant from cheques (covers edge cases)
     for (const c of cheques) {
-      if (c.tenantId && c.tenant?.name) m.set(c.tenantId, c.tenant.name)
+      if (c.tenantId && c.tenant?.name && !m.has(c.tenantId)) m.set(c.tenantId, c.tenant.name)
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [cheques])
+  }, [cheques, allUnits])
 
   const filtered = useMemo(() => {
     return cheques.filter((c) => {
