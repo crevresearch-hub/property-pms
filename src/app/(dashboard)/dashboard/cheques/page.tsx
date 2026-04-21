@@ -77,6 +77,7 @@ export default function ChequesPage() {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([])
   const [units, setUnits] = useState<{ id: string; unitNo: string }[]>([])
+  const [allUnits, setAllUnits] = useState<Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [addOpen, setAddOpen] = useState(false)
@@ -97,7 +98,11 @@ export default function ChequesPage() {
 
       const [tRes, uRes] = await Promise.all([fetch("/api/tenants"), fetch("/api/units")])
       if (tRes.ok) { const d = await tRes.json(); setTenants(d.map((t: { id: string; name: string }) => ({ id: t.id, name: t.name }))) }
-      if (uRes.ok) { const d = await uRes.json(); setUnits(d.map((u: { id: string; unitNo: string }) => ({ id: u.id, unitNo: u.unitNo }))) }
+      if (uRes.ok) {
+        const d = await uRes.json()
+        setUnits(d.map((u: { id: string; unitNo: string }) => ({ id: u.id, unitNo: u.unitNo })))
+        setAllUnits(d)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -263,6 +268,7 @@ export default function ChequesPage() {
         cheques={cheques}
         columns={columns}
         updateStatus={updateChequeStatus}
+        allUnits={allUnits}
       />
 
       {/* Add Cheque Modal */}
@@ -380,10 +386,12 @@ function ChequeFilters({
   cheques,
   columns,
   updateStatus,
+  allUnits,
 }: {
   cheques: ChequeRow[]
   columns: Column<ChequeRow>[]
   updateStatus: (id: string, status: string, extra?: Record<string, string>) => Promise<void> | void
+  allUnits: Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [tenantFilter, setTenantFilter] = useState<string>("all")
@@ -539,7 +547,7 @@ function ChequeFilters({
           searchKeys={["chequeNo", "bankName"]}
         />
       ) : (
-        <ChequeUnitCards cheques={filtered} updateStatus={updateStatus} />
+        <ChequeUnitCards cheques={filtered} updateStatus={updateStatus} allUnits={allUnits} />
       )}
     </div>
   )
@@ -552,9 +560,11 @@ type ChequeAction =
 function ChequeUnitCards({
   cheques,
   updateStatus,
+  allUnits,
 }: {
   cheques: ChequeRow[]
   updateStatus: (id: string, status: string, extra?: Record<string, string>) => Promise<void> | void
+  allUnits: Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>
 }) {
   const [pendingAction, setPendingAction] = useState<ChequeAction | null>(null)
   const [rejectReason, setRejectReason] = useState("")
@@ -576,23 +586,32 @@ function ChequeUnitCards({
       setBusyAction(false)
     }
   }
-  // Group cheques by unit (or "Unassigned" if no unit)
+  // Group by unit — starts from ALL occupied units (so cash-only tenants also appear),
+  // then attaches their cheques from the filtered list.
   const grouped = useMemo(() => {
-    const map = new Map<string, { unitNo: string; tenantName: string; cheques: ChequeRow[] }>()
+    const map = new Map<string, { unitId: string; unitNo: string; tenantName: string; cheques: ChequeRow[]; annualRent: number }>()
+    // Seed with every unit that has a tenant
+    for (const u of allUnits) {
+      if (!u.tenantId) continue
+      map.set(u.id, { unitId: u.id, unitNo: u.unitNo, tenantName: u.tenant?.name || "—", cheques: [], annualRent: u.currentRent })
+    }
+    // Attach cheques
     for (const c of cheques) {
       const key = c.unit?.id || "no-unit"
-      const unitNo = c.unit?.unitNo || "Unassigned"
-      const tenantName = c.tenant?.name || "—"
-      if (!map.has(key)) map.set(key, { unitNo, tenantName, cheques: [] })
+      if (!map.has(key)) {
+        const unitNo = c.unit?.unitNo || "Unassigned"
+        const tenantName = c.tenant?.name || "—"
+        map.set(key, { unitId: key, unitNo, tenantName, cheques: [], annualRent: 0 })
+      }
       map.get(key)!.cheques.push(c)
     }
     return [...map.values()].sort((a, b) => a.unitNo.localeCompare(b.unitNo, undefined, { numeric: true }))
-  }, [cheques])
+  }, [cheques, allUnits])
 
   if (grouped.length === 0) {
     return (
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-12 text-center text-sm text-slate-500">
-        No cheques match the current filters.
+        No tenants or cheques match the current filters.
       </div>
     )
   }
@@ -608,6 +627,7 @@ function ChequeUnitCards({
         const pending = total - collected
         const dueToday = g.cheques.filter((c) => c.chequeDate === today && c.status !== "Cleared")
         const overdue = g.cheques.filter((c) => c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced")
+        const isCashOnly = g.cheques.length === 0
 
         return (
           <div key={g.unitNo} className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60">
@@ -619,6 +639,11 @@ function ChequeUnitCards({
                   <p className="mt-0.5 text-sm font-semibold text-white">{g.tenantName}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
+                  {isCashOnly && (
+                    <span className="rounded bg-green-500/20 px-2 py-0.5 text-[10px] font-semibold text-green-300">
+                      💵 Cash Paid
+                    </span>
+                  )}
                   {dueToday.length > 0 && (
                     <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
                       {dueToday.length} due today
@@ -633,21 +658,34 @@ function ChequeUnitCards({
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
                 <div className="rounded bg-slate-800/60 px-2 py-1">
-                  <p className="text-slate-500">Total</p>
-                  <p className="font-semibold text-white">{formatCurrency(total)}</p>
+                  <p className="text-slate-500">Annual Rent</p>
+                  <p className="font-semibold text-white">{formatCurrency(isCashOnly ? g.annualRent : total)}</p>
                 </div>
                 <div className="rounded bg-emerald-500/10 px-2 py-1">
-                  <p className="text-emerald-300/70">Collected</p>
-                  <p className="font-semibold text-emerald-300">{formatCurrency(collected)}</p>
+                  <p className="text-emerald-300/70">{isCashOnly ? "Status" : "Collected"}</p>
+                  <p className="font-semibold text-emerald-300">{isCashOnly ? "Cash Paid" : formatCurrency(collected)}</p>
                 </div>
                 <div className="rounded bg-amber-500/10 px-2 py-1">
                   <p className="text-amber-300/70">Pending</p>
-                  <p className="font-semibold text-amber-300">{formatCurrency(pending)}</p>
+                  <p className="font-semibold text-amber-300">{isCashOnly ? "—" : formatCurrency(pending)}</p>
                 </div>
               </div>
             </div>
 
+            {/* Cash-only tenants: show a banner */}
+            {isCashOnly && (
+              <div className="bg-green-500/5 border-t border-green-500/20 px-4 py-3 text-center">
+                <p className="text-xs text-green-300">
+                  <span className="font-semibold">No cheques on record.</span> This tenant pays in cash or by direct transfer.
+                </p>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Annual rent: {formatCurrency(g.annualRent)}
+                </p>
+              </div>
+            )}
+
             {/* Cheque ledger */}
+            {!isCashOnly && (
             <div className="overflow-x-auto">
               <table className="w-full text-[11px] text-slate-200">
                 <thead className="bg-slate-900/80 text-slate-500">
@@ -705,6 +743,7 @@ function ChequeUnitCards({
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         )
       })}
