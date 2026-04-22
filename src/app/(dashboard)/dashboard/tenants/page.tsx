@@ -288,7 +288,13 @@ export default function TenantsPage() {
   }
 
   const handleDelete = async (t: TenantRow) => {
-    if (!confirm(`Delete tenant ${t.name}?`)) return
+    const confirmName = t.name.split(' ')[0] // first name only, easier to type
+    const warn = `⚠ WARNING — Deleting tenant "${t.name}" will also delete:\n• Their cheques\n• Their invoices\n• Their documents (Emirates ID, Ejari, cheques PDFs)\n• Their maintenance tickets, complaints, violations\n\nThis CANNOT be undone.\n\nTo confirm, type the first name: "${confirmName}"`
+    const typed = prompt(warn)
+    if (typed !== confirmName) {
+      if (typed !== null) alert("Name didn't match. Delete cancelled.")
+      return
+    }
     try {
       const res = await fetch(`/api/tenants/${t.id}`, { method: "DELETE" })
       if (!res.ok) {

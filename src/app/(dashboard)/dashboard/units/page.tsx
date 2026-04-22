@@ -186,7 +186,14 @@ export default function UnitsPage() {
   }
 
   const handleDelete = async (unit: UnitRow) => {
-    if (!confirm(`Delete unit ${unit.unitNo}?`)) return
+    const warn = unit.tenantId
+      ? `⚠ WARNING — Unit ${unit.unitNo} has a tenant (${unit.tenant?.name || ""}). Deleting will also delete:\n• the tenant\n• their cheques\n• their invoices\n• their documents\n\nTo confirm, type the unit number:`
+      : `Delete unit ${unit.unitNo}?\n\nType the unit number to confirm:`
+    const typed = prompt(warn)
+    if (typed !== unit.unitNo) {
+      if (typed !== null) alert("Unit number didn't match. Delete cancelled.")
+      return
+    }
     try {
       const res = await fetch(`/api/units/${unit.id}`, { method: "DELETE" })
       if (!res.ok) {
