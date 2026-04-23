@@ -71,6 +71,75 @@ export default function UnitsPage() {
   })
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkResult, setBulkResult] = useState<{ created: number; skipped: number } | null>(null)
+
+  // Advanced per-floor bulk add
+  const UNIT_TYPES = ["Studio", "1 BHK", "2 BHK", "3 BHK", "Penthouse", "Shop", "Office", "Commercial"]
+  const [mixedOpen, setMixedOpen] = useState(false)
+  const [mixedStartFloor, setMixedStartFloor] = useState(1)
+  const [mixedNumbering, setMixedNumbering] = useState<"floor-prefix" | "sequential">("floor-prefix")
+  const [mixedFloors, setMixedFloors] = useState<Array<{
+    floor: number
+    types: Array<{ unitType: string; count: number; rent: number }>
+  }>>([
+    { floor: 1, types: [{ unitType: "3 BHK", count: 18, rent: 0 }, { unitType: "2 BHK", count: 10, rent: 0 }, { unitType: "Studio", count: 9, rent: 0 }] },
+  ])
+  const [mixedBusy, setMixedBusy] = useState(false)
+  const [mixedPreview, setMixedPreview] = useState<{ total: number; conflicts: number; preview: Array<{ unitNo: string; unitType: string; floor: number; conflict: boolean }> } | null>(null)
+  const [mixedResult, setMixedResult] = useState<{ created: number; skipped: number; failed: number } | null>(null)
+
+  const mixedTotalUnits = mixedFloors.reduce((s, f) => s + f.types.reduce((ts, t) => ts + (t.count || 0), 0), 0)
+
+  const addMixedFloor = () => {
+    const next = (mixedFloors[mixedFloors.length - 1]?.floor ?? 0) + 1
+    setMixedFloors([...mixedFloors, { floor: next, types: [{ unitType: "Studio", count: 1, rent: 0 }] }])
+  }
+  const removeMixedFloor = (idx: number) => setMixedFloors(mixedFloors.filter((_, i) => i !== idx))
+  const addTypeRow = (floorIdx: number) => {
+    const copy = [...mixedFloors]
+    copy[floorIdx].types.push({ unitType: "Studio", count: 1, rent: 0 })
+    setMixedFloors(copy)
+  }
+  const removeTypeRow = (floorIdx: number, typeIdx: number) => {
+    const copy = [...mixedFloors]
+    copy[floorIdx].types = copy[floorIdx].types.filter((_, i) => i !== typeIdx)
+    setMixedFloors(copy)
+  }
+  const updateTypeRow = (floorIdx: number, typeIdx: number, field: "unitType" | "count" | "rent", value: string | number) => {
+    const copy = [...mixedFloors]
+    const row = copy[floorIdx].types[typeIdx]
+    if (field === "unitType") row.unitType = String(value)
+    else if (field === "count") row.count = parseInt(String(value), 10) || 0
+    else row.rent = parseFloat(String(value)) || 0
+    setMixedFloors(copy)
+  }
+  const runMixed = async (dryRun: boolean) => {
+    setMixedBusy(true)
+    setError("")
+    try {
+      const res = await fetch("/api/units/bulk-mixed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          floors: mixedFloors,
+          startFloor: mixedStartFloor,
+          numbering: mixedNumbering,
+          dryRun,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed")
+      if (dryRun) { setMixedPreview(data); setMixedResult(null) }
+      else {
+        setMixedResult({ created: data.created, skipped: data.skipped, failed: data.failed })
+        setMixedPreview(null)
+        fetchUnits()
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed")
+    } finally {
+      setMixedBusy(false)
+    }
+  }
   const [form, setForm] = useState(defaultForm)
   const [editId, setEditId] = useState("")
   const [saving, setSaving] = useState(false)
@@ -424,6 +493,12 @@ export default function UnitsPage() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => { setMixedOpen(true); setMixedPreview(null); setMixedResult(null) }}
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+          >
+            <Building2 className="h-4 w-4" /> Bulk Add (Per Floor)
+          </button>
+          <button
             onClick={() => setBulkOpen(true)}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
@@ -693,6 +768,187 @@ export default function UnitsPage() {
                 })()}
               </div>
             </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Bulk Add Per-Floor Modal */}
+      <Modal
+        open={mixedOpen}
+        onOpenChange={(v) => { setMixedOpen(v); if (!v) { setMixedPreview(null); setMixedResult(null) } }}
+        title="Bulk Add Units — Per Floor Breakdown"
+        description="Define each floor's unit mix (e.g. Floor 1: 18 × 3 BHK + 10 × 2 BHK + 9 × Studio)"
+        size="lg"
+        footer={
+          <>
+            <ModalCancelButton onClick={() => setMixedOpen(false)} />
+            {!mixedPreview && !mixedResult && (
+              <ModalSaveButton onClick={() => runMixed(true)} disabled={mixedBusy || mixedTotalUnits === 0}>
+                {mixedBusy ? "Analyzing..." : `Preview ${mixedTotalUnits} units`}
+              </ModalSaveButton>
+            )}
+            {mixedPreview && !mixedResult && (
+              <ModalSaveButton onClick={() => runMixed(false)} disabled={mixedBusy}>
+                {mixedBusy ? "Creating..." : `Create ${mixedPreview.total - mixedPreview.conflicts} new units`}
+              </ModalSaveButton>
+            )}
+          </>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          {mixedResult && (
+            <div className="rounded-lg border border-green-300 bg-green-50 p-4 text-green-800">
+              <p className="font-bold">✓ Done</p>
+              <p>Created: {mixedResult.created}</p>
+              {mixedResult.skipped > 0 && <p>Skipped: {mixedResult.skipped}</p>}
+              {mixedResult.failed > 0 && <p className="text-red-700">Failed: {mixedResult.failed}</p>}
+            </div>
+          )}
+
+          {!mixedResult && (
+            <>
+              {/* Global settings */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-700">Start Floor #</span>
+                  <input
+                    type="number" min="0"
+                    value={mixedStartFloor}
+                    onChange={(e) => setMixedStartFloor(parseInt(e.target.value) || 1)}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-700">Numbering</span>
+                  <select
+                    value={mixedNumbering}
+                    onChange={(e) => setMixedNumbering(e.target.value as "floor-prefix" | "sequential")}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="floor-prefix">Floor + Number (101, 102…)</option>
+                    <option value="sequential">Sequential (001, 002…)</option>
+                  </select>
+                </label>
+              </div>
+
+              {/* Per-floor blocks */}
+              {mixedFloors.map((f, fIdx) => (
+                <div key={fIdx} className="rounded-lg border border-slate-300 bg-slate-50 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-700">Floor</span>
+                      <input
+                        type="number" min="0"
+                        value={f.floor}
+                        onChange={(e) => {
+                          const copy = [...mixedFloors]
+                          copy[fIdx].floor = parseInt(e.target.value) || 0
+                          setMixedFloors(copy)
+                        }}
+                        className="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      />
+                      <span className="text-xs text-slate-600">
+                        ({f.types.reduce((s, t) => s + t.count, 0)} units)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeMixedFloor(fIdx)}
+                      className="text-xs text-red-600 hover:underline"
+                    >Remove floor</button>
+                  </div>
+
+                  <table className="w-full text-xs">
+                    <thead className="text-slate-500">
+                      <tr>
+                        <th className="text-left py-1">Unit Type</th>
+                        <th className="text-left py-1 w-20">Count</th>
+                        <th className="text-left py-1 w-28">Rent (AED)</th>
+                        <th className="w-6"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {f.types.map((t, tIdx) => (
+                        <tr key={tIdx}>
+                          <td className="py-1 pr-2">
+                            <select
+                              value={t.unitType}
+                              onChange={(e) => updateTypeRow(fIdx, tIdx, "unitType", e.target.value)}
+                              className="w-full rounded border border-slate-300 px-2 py-1"
+                            >
+                              {UNIT_TYPES.map((ut) => <option key={ut}>{ut}</option>)}
+                            </select>
+                          </td>
+                          <td className="py-1 pr-2">
+                            <input
+                              type="number" min="0"
+                              value={t.count}
+                              onChange={(e) => updateTypeRow(fIdx, tIdx, "count", e.target.value)}
+                              className="w-full rounded border border-slate-300 px-2 py-1"
+                            />
+                          </td>
+                          <td className="py-1 pr-2">
+                            <input
+                              type="number" min="0"
+                              value={t.rent}
+                              onChange={(e) => updateTypeRow(fIdx, tIdx, "rent", e.target.value)}
+                              placeholder="0"
+                              className="w-full rounded border border-slate-300 px-2 py-1"
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              onClick={() => removeTypeRow(fIdx, tIdx)}
+                              className="text-red-600 hover:text-red-800 text-base"
+                              title="Remove"
+                            >×</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button
+                    type="button"
+                    onClick={() => addTypeRow(fIdx)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >+ Add another type to floor {f.floor}</button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addMixedFloor}
+                className="w-full rounded-lg border-2 border-dashed border-slate-300 py-2 text-xs text-slate-600 hover:border-blue-400 hover:text-blue-600"
+              >+ Add another floor</button>
+
+              <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
+                <strong>Total units to create:</strong> {mixedTotalUnits}<br />
+                <strong>Floors:</strong> {mixedFloors.length}
+              </div>
+            </>
+          )}
+
+          {mixedPreview && !mixedResult && (
+            <div className="rounded-lg border border-slate-300 bg-white p-3 max-h-64 overflow-y-auto">
+              <p className="text-xs font-semibold text-slate-700 mb-2">
+                Preview: {mixedPreview.total} units
+                {mixedPreview.conflicts > 0 && <span className="text-red-600"> · {mixedPreview.conflicts} conflicts (will skip)</span>}
+              </p>
+              <table className="w-full text-xs">
+                <thead className="text-slate-500">
+                  <tr><th className="text-left">Unit</th><th className="text-left">Type</th><th className="text-left">Floor</th><th className="text-left">Status</th></tr>
+                </thead>
+                <tbody>
+                  {mixedPreview.preview.slice(0, 100).map((p, i) => (
+                    <tr key={i}><td className="py-0.5 font-mono">{p.unitNo}</td><td>{p.unitType}</td><td>{p.floor}</td><td>{p.conflict ? <span className="text-red-600">exists</span> : <span className="text-green-600">new</span>}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              {mixedPreview.preview.length < mixedPreview.total && (
+                <p className="text-[10px] text-slate-500 mt-2">... and {mixedPreview.total - mixedPreview.preview.length} more</p>
+              )}
+            </div>
           )}
         </div>
       </Modal>
