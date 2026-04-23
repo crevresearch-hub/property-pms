@@ -14,7 +14,7 @@ export async function GET() {
     const organizationId = session.user.organizationId
 
     const units = await prisma.unit.findMany({
-      where: { organizationId },
+      where: { organizationId, deletedAt: null },
       include: {
         tenant: {
           select: {

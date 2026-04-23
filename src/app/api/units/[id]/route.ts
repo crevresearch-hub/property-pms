@@ -118,7 +118,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -130,6 +130,16 @@ export async function DELETE(
 
     const organizationId = session.user.organizationId
 
+    // Require confirmation phrase in header or body
+    const url = new URL(request.url)
+    const confirm = url.searchParams.get('confirm') || ''
+    if (confirm !== 'DELETE ALL') {
+      return NextResponse.json(
+        { error: 'Confirmation required. Pass ?confirm=DELETE%20ALL to proceed.' },
+        { status: 400 }
+      )
+    }
+
     const unit = await prisma.unit.findFirst({
       where: { id, organizationId },
     })
@@ -138,13 +148,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
     }
 
-    await prisma.unit.delete({
+    // SOFT DELETE — keep record in DB, mark as deleted
+    await prisma.unit.update({
       where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: session.user.name,
+      },
     })
 
-    await logActivity(organizationId, session.user.name, 'Deleted Unit', `Unit ${unit.unitNo} deleted`)
+    await logActivity(organizationId, session.user.name, 'Soft-Deleted Unit', `Unit ${unit.unitNo} marked as deleted (soft delete — row kept in DB)`)
 
-    return NextResponse.json({ message: 'Unit deleted successfully' })
+    return NextResponse.json({ message: 'Unit soft-deleted (kept in database)', canRestore: true })
   } catch (error) {
     console.error('DELETE /api/units/[id] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

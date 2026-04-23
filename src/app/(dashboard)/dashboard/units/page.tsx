@@ -261,15 +261,15 @@ export default function UnitsPage() {
 
   const handleDelete = async (unit: UnitRow) => {
     const warn = unit.tenantId
-      ? `⚠ WARNING — Unit ${unit.unitNo} has a tenant (${unit.tenant?.name || ""}). Deleting will also delete:\n• the tenant\n• their cheques\n• their invoices\n• their documents\n\nTo confirm, type the unit number:`
-      : `Delete unit ${unit.unitNo}?\n\nType the unit number to confirm:`
+      ? `⚠ DELETE UNIT ${unit.unitNo}?\n\nTenant: ${unit.tenant?.name || "(none)"}\n\nThis is a SOFT DELETE — the record stays in the database but is hidden from the app. It can be restored by an admin.\n\nTo confirm, type exactly: DELETE ALL`
+      : `⚠ DELETE UNIT ${unit.unitNo}?\n\nThis is a SOFT DELETE — the record stays in the database but is hidden from the app.\n\nTo confirm, type exactly: DELETE ALL`
     const typed = prompt(warn)
-    if (typed !== unit.unitNo) {
-      if (typed !== null) alert("Unit number didn't match. Delete cancelled.")
+    if (typed !== 'DELETE ALL') {
+      if (typed !== null) alert("You must type \"DELETE ALL\" exactly. Delete cancelled.")
       return
     }
     try {
-      const res = await fetch(`/api/units/${unit.id}`, { method: "DELETE" })
+      const res = await fetch(`/api/units/${unit.id}?confirm=${encodeURIComponent('DELETE ALL')}`, { method: "DELETE" })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || "Failed to delete unit")

@@ -86,6 +86,8 @@ model Unit {
   notes          String       @default("")
   tenantId       String?
   tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  deletedAt      DateTime?
+  deletedBy      String       @default("")
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
