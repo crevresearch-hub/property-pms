@@ -552,7 +552,12 @@ function ChequeFilters({
           searchKeys={["chequeNo", "bankName"]}
         />
       ) : (
-        <ChequeUnitCards cheques={filtered} updateStatus={updateStatus} allUnits={allUnits} />
+        <ChequeUnitCards
+          cheques={filtered}
+          updateStatus={updateStatus}
+          allUnits={allUnits}
+          showCashOnly={statusFilter === "all" && tenantFilter === "all" && dateRange === "all"}
+        />
       )}
     </div>
   )
@@ -566,10 +571,12 @@ function ChequeUnitCards({
   cheques,
   updateStatus,
   allUnits,
+  showCashOnly = true,
 }: {
   cheques: ChequeRow[]
   updateStatus: (id: string, status: string, extra?: Record<string, string>) => Promise<void> | void
   allUnits: Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>
+  showCashOnly?: boolean
 }) {
   const [pendingAction, setPendingAction] = useState<ChequeAction | null>(null)
   const [rejectReason, setRejectReason] = useState("")
@@ -595,12 +602,16 @@ function ChequeUnitCards({
   // then attaches their cheques from the filtered list.
   const grouped = useMemo(() => {
     const map = new Map<string, { unitId: string; unitNo: string; tenantName: string; cheques: ChequeRow[]; annualRent: number }>()
-    // Seed with every unit that has a tenant
-    for (const u of allUnits) {
-      if (!u.tenantId) continue
-      map.set(u.id, { unitId: u.id, unitNo: u.unitNo, tenantName: u.tenant?.name || "—", cheques: [], annualRent: u.currentRent })
+    // Seed with every unit that has a tenant — only when no filter is active.
+    // If filters ARE active, the user is looking for specific cheques, so cash-only
+    // tenants (with 0 cheques) shouldn't appear and clutter the view.
+    if (showCashOnly) {
+      for (const u of allUnits) {
+        if (!u.tenantId) continue
+        map.set(u.id, { unitId: u.id, unitNo: u.unitNo, tenantName: u.tenant?.name || "—", cheques: [], annualRent: u.currentRent })
+      }
     }
-    // Attach cheques
+    // Attach cheques from the filtered list
     for (const c of cheques) {
       const key = c.unit?.id || "no-unit"
       if (!map.has(key)) {
