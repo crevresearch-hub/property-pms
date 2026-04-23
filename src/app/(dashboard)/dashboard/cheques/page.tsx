@@ -5,6 +5,7 @@ import { KpiCard } from "@/components/ui/kpi-card"
 import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
+import { HelpPanel } from "@/components/ui/help-panel"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import {
   CreditCard,
@@ -244,6 +245,104 @@ export default function ChequesPage() {
           <p className="mt-1 text-sm text-slate-400">{cheques.length} cheques on record</p>
         </div>
         <div className="flex gap-2">
+          <HelpPanel
+            title="Cheque Tracker — How it works"
+            sections={[
+              {
+                title: "What this page does",
+                body: (
+                  <p>Track every rent cheque in the system — from receiving post-dated cheques (PDCs) to depositing, clearing, or marking bounced. Every tenant with cheques, plus cash-only tenants (no PDCs), appears here.</p>
+                ),
+              },
+              {
+                title: "KPI cards at top",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Total Cheques</strong> — all cheques ever received</li>
+                    <li><strong>Received</strong> — in-hand, not deposited yet</li>
+                    <li><strong>Cleared</strong> — money landed in bank ✓</li>
+                    <li><strong>Bounced</strong> — cheque rejected by bank</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Filters explained",
+                body: (
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Status:</strong> pending (not yet processed), received (in hand), deposited (sent to bank), cleared (paid), bounced (rejected), replaced (after bounce, new cheque issued)</li>
+                    <li><strong>When:</strong>
+                      <ul className="list-disc pl-5 mt-1">
+                        <li>📅 Due Today — cheques dated today</li>
+                        <li>✓ Cleared Today — you cleared them today</li>
+                        <li>🔴 Overdue — past-date, not cleared</li>
+                        <li>This Week / Month / Next 30 Days</li>
+                      </ul>
+                    </li>
+                    <li><strong>Payment Method:</strong>
+                      <ul className="list-disc pl-5 mt-1">
+                        <li><strong>All</strong> — every tenant</li>
+                        <li>💳 <strong>Cheque</strong> — only tenants with at least one cheque</li>
+                        <li>💵 <strong>Cash Only</strong> — tenants with zero cheques (cash payers)</li>
+                      </ul>
+                    </li>
+                    <li><strong>Tenant:</strong> dropdown to pick one specific tenant</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Two views",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>By Apartment</strong> (default) — cards grouped per unit/tenant, with their cheque ledger. Best for reviewing one tenant at a time.</li>
+                    <li><strong>Flat List</strong> — every cheque in one sortable table. Best for bulk status updates.</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Typical workflows",
+                body: (
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Morning routine:</strong> Click <em>Due Today</em> → see cheques to deposit at the bank today → after depositing, mark them <em>Deposited</em>.</li>
+                    <li><strong>After bank reconciliation:</strong> Bank confirms money in → mark cheques <em>Cleared</em> with today&apos;s date.</li>
+                    <li><strong>Bounced cheque:</strong> Bank rejects → mark <em>Bounced</em> + reason → issue replacement cheque → mark old one <em>Replaced</em>.</li>
+                    <li><strong>Cash collection:</strong> Click 💵 <em>Cash Only</em> → see all cash-paying tenants → record their payment manually (via tenant profile, or Payments page).</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Buttons (top right)",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Bulk Add</strong> — create multiple cheques at once (e.g., 12 monthly PDCs for one tenant with auto-spaced dates)</li>
+                    <li><strong>Add Cheque</strong> — one cheque at a time</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Related pages",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Import Cheques (Excel)</strong> — upload a CSV with 5 columns to bulk import</li>
+                    <li><strong>Import Lease Data (Full)</strong> — upload full lease Excel (236+ tenants × 12 cheques)</li>
+                    <li><strong>Bank Reconciliation</strong> — upload bank statement → auto-match credits to cheques</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Cheque status meanings",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Pending</strong> — cheque exists but not yet categorized</li>
+                    <li><strong>Received</strong> — in hand, not deposited</li>
+                    <li><strong>Deposited</strong> — sent to bank, waiting clearance</li>
+                    <li><strong>Cleared</strong> — ✓ money in account</li>
+                    <li><strong>Bounced</strong> — rejected by bank (reason stored)</li>
+                    <li><strong>Replaced</strong> — replacement cheque issued after bounce</li>
+                  </ul>
+                ),
+              },
+            ]}
+          />
           <button onClick={() => setBulkOpen(true)} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white">
             <Layers className="h-4 w-4" /> Bulk Add
           </button>
