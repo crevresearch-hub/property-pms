@@ -8,6 +8,7 @@ interface FloorTypeCount {
   unitType: string
   count: number
   rent?: number
+  sqFt?: number
 }
 
 interface FloorConfig {
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build unit list
-    type UnitPlan = { unitNo: string; unitType: string; rent: number; floor: number }
+    type UnitPlan = { unitNo: string; unitType: string; rent: number; sqFt: number; floor: number }
     const plan: UnitPlan[] = []
     let globalSeq = 1
 
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
             unitNo = `${f.floor}${String(floorSeq).padStart(2, '0')}`
           }
           if (prefix) unitNo = `${prefix}${unitNo}`
-          plan.push({ unitNo, unitType: t.unitType, rent: t.rent || 0, floor: f.floor })
+          plan.push({ unitNo, unitType: t.unitType, rent: t.rent || 0, sqFt: t.sqFt || 0, floor: f.floor })
           floorSeq++
         }
       }
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
             unitNo: p.unitNo,
             unitType: p.unitType,
             currentRent: p.rent,
+            sqFt: p.sqFt,
             status: 'Vacant',
             notes: `Floor: ${p.floor}`,
           },

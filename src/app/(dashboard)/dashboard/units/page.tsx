@@ -79,9 +79,13 @@ export default function UnitsPage() {
   const [mixedNumbering, setMixedNumbering] = useState<"floor-prefix" | "sequential">("floor-prefix")
   const [mixedFloors, setMixedFloors] = useState<Array<{
     floor: number
-    types: Array<{ unitType: string; count: number; rent: number }>
+    types: Array<{ unitType: string; count: number; rent: number; sqFt: number }>
   }>>([
-    { floor: 1, types: [{ unitType: "3 BHK", count: 18, rent: 0 }, { unitType: "2 BHK", count: 10, rent: 0 }, { unitType: "Studio", count: 9, rent: 0 }] },
+    { floor: 1, types: [
+      { unitType: "3 BHK", count: 18, rent: 0, sqFt: 0 },
+      { unitType: "2 BHK", count: 10, rent: 0, sqFt: 0 },
+      { unitType: "Studio", count: 9, rent: 0, sqFt: 0 },
+    ] },
   ])
   const [mixedBusy, setMixedBusy] = useState(false)
   const [mixedPreview, setMixedPreview] = useState<{ total: number; conflicts: number; preview: Array<{ unitNo: string; unitType: string; floor: number; conflict: boolean }> } | null>(null)
@@ -91,12 +95,12 @@ export default function UnitsPage() {
 
   const addMixedFloor = () => {
     const next = (mixedFloors[mixedFloors.length - 1]?.floor ?? 0) + 1
-    setMixedFloors([...mixedFloors, { floor: next, types: [{ unitType: "Studio", count: 1, rent: 0 }] }])
+    setMixedFloors([...mixedFloors, { floor: next, types: [{ unitType: "Studio", count: 1, rent: 0, sqFt: 0 }] }])
   }
   const removeMixedFloor = (idx: number) => setMixedFloors(mixedFloors.filter((_, i) => i !== idx))
   const addTypeRow = (floorIdx: number) => {
     const copy = [...mixedFloors]
-    copy[floorIdx].types.push({ unitType: "Studio", count: 1, rent: 0 })
+    copy[floorIdx].types.push({ unitType: "Studio", count: 1, rent: 0, sqFt: 0 })
     setMixedFloors(copy)
   }
   const removeTypeRow = (floorIdx: number, typeIdx: number) => {
@@ -104,12 +108,13 @@ export default function UnitsPage() {
     copy[floorIdx].types = copy[floorIdx].types.filter((_, i) => i !== typeIdx)
     setMixedFloors(copy)
   }
-  const updateTypeRow = (floorIdx: number, typeIdx: number, field: "unitType" | "count" | "rent", value: string | number) => {
+  const updateTypeRow = (floorIdx: number, typeIdx: number, field: "unitType" | "count" | "rent" | "sqFt", value: string | number) => {
     const copy = [...mixedFloors]
     const row = copy[floorIdx].types[typeIdx]
     if (field === "unitType") row.unitType = String(value)
     else if (field === "count") row.count = parseInt(String(value), 10) || 0
-    else row.rent = parseFloat(String(value)) || 0
+    else if (field === "rent") row.rent = parseFloat(String(value)) || 0
+    else row.sqFt = parseFloat(String(value)) || 0
     setMixedFloors(copy)
   }
   const runMixed = async (dryRun: boolean) => {
@@ -499,12 +504,6 @@ export default function UnitsPage() {
             <Building2 className="h-4 w-4" /> Bulk Add (Per Floor)
           </button>
           <button
-            onClick={() => setBulkOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            <Building2 className="h-4 w-4" /> Bulk Add Units
-          </button>
-          <button
             onClick={() => { setForm(defaultForm); setAddOpen(true) }}
             className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-slate-950 hover:from-amber-400 hover:to-amber-500"
           >
@@ -863,6 +862,7 @@ export default function UnitsPage() {
                       <tr>
                         <th className="text-left py-1">Unit Type</th>
                         <th className="text-left py-1 w-20">Count</th>
+                        <th className="text-left py-1 w-24">Sq Ft</th>
                         <th className="text-left py-1 w-28">Rent (AED)</th>
                         <th className="w-6"></th>
                       </tr>
@@ -884,6 +884,15 @@ export default function UnitsPage() {
                               type="number" min="0"
                               value={t.count}
                               onChange={(e) => updateTypeRow(fIdx, tIdx, "count", e.target.value)}
+                              className="w-full rounded border border-slate-300 px-2 py-1 text-slate-900 bg-white"
+                            />
+                          </td>
+                          <td className="py-1 pr-2">
+                            <input
+                              type="number" min="0" step="any"
+                              value={t.sqFt}
+                              onChange={(e) => updateTypeRow(fIdx, tIdx, "sqFt", e.target.value)}
+                              placeholder="0"
                               className="w-full rounded border border-slate-300 px-2 py-1 text-slate-900 bg-white"
                             />
                           </td>
