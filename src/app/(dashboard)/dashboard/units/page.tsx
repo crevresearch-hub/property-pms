@@ -815,7 +815,7 @@ export default function UnitsPage() {
                     type="number" min="0"
                     value={mixedStartFloor}
                     onChange={(e) => setMixedStartFloor(parseInt(e.target.value) || 1)}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 bg-white"
                   />
                 </label>
                 <label className="block">
@@ -823,7 +823,7 @@ export default function UnitsPage() {
                   <select
                     value={mixedNumbering}
                     onChange={(e) => setMixedNumbering(e.target.value as "floor-prefix" | "sequential")}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 bg-white"
                   >
                     <option value="floor-prefix">Floor + Number (101, 102…)</option>
                     <option value="sequential">Sequential (001, 002…)</option>
@@ -845,7 +845,7 @@ export default function UnitsPage() {
                           copy[fIdx].floor = parseInt(e.target.value) || 0
                           setMixedFloors(copy)
                         }}
-                        className="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                        className="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-900 bg-white"
                       />
                       <span className="text-xs text-slate-600">
                         ({f.types.reduce((s, t) => s + t.count, 0)} units)
@@ -874,7 +874,7 @@ export default function UnitsPage() {
                             <select
                               value={t.unitType}
                               onChange={(e) => updateTypeRow(fIdx, tIdx, "unitType", e.target.value)}
-                              className="w-full rounded border border-slate-300 px-2 py-1"
+                              className="w-full rounded border border-slate-300 px-2 py-1 text-slate-900 bg-white"
                             >
                               {UNIT_TYPES.map((ut) => <option key={ut}>{ut}</option>)}
                             </select>
@@ -884,7 +884,7 @@ export default function UnitsPage() {
                               type="number" min="0"
                               value={t.count}
                               onChange={(e) => updateTypeRow(fIdx, tIdx, "count", e.target.value)}
-                              className="w-full rounded border border-slate-300 px-2 py-1"
+                              className="w-full rounded border border-slate-300 px-2 py-1 text-slate-900 bg-white"
                             />
                           </td>
                           <td className="py-1 pr-2">
@@ -893,7 +893,7 @@ export default function UnitsPage() {
                               value={t.rent}
                               onChange={(e) => updateTypeRow(fIdx, tIdx, "rent", e.target.value)}
                               placeholder="0"
-                              className="w-full rounded border border-slate-300 px-2 py-1"
+                              className="w-full rounded border border-slate-300 px-2 py-1 text-slate-900 bg-white"
                             />
                           </td>
                           <td>
