@@ -497,19 +497,29 @@ function ChequeFilters({
         <div>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Payment Method</p>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "cheque", "cash"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setPaymentMethod(m)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                  paymentMethod === m
-                    ? m === "cash" ? "bg-green-500 text-white" : "bg-amber-500 text-slate-900"
-                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                }`}
-              >
-                {m === "all" ? "All" : m === "cheque" ? "💳 Cheque" : "💵 Cash Only"}
-              </button>
-            ))}
+            {(() => {
+              const tenantsWithCheques = new Set(cheques.map((c) => c.tenantId).filter(Boolean))
+              const totalTenants = allUnits.filter((u) => u.tenantId).length
+              const chequeTenantCount = tenantsWithCheques.size
+              const cashTenantCount = totalTenants - chequeTenantCount
+              const counts = { all: totalTenants, cheque: chequeTenantCount, cash: cashTenantCount }
+              return (["all", "cheque", "cash"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setPaymentMethod(m)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    paymentMethod === m
+                      ? m === "cash" ? "bg-green-500 text-white" : "bg-amber-500 text-slate-900"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  {m === "all" ? "All" : m === "cheque" ? "💳 Cheque" : "💵 Cash Only"}
+                  <span className="ml-1.5 rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] font-semibold">
+                    {counts[m]}
+                  </span>
+                </button>
+              ))
+            })()}
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
