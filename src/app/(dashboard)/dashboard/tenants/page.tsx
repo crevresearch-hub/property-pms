@@ -5,6 +5,7 @@ import Link from "next/link"
 import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
+import { HelpPanel } from "@/components/ui/help-panel"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import {
   Plus,
@@ -890,6 +891,75 @@ export default function TenantsPage() {
           <p className="mt-1 text-sm text-slate-400">{tenants.length} tenants registered</p>
         </div>
         <div className="flex items-center gap-2">
+          <HelpPanel
+            title="Tenants — How it works"
+            sections={[
+              {
+                title: "What this page does",
+                body: (
+                  <p>Central registry of every tenant in your buildings. Search, filter, edit, assign to units, generate contracts, track documents and cheques — all starting here.</p>
+                ),
+              },
+              {
+                title: "Add a tenant — two ways",
+                body: (
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Onboarding Wizard</strong> (amber button) — full move-in flow: upload Emirates ID → OCR auto-fill → assign unit → set contract dates + rent → generate cheques → calculate fees (Ejari, Municipality) → generate DLD contract → email signing link to tenant. Takes 5-10 min.</li>
+                    <li><strong>Quick Add</strong> (grey button) — fast modal with just name, phone, email, EID. No contract, no cheques, no emails. Use when you only have basic info; fill the rest via Edit later.</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Columns",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Name</strong> — sorted by unit number, not alphabetical</li>
+                    <li><strong>Phone / Email</strong> — contact info</li>
+                    <li><strong>Unit</strong> — which unit they occupy</li>
+                    <li><strong>Type</strong> — unit type (Studio / 1 BHK / etc.)</li>
+                    <li><strong>Nationality</strong> — filterable</li>
+                    <li><strong>Emirates ID</strong> — 784-XXXX-XXXXXXX-X</li>
+                    <li><strong>Status</strong> — Active / Pending / Terminated / Blacklisted</li>
+                    <li><strong>Docs</strong> — green ticks for Ejari / Cheques / EID uploaded</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Filters",
+                body: (
+                  <p>Every column has a funnel icon for Excel-style multi-select filtering. Combined with search box for fast lookup.</p>
+                ),
+              },
+              {
+                title: "Row actions",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>👁 <strong>View</strong> — quick detail modal showing everything</li>
+                    <li>✏ <strong>Edit</strong> — edit all tenant fields + upload documents (Emirates ID, Ejari, cheques)</li>
+                    <li>🔑 <strong>Portal Password</strong> — generate / reset tenant&apos;s portal login</li>
+                    <li>🚫 <strong>Terminate</strong> — end the tenancy (releases the unit, marks tenant Terminated)</li>
+                    <li>🗑 <strong>Delete</strong> — removes tenant + their cheques + documents (DANGEROUS, requires confirmation)</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Documents per tenant",
+                body: (
+                  <p>Each tenant can hold unlimited files in the Edit page → Documents section. Supports PDF, images. File types are tagged: Emirates ID, Ejari, Cheques, Passport, Other. Approvable / rejectable by staff.</p>
+                ),
+              },
+              {
+                title: "Bulk import",
+                body: (
+                  <p>
+                    Sidebar → <strong>Import Tenants (Folder)</strong> — scans a folder with PDFs and auto-creates tenants from Ejari data.
+                    <br />
+                    Sidebar → <strong>Import Lease Data (Full)</strong> — Excel with 236+ tenants + cheques in one go.
+                  </p>
+                ),
+              },
+            ]}
+          />
           <Link href="/dashboard/tenants/new" className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-slate-950 hover:from-amber-400 hover:to-amber-500">
             <Plus className="h-4 w-4" /> Onboarding Wizard
           </Link>

@@ -5,6 +5,7 @@ import { KpiCard } from "@/components/ui/kpi-card"
 import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
+import { HelpPanel } from "@/components/ui/help-panel"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import {
   Building2,
@@ -515,6 +516,62 @@ export default function UnitsPage() {
           <p className="mt-1 text-sm text-slate-400">Manage all property units</p>
         </div>
         <div className="flex gap-2">
+          <HelpPanel
+            title="Units — How it works"
+            sections={[
+              {
+                title: "What this page does",
+                body: (
+                  <p>This is your complete unit inventory. Every apartment, shop, office or storage unit in your building lives here. Use this page to add new units, assign tenants, track occupancy, and update rent amounts.</p>
+                ),
+              },
+              {
+                title: "KPI cards at top",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Total Units</strong> — every unit in the DB</li>
+                    <li><strong>Occupied</strong> — currently has a tenant</li>
+                    <li><strong>Vacant</strong> — available for rent</li>
+                    <li><strong>Occupancy %</strong> — Occupied ÷ Total</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Filter rows",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Status row</strong> — show only Occupied / Vacant / Under Maintenance / Reserved</li>
+                    <li><strong>By Type</strong> — filter by Studio, 1 BHK, 2 BHK, etc.</li>
+                    <li><strong>Column filters</strong> — funnel icon on any column header for Excel-style checkbox filters</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Buttons (top right)",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Bulk Add (Per Floor)</strong> — create many units at once with per-floor type breakdown (e.g. Floor 1: 18 × 3 BHK + 10 × 2 BHK + 9 × Studio). Auto-numbers units (101, 102…).</li>
+                    <li><strong>Add Single Unit</strong> — simple form for one unit (unit no, type, sq ft). Contract/rent/tenant fields are filled later via Edit.</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Row actions",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>✏ <strong>Edit</strong> — change any field (rent, dates, tenant, notes)</li>
+                    <li>🗑 <strong>Delete</strong> — opens a confirmation modal. You must type <span className="font-mono bg-slate-800 px-1.5 py-0.5 rounded">DELETE ALL</span> to confirm. Delete is <strong>soft</strong> — row stays in DB, hidden from app, restorable by admin.</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Unit numbering convention",
+                body: (
+                  <p>Floor-prefix: unit 301 = floor 3, unit 01. Unit numbers are unique per organization. You can use custom prefixes like &quot;A-&quot; for tower A.</p>
+                ),
+              },
+            ]}
+          />
           <button
             onClick={() => { setMixedOpen(true); setMixedPreview(null); setMixedResult(null) }}
             className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
