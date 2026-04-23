@@ -396,6 +396,7 @@ function ChequeFilters({
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [tenantFilter, setTenantFilter] = useState<string>("all")
   const [dateRange, setDateRange] = useState<string>("all")
+  const [paymentMethod, setPaymentMethod] = useState<"all" | "cheque" | "cash">("all")
   const [view, setView] = useState<"cards" | "table">("cards")
 
   const today = new Date().toISOString().slice(0, 10)
@@ -419,6 +420,8 @@ function ChequeFilters({
   }, [cheques, allUnits])
 
   const filtered = useMemo(() => {
+    // Cash Only: show no cheques at all (card view seeds cash-only tenants)
+    if (paymentMethod === "cash") return []
     return cheques.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false
       if (tenantFilter !== "all" && c.tenantId !== tenantFilter) return false
@@ -434,7 +437,7 @@ function ChequeFilters({
       }
       return true
     })
-  }, [cheques, statusFilter, tenantFilter, dateRange, today, thisMonthStart, in7Str, in30Str])
+  }, [cheques, statusFilter, tenantFilter, dateRange, paymentMethod, today, thisMonthStart, in7Str, in30Str])
 
   const filteredTotal = filtered.reduce((s, c) => s + (c.amount || 0), 0)
 
@@ -489,6 +492,24 @@ function ChequeFilters({
             <DateButton value="this-week" label="This Week" />
             <DateButton value="this-month" label="This Month" />
             <DateButton value="next-30" label="Next 30 Days" />
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Payment Method</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "cheque", "cash"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setPaymentMethod(m)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  paymentMethod === m
+                    ? m === "cash" ? "bg-green-500 text-white" : "bg-amber-500 text-slate-900"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                {m === "all" ? "All" : m === "cheque" ? "💳 Cheque" : "💵 Cash Only"}
+              </button>
+            ))}
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -555,8 +576,17 @@ function ChequeFilters({
         <ChequeUnitCards
           cheques={filtered}
           updateStatus={updateStatus}
-          allUnits={allUnits}
-          showCashOnly={statusFilter === "all" && tenantFilter === "all" && dateRange === "all"}
+          allUnits={
+            paymentMethod === "cheque"
+              ? allUnits.filter((u) => cheques.some((c) => c.unit?.id === u.id))
+              : paymentMethod === "cash"
+                ? allUnits.filter((u) => u.tenantId && !cheques.some((c) => c.unit?.id === u.id))
+                : allUnits
+          }
+          showCashOnly={
+            paymentMethod === "cash" ||
+            (paymentMethod === "all" && statusFilter === "all" && tenantFilter === "all" && dateRange === "all")
+          }
         />
       )}
     </div>
