@@ -162,6 +162,10 @@ export default function TenantsPage() {
   const [tenantCheques, setTenantCheques] = useState<Array<{ id: string; sequenceNo: number; chequeNo: string; bankName: string; chequeDate: string; amount: number; status: string; paymentType: string }>>([])
   const [activeTenant, setActiveTenant] = useState<TenantRow | null>(null)
   const [saving, setSaving] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [nationalityFilter, setNationalityFilter] = useState<string>("all")
+  const [docsFilter, setDocsFilter] = useState<"all" | "all-docs" | "missing-ejari" | "missing-eid" | "missing-cheque" | "no-docs">("all")
 
   const fetchTenants = useCallback(async () => {
     try {
@@ -975,7 +979,112 @@ export default function TenantsPage() {
         </div>
       )}
 
-      <DataTable columns={columns} data={tenants} searchPlaceholder="Search tenants..." searchKeys={["name", "phone", "email", "emiratesId"]} />
+      {/* Quick Filters */}
+      {(() => {
+        const nationalities = Array.from(new Set(tenants.map((t) => t.nationality).filter(Boolean))).sort()
+        const unitTypes = Array.from(new Set(tenants.flatMap((t) => t.units.map((u) => u.unitType)).filter(Boolean))).sort()
+        const filtered = tenants.filter((t) => {
+          if (statusFilter !== "all" && t.status !== statusFilter) return false
+          if (typeFilter !== "all" && !t.units.some((u) => u.unitType === typeFilter)) return false
+          if (nationalityFilter !== "all" && t.nationality !== nationalityFilter) return false
+          if (docsFilter === "all-docs" && !(t.has_ejari && t.has_cheque && t.has_eid)) return false
+          if (docsFilter === "missing-ejari" && t.has_ejari) return false
+          if (docsFilter === "missing-eid" && t.has_eid) return false
+          if (docsFilter === "missing-cheque" && t.has_cheque) return false
+          if (docsFilter === "no-docs" && (t.has_ejari || t.has_cheque || t.has_eid)) return false
+          return true
+        })
+        const filterBtn = (label: string, active: boolean, onClick: () => void, count?: number, color: "amber" | "blue" | "green" | "red" = "amber") => {
+          const colors = {
+            amber: active ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30" : "bg-slate-800 text-slate-400 hover:text-white",
+            blue: active ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30" : "bg-slate-800 text-slate-400 hover:text-white",
+            green: active ? "bg-green-500/20 text-green-400 ring-1 ring-green-500/30" : "bg-slate-800 text-slate-400 hover:text-white",
+            red: active ? "bg-red-500/20 text-red-400 ring-1 ring-red-500/30" : "bg-slate-800 text-slate-400 hover:text-white",
+          }
+          return (
+            <button onClick={onClick} className={`rounded-lg px-3 py-1 text-xs font-medium ${colors[color]}`}>
+              {label}{count !== undefined && <span className="ml-1 text-[10px] opacity-75">({count})</span>}
+            </button>
+          )
+        }
+        const anyActive = statusFilter !== "all" || typeFilter !== "all" || nationalityFilter !== "all" || docsFilter !== "all"
+        return (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Status</p>
+              <div className="flex flex-wrap gap-1.5">
+                {filterBtn("All", statusFilter === "all", () => setStatusFilter("all"), tenants.length, "amber")}
+                {filterBtn("Active", statusFilter === "Active", () => setStatusFilter("Active"), tenants.filter(t => t.status === "Active").length, "green")}
+                {filterBtn("Pending", statusFilter === "Pending", () => setStatusFilter("Pending"), tenants.filter(t => t.status === "Pending").length, "amber")}
+                {filterBtn("Vacating", statusFilter === "Vacating", () => setStatusFilter("Vacating"), tenants.filter(t => t.status === "Vacating").length, "amber")}
+                {filterBtn("Terminated", statusFilter === "Terminated", () => setStatusFilter("Terminated"), tenants.filter(t => t.status === "Terminated").length, "red")}
+                {filterBtn("Blacklisted", statusFilter === "Blacklisted", () => setStatusFilter("Blacklisted"), tenants.filter(t => t.status === "Blacklisted").length, "red")}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Unit Type</p>
+              <div className="flex flex-wrap gap-1.5">
+                {filterBtn("All", typeFilter === "all", () => setTypeFilter("all"), tenants.length, "blue")}
+                {unitTypes.map((t) => filterBtn(t, typeFilter === t, () => setTypeFilter(t), tenants.filter((x) => x.units.some((u) => u.unitType === t)).length, "blue"))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Documents</p>
+              <div className="flex flex-wrap gap-1.5">
+                {filterBtn("All", docsFilter === "all", () => setDocsFilter("all"), tenants.length, "green")}
+                {filterBtn("✓ All 3 docs", docsFilter === "all-docs", () => setDocsFilter("all-docs"), tenants.filter(t => t.has_ejari && t.has_cheque && t.has_eid).length, "green")}
+                {filterBtn("Missing Ejari", docsFilter === "missing-ejari", () => setDocsFilter("missing-ejari"), tenants.filter(t => !t.has_ejari).length, "red")}
+                {filterBtn("Missing EID", docsFilter === "missing-eid", () => setDocsFilter("missing-eid"), tenants.filter(t => !t.has_eid).length, "red")}
+                {filterBtn("Missing Cheques", docsFilter === "missing-cheque", () => setDocsFilter("missing-cheque"), tenants.filter(t => !t.has_cheque).length, "red")}
+                {filterBtn("No docs", docsFilter === "no-docs", () => setDocsFilter("no-docs"), tenants.filter(t => !t.has_ejari && !t.has_cheque && !t.has_eid).length, "red")}
+              </div>
+            </div>
+            {nationalities.length > 0 && (
+              <div>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Nationality</p>
+                <select
+                  value={nationalityFilter}
+                  onChange={(e) => setNationalityFilter(e.target.value)}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs text-white outline-none focus:border-amber-500/50"
+                >
+                  <option value="all">All ({tenants.length})</option>
+                  {nationalities.map((n) => (
+                    <option key={n} value={n}>{n} ({tenants.filter(t => t.nationality === n).length})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+              <span className="text-xs text-slate-400">
+                Showing <strong className="text-white">{filtered.length}</strong> of <strong className="text-white">{tenants.length}</strong> tenants
+              </span>
+              {anyActive && (
+                <button
+                  onClick={() => { setStatusFilter("all"); setTypeFilter("all"); setNationalityFilter("all"); setDocsFilter("all") }}
+                  className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                >Clear filters</button>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      <DataTable
+        columns={columns}
+        data={tenants.filter((t) => {
+          if (statusFilter !== "all" && t.status !== statusFilter) return false
+          if (typeFilter !== "all" && !t.units.some((u) => u.unitType === typeFilter)) return false
+          if (nationalityFilter !== "all" && t.nationality !== nationalityFilter) return false
+          if (docsFilter === "all-docs" && !(t.has_ejari && t.has_cheque && t.has_eid)) return false
+          if (docsFilter === "missing-ejari" && t.has_ejari) return false
+          if (docsFilter === "missing-eid" && t.has_eid) return false
+          if (docsFilter === "missing-cheque" && t.has_cheque) return false
+          if (docsFilter === "no-docs" && (t.has_ejari || t.has_cheque || t.has_eid)) return false
+          return true
+        })}
+        searchPlaceholder="Search tenants..."
+        searchKeys={["name", "phone", "email", "emiratesId"]}
+      />
 
       <Modal open={addOpen} onOpenChange={setAddOpen} title="Add Tenant" description="Register a new tenant" size="xl"
         footer={<><ModalCancelButton /><ModalSaveButton onClick={handleAdd} disabled={saving || !form.name}>{saving ? "Saving..." : "Save"}</ModalSaveButton></>}>
