@@ -89,19 +89,23 @@ interface ModalButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
   children?: React.ReactNode
 }
 
-export function ModalCancelButton({ children = "Cancel", className, ...props }: ModalButtonProps) {
-  return (
+export function ModalCancelButton({ children = "Cancel", className, onClick, ...props }: ModalButtonProps) {
+  const button = (
     <button
       type="button"
       className={cn(
         "rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white",
         className
       )}
+      onClick={onClick}
       {...props}
     >
       {children}
     </button>
   )
+  // If a custom onClick is passed, use it as-is. Otherwise wrap in Dialog.Close so clicking closes the modal.
+  if (onClick) return button
+  return <Dialog.Close asChild>{button}</Dialog.Close>
 }
 
 export function ModalSaveButton({ children = "Save", className, ...props }: ModalButtonProps) {
