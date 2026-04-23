@@ -150,6 +150,9 @@ export default function UnitsPage() {
   const [saving, setSaving] = useState(false)
   const [statusFilter, setStatusFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [deleteTarget, setDeleteTarget] = useState<UnitRow | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState("")
+  const [deleting, setDeleting] = useState(false)
 
   const fetchUnits = useCallback(async () => {
     try {
@@ -259,24 +262,27 @@ export default function UnitsPage() {
     }
   }
 
-  const handleDelete = async (unit: UnitRow) => {
-    const warn = unit.tenantId
-      ? `⚠ DELETE UNIT ${unit.unitNo}?\n\nTenant: ${unit.tenant?.name || "(none)"}\n\nThis is a SOFT DELETE — the record stays in the database but is hidden from the app. It can be restored by an admin.\n\nTo confirm, type exactly: DELETE ALL`
-      : `⚠ DELETE UNIT ${unit.unitNo}?\n\nThis is a SOFT DELETE — the record stays in the database but is hidden from the app.\n\nTo confirm, type exactly: DELETE ALL`
-    const typed = prompt(warn)
-    if (typed !== 'DELETE ALL') {
-      if (typed !== null) alert("You must type \"DELETE ALL\" exactly. Delete cancelled.")
-      return
-    }
+  const handleDelete = (unit: UnitRow) => {
+    setDeleteTarget(unit)
+    setDeleteConfirm("")
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleteConfirm !== "DELETE ALL") return
+    setDeleting(true)
     try {
-      const res = await fetch(`/api/units/${unit.id}?confirm=${encodeURIComponent('DELETE ALL')}`, { method: "DELETE" })
+      const res = await fetch(`/api/units/${deleteTarget.id}?confirm=${encodeURIComponent('DELETE ALL')}`, { method: "DELETE" })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || "Failed to delete unit")
       }
+      setDeleteTarget(null)
+      setDeleteConfirm("")
       fetchUnits()
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -782,6 +788,80 @@ export default function UnitsPage() {
           )}
         </div>
       </Modal>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-red-500/30 bg-slate-900 shadow-2xl">
+            <div className="border-b border-red-500/20 bg-gradient-to-r from-red-950/60 to-slate-900 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/20">
+                  <Trash2 className="h-5 w-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Delete Unit {deleteTarget.unitNo}?</h3>
+                  <p className="text-xs text-red-300">This action requires strong confirmation</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              <div className="rounded-lg bg-slate-800/60 p-3 text-sm">
+                <div className="flex justify-between border-b border-slate-700 pb-2">
+                  <span className="text-slate-400">Unit</span>
+                  <span className="font-mono font-semibold text-white">{deleteTarget.unitNo}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-700 py-2">
+                  <span className="text-slate-400">Type</span>
+                  <span className="text-white">{deleteTarget.unitType || "—"}</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-slate-400">Tenant</span>
+                  <span className="text-white">{deleteTarget.tenant?.name || <span className="text-slate-500">No tenant</span>}</span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                <p className="font-semibold">🛡 Safety Notice</p>
+                <p className="mt-1 leading-relaxed">
+                  This is a <strong>soft delete</strong> — the record stays in the database and can be restored by an admin later. It is only hidden from the app.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-300">
+                  To confirm, type <span className="font-mono font-bold text-red-400">DELETE ALL</span> below:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder="DELETE ALL"
+                  autoFocus
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-red-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 border-t border-slate-800 bg-slate-900/80 px-6 py-4">
+              <button
+                onClick={() => { setDeleteTarget(null); setDeleteConfirm("") }}
+                disabled={deleting}
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteConfirm !== "DELETE ALL" || deleting}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+              >
+                {deleting ? "Deleting..." : "Delete Unit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Add Per-Floor Modal */}
       <Modal
