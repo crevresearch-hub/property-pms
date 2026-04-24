@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Settings, Building2, Lock, CreditCard, Mail } from "lucide-react"
+import { UaePhoneInput } from "@/components/ui/uae-phone-input"
 
 interface OrgSettings {
   id: string
@@ -178,7 +179,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-400">Phone</label>
-              <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
+              <UaePhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
             </div>
           </div>
           <div>

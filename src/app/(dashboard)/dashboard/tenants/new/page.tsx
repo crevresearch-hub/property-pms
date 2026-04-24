@@ -13,6 +13,7 @@ import {
   Calculator,
   X,
 } from "lucide-react"
+import { UaePhoneInput, isValidUaePhone } from "@/components/ui/uae-phone-input"
 
 const LABEL = "mb-1.5 block text-sm font-medium text-slate-700"
 const INPUT =
@@ -277,6 +278,7 @@ export default function NewTenantPage() {
   const canSubmit =
     !!email &&
     !!phone &&
+    isValidUaePhone(phone) &&
     !!unitId &&
     !!startDate &&
     !!endDate &&
@@ -450,11 +452,9 @@ export default function NewTenantPage() {
             </div>
             <div>
               <label className={LABEL}>Phone *</label>
-              <input
-                type="tel"
+              <UaePhoneInput
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+971 50 123 4567"
+                onChange={setPhone}
                 className={INPUT}
               />
             </div>

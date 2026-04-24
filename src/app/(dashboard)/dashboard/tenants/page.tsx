@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/status-badge"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
 import { HelpPanel } from "@/components/ui/help-panel"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { UaePhoneInput } from "@/components/ui/uae-phone-input"
 import {
   Plus,
   Pencil,
@@ -695,7 +696,7 @@ export default function TenantsPage() {
         </div>
         <div>
           <label className={labelCls}>Phone</label>
-          <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} />
+          <UaePhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Email</label>
@@ -754,7 +755,7 @@ export default function TenantsPage() {
         </div>
         <div>
           <label className={labelCls}>Emergency Phone</label>
-          <input type="text" value={form.emergencyContactPhone} onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })} className={inputCls} />
+          <UaePhoneInput value={form.emergencyContactPhone} onChange={(v) => setForm({ ...form, emergencyContactPhone: v })} className={inputCls} />
         </div>
       </div>
 
@@ -1246,10 +1247,9 @@ export default function TenantsPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-400">Phone *</label>
-              <input
+              <UaePhoneInput
                 value={preBookForm.phone}
-                onChange={(e) => setPreBookForm({ ...preBookForm, phone: e.target.value })}
-                placeholder="+971..."
+                onChange={(v) => setPreBookForm({ ...preBookForm, phone: v })}
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
               />
             </div>

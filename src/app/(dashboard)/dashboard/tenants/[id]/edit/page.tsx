@@ -32,6 +32,7 @@ import {
   Hash,
 } from "lucide-react"
 import { useToast } from "@/components/ui/toast"
+import { UaePhoneInput } from "@/components/ui/uae-phone-input"
 
 const LABEL = "mb-1.5 block text-xs font-medium text-slate-600"
 const INPUT =
@@ -645,7 +646,7 @@ export default function TenantEditPage() {
               </div>
               <div>
                 <label className={LABEL}>Phone</label>
-                <input className={INPUT} value={tenant.phone} onChange={(e) => updateField({ phone: e.target.value })} />
+                <UaePhoneInput className={INPUT} value={tenant.phone} onChange={(v) => updateField({ phone: v })} />
               </div>
               <div>
                 <label className={LABEL}>Status</label>
@@ -686,7 +687,7 @@ export default function TenantEditPage() {
               </div>
               <div>
                 <label className={LABEL}>Emergency Contact Phone</label>
-                <input className={INPUT} value={tenant.emergencyContactPhone} onChange={(e) => updateField({ emergencyContactPhone: e.target.value })} />
+                <UaePhoneInput className={INPUT} value={tenant.emergencyContactPhone} onChange={(v) => updateField({ emergencyContactPhone: v })} />
               </div>
             </div>
 

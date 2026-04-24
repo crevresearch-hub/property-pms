@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Building2, Plus, Pencil, Trash2, Star } from "lucide-react"
+import { UaePhoneInput } from "@/components/ui/uae-phone-input"
 
 interface VendorRow {
   id: string
@@ -205,7 +206,7 @@ export default function VendorsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-400">Phone</label>
-          <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
+          <UaePhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-400">Email</label>

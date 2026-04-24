@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { MessageSquare, Send, ArrowLeft, Paperclip, X as XIcon } from 'lucide-react'
+import { UaePhoneInput } from '@/components/ui/uae-phone-input'
 
 interface Props {
   token: string
@@ -510,11 +511,9 @@ export default function SignatureForm({ token, contractNo, version, defaultName,
               <span className="block text-sm font-medium text-gray-700 mb-1">
                 Emergency Contact Phone <span className="text-red-600">*</span>
               </span>
-              <input
-                type="tel"
+              <UaePhoneInput
                 value={emergencyPhone}
-                onChange={(e) => setEmergencyPhone(e.target.value)}
-                placeholder="+971 ..."
+                onChange={setEmergencyPhone}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
               />
             </label>
