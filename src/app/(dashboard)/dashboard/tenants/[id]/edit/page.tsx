@@ -2043,7 +2043,7 @@ function EidImageCard({
       {doc && isPdf ? (
         <div className="relative overflow-hidden rounded-md border border-slate-200 bg-white" style={{ height: 260 }}>
           <iframe
-            src={`/api/documents/${doc.id}/file#toolbar=0&navpanes=0`}
+            src={`/api/documents/${doc.id}/file?v=${doc.id}#toolbar=0&navpanes=0`}
             title={`Emirates ID ${label} PDF`}
             className="h-full w-full"
           />

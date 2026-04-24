@@ -577,6 +577,31 @@ export default function TenantsPage() {
           ? row.units.map((u) => u.unitType).filter(Boolean).join(", ")
           : <span className="text-slate-600">--</span>,
     },
+    {
+      key: "contractStart",
+      header: "Contract Start",
+      filterable: true,
+      filterValue: (row) => row.units.map((u) => u.contractStart || "").filter(Boolean).join(", "),
+      render: (row) => {
+        const d = row.units[0]?.contractStart
+        return d ? <span className="whitespace-nowrap text-slate-300">{formatDate(d)}</span> : <span className="text-slate-600">—</span>
+      },
+    },
+    {
+      key: "contractEnd",
+      header: "Contract End",
+      filterable: true,
+      filterValue: (row) => row.units.map((u) => u.contractEnd || "").filter(Boolean).join(", "),
+      render: (row) => {
+        const d = row.units[0]?.contractEnd
+        if (!d) return <span className="text-slate-600">—</span>
+        const today = new Date()
+        const end = new Date(d)
+        const days = Math.floor((end.getTime() - today.getTime()) / 86400000)
+        const color = days < 0 ? "text-red-400" : days <= 30 ? "text-amber-400" : days <= 90 ? "text-blue-300" : "text-slate-300"
+        return <span className={`whitespace-nowrap ${color}`}>{formatDate(d)}</span>
+      },
+    },
     { key: "nationality", header: "Nationality", filterable: true },
     { key: "emiratesId", header: "Emirates ID", filterable: true },
     {

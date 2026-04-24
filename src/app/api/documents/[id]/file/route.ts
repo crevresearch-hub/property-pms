@@ -37,8 +37,14 @@ export async function GET(
 
     // Otherwise read from local disk (dev).
     const fullPath = path.join(process.cwd(), doc.filePath)
-    const buf = await readFile(fullPath).catch(() => null)
-    if (!buf) return NextResponse.json({ error: 'File missing on disk' }, { status: 410 })
+    const buf = await readFile(fullPath).catch((err) => {
+      console.error('[documents/file] readFile failed:', { id: doc.id, filePath: doc.filePath, fullPath, cwd: process.cwd(), err: err?.message })
+      return null
+    })
+    if (!buf) return NextResponse.json(
+      { error: 'File missing on disk', path: doc.filePath },
+      { status: 410, headers: { 'Cache-Control': 'no-store' } }
+    )
 
     const ext = (doc.filename.split('.').pop() || '').toLowerCase()
     const mime = MIME_BY_EXT[ext] || 'application/octet-stream'
