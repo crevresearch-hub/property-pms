@@ -797,26 +797,39 @@ export default function TenantEditPage() {
             const eidDoc = tenant.documents.find((d) => d.docType === "Emirates ID")
             const eidBackDoc = tenant.documents.find((d) => d.docType === "Emirates ID (Back)")
             const chequeDocs = tenant.documents.filter((d) => d.docType === "Cheques")
+            const passportDoc = tenant.documents.find((d) => d.docType === "Passport")
+            const tradeLicenseDoc = tenant.documents.find((d) => d.docType === "Trade License")
 
             const ejariUploaded = !!ejariDoc
             const eidUploaded = !!eidDoc
             const chequesUploaded = chequeDocs.length > 0
             const numChequesOk = numCheques >= 1 && numCheques <= 12
 
+            // Commercial contracts require Passport + Trade License as well.
+            const isCommercial = contracts.some(
+              (c) => (c.contractType || "").toLowerCase() === "commercial"
+            )
+            const passportOk = !isCommercial || !!passportDoc
+            const tradeLicenseOk = !isCommercial || !!tradeLicenseDoc
+
             const mandatoryCount =
-              (ejariUploaded ? 1 : 0) + (eidUploaded ? 1 : 0) + (numChequesOk ? 1 : 0)
+              (ejariUploaded ? 1 : 0) + (eidUploaded ? 1 : 0) + (numChequesOk ? 1 : 0) +
+              (isCommercial ? (passportOk ? 1 : 0) + (tradeLicenseOk ? 1 : 0) : 0)
 
             const contractSigned = contracts.some(
               (c) => c.signedByTenantAt || c.status === "Active" || !!c.signedFileName
             )
-            const allRequirementsMet = ejariUploaded && eidUploaded && numChequesOk
+            const allRequirementsMet =
+              ejariUploaded && eidUploaded && numChequesOk && passportOk && tradeLicenseOk
             const canActivate =
               allRequirementsMet && contractSigned && tenant.status !== "Active"
 
+            // Optional list depends on contract type — Passport + Trade License
+            // move up to Mandatory for Commercial leases, so remove them here.
             const optionalTypes: Array<{ key: string; label: string; accept: string }> = [
-              { key: "Passport", label: "Passport Copy", accept: ".pdf,.jpg,.jpeg,.png" },
+              ...(isCommercial ? [] : [{ key: "Passport", label: "Passport Copy", accept: ".pdf,.jpg,.jpeg,.png" }]),
               { key: "Visa", label: "Visa Copy", accept: ".pdf,.jpg,.jpeg,.png" },
-              { key: "Trade License", label: "Trade License (if Company)", accept: ".pdf,.jpg,.jpeg,.png" },
+              ...(isCommercial ? [] : [{ key: "Trade License", label: "Trade License (if Company)", accept: ".pdf,.jpg,.jpeg,.png" }]),
               { key: "Salary Certificate", label: "Salary Certificate", accept: ".pdf,.jpg,.jpeg,.png" },
             ]
 
@@ -838,6 +851,11 @@ export default function TenantEditPage() {
                   </span>
                 </div>
                 <div className="p-6 space-y-6">
+                  {isCommercial && (
+                    <p className="rounded-md bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs text-indigo-800">
+                      ⓘ Commercial lease — Passport Copy and Trade License are also required.
+                    </p>
+                  )}
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <MandatoryDocBox
                       label="Upload Signed Ejari"
@@ -862,6 +880,26 @@ export default function TenantEditPage() {
                         </p>
                       )}
                     </div>
+                    {isCommercial && (
+                      <MandatoryDocBox
+                        label="Passport Copy"
+                        hint="PDF / JPG / PNG"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        doc={passportDoc}
+                        onUpload={(f) => uploadDoc(f, "Passport")}
+                        onDelete={() => passportDoc && deleteDoc(passportDoc.id)}
+                      />
+                    )}
+                    {isCommercial && (
+                      <MandatoryDocBox
+                        label="Trade License"
+                        hint="PDF / JPG / PNG"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        doc={tradeLicenseDoc}
+                        onUpload={(f) => uploadDoc(f, "Trade License")}
+                        onDelete={() => tradeLicenseDoc && deleteDoc(tradeLicenseDoc.id)}
+                      />
+                    )}
                   </div>
 
                   {!contractSigned && (
@@ -912,10 +950,13 @@ export default function TenantEditPage() {
                         </span>
                       ) : (
                         <span>
-                          Required: signed contract + Ejari + Emirates ID + Number of Cheques (1-12).
+                          Required: signed contract + Ejari + Emirates ID
+                          {isCommercial && " + Passport + Trade License"} + Cheques (1-12).
                           {!contractSigned && " (contract not signed yet)"}
                           {!ejariUploaded && " (Ejari missing)"}
                           {!eidUploaded && " (Emirates ID missing)"}
+                          {isCommercial && !passportOk && " (Passport missing)"}
+                          {isCommercial && !tradeLicenseOk && " (Trade License missing)"}
                           {!numChequesOk && " (cheque count invalid)"}
                         </span>
                       )}
@@ -1301,6 +1342,64 @@ function PaymentPlan({
         </div>
       </div>
 
+      {/* 4-col Payment Summary (Details · Amount excl. VAT · VAT · Total) */}
+      {(() => {
+        const isCommercial = (contract.contractType || '').toLowerCase() === 'commercial'
+        const rent = contract.rentAmount || 0
+        const sec = contract.securityDeposit || 0
+        const ejari = contract.ejariFee || 0
+        const mun = contract.municipalityFee || 0
+        const comm = contract.commissionFee || 0
+        const rentVat = isCommercial ? Math.round(rent * 0.05) : 0
+        const commVat = Math.round(comm * 0.05)
+        type Row = { label: string; base: number; vat: number }
+        const rows: Row[] = [
+          { label: 'Annual Rent', base: rent, vat: rentVat },
+          { label: 'Security Deposit', base: sec, vat: 0 },
+        ]
+        if (comm) rows.push({ label: 'Admin / Commission Fee', base: comm, vat: commVat })
+        if (ejari) rows.push({ label: 'Ejari Fee', base: ejari, vat: 0 })
+        if (mun) rows.push({ label: 'Municipality Fee', base: mun, vat: 0 })
+        const totalBase = rows.reduce((s, r) => s + r.base, 0)
+        const totalVat = rows.reduce((s, r) => s + r.vat, 0)
+        const grand = totalBase + totalVat
+        return (
+          <div className="mx-6 mt-4 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-slate-900 px-4 py-2.5">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-white">Payment Summary</h3>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide">Details</th>
+                  <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Amount (excl. VAT)</th>
+                  <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">VAT (5%)</th>
+                  <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((r) => (
+                  <tr key={r.label} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 text-slate-700">{r.label}</td>
+                    <td className="px-4 py-2 text-right font-mono text-slate-900">{r.base.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right font-mono text-slate-500">{r.vat > 0 ? r.vat.toLocaleString() : '—'}</td>
+                    <td className="px-4 py-2 text-right font-mono font-semibold text-slate-900">{(r.base + r.vat).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-300 bg-slate-50">
+                  <td className="px-4 py-2.5 text-sm font-bold text-slate-900">Annual Contract Value</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalBase.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalVat.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-slate-900">AED {grand.toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )
+      })()}
+
       {/* Summary pills */}
       <div className="grid grid-cols-2 gap-2 px-6 pt-4 sm:grid-cols-5">
         {[
@@ -1328,6 +1427,32 @@ function PaymentPlan({
           </div>
         ))}
       </div>
+
+      {/* Security Deposit — separate card */}
+      {(contract.securityDeposit || 0) > 0 && (
+        <div className="px-6 pt-5">
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold">🛡</span>
+                  <h3 className="text-sm font-semibold text-purple-900">Security Deposit</h3>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
+                    {(contract.contractType || '').toLowerCase() === 'commercial' ? '10% of rent' : '5% of rent'}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-purple-700">
+                  Refundable at lease end, subject to unit condition. Held separately from rent collection.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-500">Amount</p>
+                <p className="text-lg font-bold text-purple-900">AED {(contract.securityDeposit || 0).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upfront payment card */}
       <div className="px-6 pt-5">
