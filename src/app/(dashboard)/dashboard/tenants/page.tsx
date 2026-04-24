@@ -162,6 +162,17 @@ export default function TenantsPage() {
   const [tenantCheques, setTenantCheques] = useState<Array<{ id: string; sequenceNo: number; chequeNo: string; bankName: string; chequeDate: string; amount: number; status: string; paymentType: string }>>([])
   const [activeTenant, setActiveTenant] = useState<TenantRow | null>(null)
   const [saving, setSaving] = useState(false)
+  const [preBookOpen, setPreBookOpen] = useState(false)
+  const [preBookForm, setPreBookForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    unitId: "",
+    expectedMoveIn: "",
+    preBookingDeposit: "",
+    notes: "",
+  })
+  const [preBookBusy, setPreBookBusy] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [nationalityFilter, setNationalityFilter] = useState<string>("all")
@@ -965,10 +976,10 @@ export default function TenantsPage() {
             ]}
           />
           <Link href="/dashboard/tenants/new" className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-slate-950 hover:from-amber-400 hover:to-amber-500">
-            <Plus className="h-4 w-4" /> Onboarding Wizard
+            <Plus className="h-4 w-4" /> Full Onboarding
           </Link>
-          <button onClick={() => { setForm(defaultForm); setAddOpen(true) }} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700">
-            <Plus className="h-4 w-4" /> Quick Add
+          <button onClick={() => setPreBookOpen(true)} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            <Plus className="h-4 w-4" /> Pre-Booking
           </button>
         </div>
       </div>
@@ -1015,6 +1026,7 @@ export default function TenantsPage() {
               <div className="flex flex-wrap gap-1.5">
                 {filterBtn("All", statusFilter === "all", () => setStatusFilter("all"), tenants.length, "amber")}
                 {filterBtn("Active", statusFilter === "Active", () => setStatusFilter("Active"), tenants.filter(t => t.status === "Active").length, "green")}
+                {filterBtn("Pre-Booked", statusFilter === "Pre-Booked", () => setStatusFilter("Pre-Booked"), tenants.filter(t => t.status === "Pre-Booked").length, "blue")}
                 {filterBtn("Pending", statusFilter === "Pending", () => setStatusFilter("Pending"), tenants.filter(t => t.status === "Pending").length, "amber")}
                 {filterBtn("Vacating", statusFilter === "Vacating", () => setStatusFilter("Vacating"), tenants.filter(t => t.status === "Vacating").length, "amber")}
                 {filterBtn("Terminated", statusFilter === "Terminated", () => setStatusFilter("Terminated"), tenants.filter(t => t.status === "Terminated").length, "red")}
@@ -1089,6 +1101,132 @@ export default function TenantsPage() {
       <Modal open={addOpen} onOpenChange={setAddOpen} title="Add Tenant" description="Register a new tenant" size="xl"
         footer={<><ModalCancelButton /><ModalSaveButton onClick={handleAdd} disabled={saving || !form.name}>{saving ? "Saving..." : "Save"}</ModalSaveButton></>}>
         {formFields}
+      </Modal>
+
+      {/* Pre-Booking Modal */}
+      <Modal
+        open={preBookOpen}
+        onOpenChange={(v) => { setPreBookOpen(v); if (!v) setPreBookForm({ name: "", phone: "", email: "", unitId: "", expectedMoveIn: "", preBookingDeposit: "", notes: "" }) }}
+        title="Pre-Booking"
+        description="Reserve a unit for a future tenant. Record deposit paid. Complete onboarding when they move in."
+        size="lg"
+        footer={
+          <>
+            <ModalCancelButton />
+            <ModalSaveButton
+              onClick={async () => {
+                setPreBookBusy(true)
+                try {
+                  const res = await fetch("/api/tenants/pre-booking", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(preBookForm),
+                  })
+                  const data = await res.json()
+                  if (!res.ok) throw new Error(data.error || "Failed")
+                  setPreBookOpen(false)
+                  setPreBookForm({ name: "", phone: "", email: "", unitId: "", expectedMoveIn: "", preBookingDeposit: "", notes: "" })
+                  fetchTenants()
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Failed")
+                } finally {
+                  setPreBookBusy(false)
+                }
+              }}
+              disabled={preBookBusy || !preBookForm.name || !preBookForm.phone}
+            >
+              {preBookBusy ? "Saving..." : "Create Pre-Booking"}
+            </ModalSaveButton>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-300">
+            <strong>💡 What is pre-booking?</strong> Use this when a new tenant has reserved a unit (paid deposit) but hasn&apos;t moved in yet. The tenant gets status <strong>Pre-Booked</strong>. Later when they actually move in, click <em>Convert to Active</em> on their profile to run full onboarding.
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Tenant Name *</label>
+              <input
+                value={preBookForm.name}
+                onChange={(e) => setPreBookForm({ ...preBookForm, name: e.target.value })}
+                placeholder="Full name"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Phone *</label>
+              <input
+                value={preBookForm.phone}
+                onChange={(e) => setPreBookForm({ ...preBookForm, phone: e.target.value })}
+                placeholder="+971..."
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Email</label>
+              <input
+                type="email"
+                value={preBookForm.email}
+                onChange={(e) => setPreBookForm({ ...preBookForm, email: e.target.value })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Unit Reserved</label>
+              <select
+                value={preBookForm.unitId}
+                onChange={(e) => setPreBookForm({ ...preBookForm, unitId: e.target.value })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+              >
+                <option value="">Select unit (optional)</option>
+                {units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.unitNo} · {u.unitType} · {u.status}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Expected Move-In</label>
+              <input
+                type="date"
+                value={preBookForm.expectedMoveIn}
+                onChange={(e) => setPreBookForm({ ...preBookForm, expectedMoveIn: e.target.value })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Deposit Paid (AED)</label>
+              <input
+                type="number"
+                min="0"
+                value={preBookForm.preBookingDeposit}
+                onChange={(e) => setPreBookForm({ ...preBookForm, preBookingDeposit: e.target.value })}
+                placeholder="e.g. 2000"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">Notes</label>
+            <textarea
+              value={preBookForm.notes}
+              onChange={(e) => setPreBookForm({ ...preBookForm, notes: e.target.value })}
+              rows={2}
+              placeholder="e.g. Paid cash, receipt #123"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+            />
+          </div>
+        </div>
       </Modal>
 
       <Modal open={editOpen} onOpenChange={setEditOpen} title="Edit Tenant" description="Update tenant information" size="xl"

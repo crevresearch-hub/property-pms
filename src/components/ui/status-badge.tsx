@@ -46,6 +46,10 @@ const statusStyles: Record<string, string> = {
 
   // Tenant list custom (passed in as "Emailed to Client" by the page)
   "emailed-to-client": "bg-amber-500/15 text-amber-400 ring-amber-500/30",
+  "pre-booked": "bg-blue-500/15 text-blue-400 ring-blue-500/30",
+  vacating: "bg-amber-500/15 text-amber-400 ring-amber-500/30",
+  terminated: "bg-red-500/15 text-red-400 ring-red-500/30",
+  blacklisted: "bg-red-500/15 text-red-400 ring-red-500/30",
 
   // Invoice tenant-submitted (waiting for PM verification)
   "tenant-submitted": "bg-purple-500/15 text-purple-400 ring-purple-500/30",
