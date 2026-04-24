@@ -1563,6 +1563,48 @@ export default function TenantsPage() {
                   </table>
                 </div>
               )}
+
+              {/* Totals Summary */}
+              {tenantCheques.length > 0 && (() => {
+                const total = tenantCheques.reduce((s, c) => s + (c.amount || 0), 0)
+                const cleared = tenantCheques.filter(c => c.status === 'Cleared').reduce((s, c) => s + (c.amount || 0), 0)
+                const received = tenantCheques.filter(c => ['Received', 'Deposited', 'Pending'].includes(c.status)).reduce((s, c) => s + (c.amount || 0), 0)
+                const bounced = tenantCheques.filter(c => c.status === 'Bounced').reduce((s, c) => s + (c.amount || 0), 0)
+                const today = new Date().toISOString().slice(0, 10)
+                const overdue = tenantCheques.filter(c => c.chequeDate && c.chequeDate < today && !['Cleared', 'Replaced'].includes(c.status)).reduce((s, c) => s + (c.amount || 0), 0)
+                const pending = Math.max(0, total - cleared)
+
+                return (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500">Total Amount</p>
+                      <p className="mt-1 text-lg font-bold text-white">{formatCurrency(total)}</p>
+                      <p className="text-[10px] text-slate-500">{tenantCheques.length} cheques</p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-emerald-400">Cleared</p>
+                      <p className="mt-1 text-lg font-bold text-emerald-400">{formatCurrency(cleared)}</p>
+                      <p className="text-[10px] text-emerald-300">{tenantCheques.filter(c => c.status === 'Cleared').length} cheques</p>
+                    </div>
+                    <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-blue-400">Received / Pending</p>
+                      <p className="mt-1 text-lg font-bold text-blue-400">{formatCurrency(received)}</p>
+                      <p className="text-[10px] text-blue-300">{tenantCheques.filter(c => ['Received', 'Deposited', 'Pending'].includes(c.status)).length} cheques</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-amber-400">Pending Balance</p>
+                      <p className="mt-1 text-lg font-bold text-amber-400">{formatCurrency(pending)}</p>
+                      <p className="text-[10px] text-amber-300">Total − Cleared</p>
+                    </div>
+                    <div className={`rounded-lg border p-3 ${overdue > 0 || bounced > 0 ? 'border-red-500/30 bg-red-500/10' : 'border-slate-700 bg-slate-900/60'}`}>
+                      <p className={`text-[10px] uppercase tracking-wider ${overdue > 0 || bounced > 0 ? 'text-red-400' : 'text-slate-500'}`}>Issues</p>
+                      {bounced > 0 && <p className="mt-1 text-sm font-bold text-red-400">Bounced: {formatCurrency(bounced)}</p>}
+                      {overdue > 0 && <p className="text-sm font-bold text-red-400">Overdue: {formatCurrency(overdue)}</p>}
+                      {overdue === 0 && bounced === 0 && <p className="mt-1 text-lg font-bold text-green-400">✓ None</p>}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}
