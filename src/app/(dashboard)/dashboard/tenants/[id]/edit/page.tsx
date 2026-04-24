@@ -1814,149 +1814,195 @@ function PaymentPlan({
         )
       })()}
 
-      {/* Upfront payment card */}
-      <div className="px-6 pt-5">
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-blue-900">Upfront Payment</h3>
-              {suggestedUpfront > 0 && (
-                <p className="text-[11px] text-blue-700 mt-0.5">
-                  Suggested: AED {suggestedUpfront.toLocaleString()} (fees + 1st cheque). Security Deposit is tracked separately above.
-                  Split between cash and cheque as tenant paid.
-                </p>
+      {/* Upfront payment card (matches Security Deposit / Fees format) */}
+      {(() => {
+        // Derive a single "method" from stored state: any cash → Cash, any cheque → Cheque
+        const derivedMethod: 'Cash' | 'Cheque' | '' =
+          upfront.chequeAmount > 0 ? 'Cheque' : upfront.cash > 0 ? 'Cash' : ''
+        const method = derivedMethod
+        const received = upfrontTotal
+        const expected = suggestedUpfront
+        const ok = received > 0 && received === expected
+        return (
+          <div className="px-6 pt-5">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold">💳</span>
+                    <h3 className="text-sm font-semibold text-blue-900">Upfront Payment</h3>
+                    {ok && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                        ✓ Received
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-blue-700">
+                    Fees + 1st cheque. Security Deposit is tracked separately above.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">Suggested</p>
+                  <p className="text-lg font-bold text-blue-900">AED {expected.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Method toggle */}
+              <div className="mb-3 flex gap-2">
+                {(['Cash', 'Cheque'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      setUpfront(m === 'Cash'
+                        ? { ...upfront, cash: upfront.cash || expected, chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' }
+                        : { ...upfront, cash: 0, chequeAmount: upfront.chequeAmount || expected }
+                      )
+                      setUpfrontDirty(true)
+                    }}
+                    className={
+                      method === m
+                        ? 'flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+                        : 'flex-1 rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100'
+                    }
+                  >
+                    {m === 'Cash' ? '💵 Cash' : '📝 Cheque'}
+                  </button>
+                ))}
+              </div>
+
+              {method === 'Cash' && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-blue-900">Cash Amount (AED)</label>
+                  <input
+                    type="number"
+                    value={upfront.cash || ''}
+                    onChange={(e) => { setUpfront({ ...upfront, cash: Number(e.target.value) }); setUpfrontDirty(true) }}
+                    placeholder={String(expected)}
+                    className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
+                  />
+                </div>
               )}
-            </div>
-            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700 border border-blue-200">
-              Total: AED {upfrontTotal.toLocaleString()}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">Cash Amount (AED)</label>
-                <input
-                  type="number"
-                  value={upfront.cash || ''}
-                  onChange={(e) => { setUpfront({ ...upfront, cash: Number(e.target.value) }); setUpfrontDirty(true) }}
-                  placeholder="e.g. 4000"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">Cheque Amount (AED)</label>
-                <input
-                  type="number"
-                  value={upfront.chequeAmount || ''}
-                  onChange={(e) => { setUpfront({ ...upfront, chequeAmount: Number(e.target.value) }); setUpfrontDirty(true) }}
-                  placeholder="e.g. 4000"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
-                />
-              </div>
-              {upfront.chequeAmount > 0 && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
+
+              {method === 'Cheque' && (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-700">Cheque #</label>
+                      <label className="mb-1 block text-xs font-medium text-blue-900">Cheque Amount (AED)</label>
                       <input
-                        type="text"
-                        value={upfront.chequeNo}
-                        onChange={(e) => { setUpfront({ ...upfront, chequeNo: e.target.value }); setUpfrontDirty(true) }}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-mono text-slate-900 placeholder-slate-400"
+                        type="number"
+                        value={upfront.chequeAmount || ''}
+                        onChange={(e) => { setUpfront({ ...upfront, chequeAmount: Number(e.target.value) }); setUpfrontDirty(true) }}
+                        placeholder={String(expected)}
+                        className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-blue-900">Cheque #</label>
+                        <input
+                          type="text"
+                          value={upfront.chequeNo}
+                          onChange={(e) => { setUpfront({ ...upfront, chequeNo: e.target.value }); setUpfrontDirty(true) }}
+                          className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-blue-900">Bank</label>
+                        <input
+                          type="text"
+                          value={upfront.bankName}
+                          onChange={(e) => { setUpfront({ ...upfront, bankName: e.target.value }); setUpfrontDirty(true) }}
+                          className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900"
+                        />
+                      </div>
+                    </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-700">Bank</label>
+                      <label className="mb-1 block text-xs font-medium text-blue-900">Cheque Date</label>
                       <input
-                        type="text"
-                        value={upfront.bankName}
-                        onChange={(e) => { setUpfront({ ...upfront, bankName: e.target.value }); setUpfrontDirty(true) }}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
+                        type="date"
+                        value={upfront.chequeDate}
+                        onChange={(e) => { setUpfront({ ...upfront, chequeDate: e.target.value }); setUpfrontDirty(true) }}
+                        className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700">Cheque Date</label>
-                    <input
-                      type="date"
-                      value={upfront.chequeDate}
-                      onChange={(e) => { setUpfront({ ...upfront, chequeDate: e.target.value }); setUpfrontDirty(true) }}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
-                    />
+                    <label className="mb-1 block text-xs font-medium text-blue-900">Cheque Image</label>
+                    {upfrontCheqImg ? (
+                      <div className="relative rounded-lg border border-blue-200 bg-white p-2">
+                        <img
+                          src={`/api/documents/${upfrontCheqImg.id}/file`}
+                          alt="Upfront cheque"
+                          className="w-full rounded"
+                          style={{ maxHeight: 220, objectFit: 'contain' }}
+                        />
+                        <label className="mt-2 inline-block cursor-pointer text-xs font-medium text-[#E30613] hover:underline">
+                          Replace image
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Upfront-Cheque')}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="flex h-40 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-300 bg-white text-xs text-blue-700 hover:border-[#E30613] hover:text-[#E30613]">
+                        <Upload className="h-5 w-5 mb-1" />
+                        Click to upload cheque image
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Upfront-Cheque')}
+                        />
+                      </label>
+                    )}
                   </div>
-                </>
-              )}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Cheque Image {upfront.chequeAmount > 0 ? <span className="text-red-600">*</span> : <span className="text-slate-400">(only if cheque)</span>}
-              </label>
-              {upfrontCheqImg ? (
-                <div className="relative rounded-lg border border-slate-200 bg-white p-2">
-                  <img
-                    src={`/api/documents/${upfrontCheqImg.id}/file`}
-                    alt="Upfront cheque"
-                    className="w-full rounded"
-                    style={{ maxHeight: 220, objectFit: 'contain' }}
-                  />
-                  <label className="mt-2 inline-block cursor-pointer text-xs font-medium text-[#E30613] hover:underline">
-                    Replace image
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Upfront-Cheque')}
-                    />
-                  </label>
                 </div>
-              ) : (
-                <label className="flex h-40 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-white text-xs text-slate-500 hover:border-[#E30613] hover:text-[#E30613]">
-                  <Upload className="h-5 w-5 mb-1" />
-                  Click to upload cheque image
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    className="hidden"
-                    onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Upfront-Cheque')}
-                  />
-                </label>
+              )}
+
+              {method && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  {received > 0 && expected > 0 && received !== expected && (
+                    <p className="text-[11px] text-blue-700">
+                      ⚠ Amount ({received.toLocaleString()}) doesn&rsquo;t match suggested ({expected.toLocaleString()}).
+                    </p>
+                  )}
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      onClick={() => { setReceiptMsg(''); setReceiptPreviewOpen(true) }}
+                      disabled={received === 0 || !!upfront.receiptSentAt}
+                      className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                    >
+                      {upfront.receiptSentAt ? 'Receipt Confirmed ✓' : 'Preview & Confirm Receipt'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveUpfront}
+                      disabled={!upfrontDirty || saving || received <= 0}
+                      className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {saving ? 'Saving…' : upfrontDirty ? 'Save Upfront' : 'Saved ✓'}
+                    </button>
+                  </div>
+                  {upfront.receiptSentAt && (
+                    <span className="w-full text-[11px] text-emerald-700">
+                      {upfront.receiptNo} — will be included in the welcome email
+                    </span>
+                  )}
+                  {receiptMsg && (
+                    <span className={`w-full text-xs ${receiptMsg.startsWith('✓') ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {receiptMsg}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              onClick={saveUpfront}
-              disabled={!upfrontDirty || saving}
-              className="rounded-lg bg-[#E30613] px-4 py-2 text-xs font-semibold text-white hover:bg-[#c20510] disabled:opacity-40"
-            >
-              {saving ? 'Saving…' : upfrontDirty ? 'Save Upfront' : 'Saved'}
-            </button>
-            <button
-              onClick={() => { setReceiptMsg(''); setReceiptPreviewOpen(true) }}
-              disabled={upfrontTotal === 0 || !!upfront.receiptSentAt}
-              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
-              title={
-                upfront.receiptSentAt
-                  ? `Receipt confirmed on ${new Date(upfront.receiptSentAt).toLocaleString('en-GB')} — will be included in the activation email.`
-                  : 'Generate the receipt slip; it will be included in the welcome email at activation.'
-              }
-            >
-              {upfront.receiptSentAt ? 'Receipt Confirmed ✓' : 'Preview & Confirm Receipt'}
-            </button>
-            {upfront.receiptSentAt && (
-              <span className="text-[11px] text-emerald-700">
-                {upfront.receiptNo} — will be included in the welcome email
-              </span>
-            )}
-            {receiptMsg && (
-              <span className={`text-xs ${receiptMsg.startsWith('✓') ? 'text-emerald-700' : 'text-red-700'}`}>
-                {receiptMsg}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+        )
+      })()}
 
       {/* Cheque tabs — when an upfront cheque is paid, cheque #1 is consumed
           by the upfront card above and hidden here. PDC tabs = N − 1. */}
