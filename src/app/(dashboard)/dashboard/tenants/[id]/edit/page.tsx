@@ -983,58 +983,6 @@ export default function TenantEditPage() {
             )
           })()}
 
-          {/* 4. Cheques */}
-          <section className={SECTION}>
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-[#E30613]" />
-                <h2 className="text-sm font-semibold text-slate-900">Cheques ({cheques.length})</h2>
-              </div>
-              <Link href="/dashboard/cheques" className="text-xs font-medium text-[#E30613] hover:underline">
-                Open Cheque Tracker →
-              </Link>
-            </div>
-            <div className="p-6">
-              {cheques.length === 0 ? (
-                <p className="text-sm text-slate-500">No cheques recorded.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs text-slate-500">
-                        <th className="pb-2 text-left font-medium">Seq</th>
-                        <th className="pb-2 text-left font-medium">Cheque No.</th>
-                        <th className="pb-2 text-left font-medium">Date</th>
-                        <th className="pb-2 text-left font-medium">Amount</th>
-                        <th className="pb-2 text-left font-medium">Bank</th>
-                        <th className="pb-2 text-left font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cheques.map((q) => (
-                        <tr key={q.id} className="border-b border-slate-100">
-                          <td className="py-2 text-slate-700">{q.sequenceNo}/{q.totalCheques}</td>
-                          <td className="py-2 font-medium text-slate-900">{q.chequeNo || "—"}</td>
-                          <td className="py-2 text-slate-700">{fmtDate(q.chequeDate)}</td>
-                          <td className="py-2 text-slate-700">{fmtAED(q.amount)}</td>
-                          <td className="py-2 text-slate-600">{q.bankName || "—"}</td>
-                          <td className="py-2">
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              q.status === "Cleared" ? "bg-emerald-100 text-emerald-700" :
-                              q.status === "Bounced" ? "bg-red-100 text-red-700" :
-                              q.status === "Deposited" ? "bg-blue-100 text-blue-700" :
-                              "bg-slate-100 text-slate-600"
-                            }`}>{q.status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </section>
-
           {/* Payment Plan — upfront + cheque tabs + receipt */}
           {latestContract && (
             <PaymentPlan
@@ -1394,6 +1342,21 @@ function PaymentPlan({
                   <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalVat.toLocaleString()}</td>
                   <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-slate-900">AED {grand.toLocaleString()}</td>
                 </tr>
+                {upfrontTotal > 0 && (
+                  <tr className="bg-blue-50">
+                    <td className="px-4 py-2.5 text-sm font-semibold text-blue-900">
+                      Upfront Received <span className="text-[10px] font-normal text-blue-600">(cash {upfront.cash.toLocaleString()} + cheque {upfront.chequeAmount.toLocaleString()})</span>
+                    </td>
+                    <td colSpan={2} className="px-4 py-2.5"></td>
+                    <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-blue-700">− AED {upfrontTotal.toLocaleString()}</td>
+                  </tr>
+                )}
+                {upfrontTotal > 0 && (
+                  <tr className="border-t-2 border-slate-300 bg-[#E30613]/5">
+                    <td colSpan={3} className="px-4 py-3 text-sm font-bold text-[#E30613]">Balance Outstanding</td>
+                    <td className="px-4 py-3 text-right font-mono text-base font-bold text-[#E30613]">AED {Math.max(0, grand - upfrontTotal).toLocaleString()}</td>
+                  </tr>
+                )}
               </tfoot>
             </table>
           </div>
