@@ -58,12 +58,16 @@ export default function NewTenantPage() {
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
 
+  // Contract type — drives VAT rules and security deposit default
+  const [contractType, setContractType] = useState<"Residential" | "Commercial">("Residential")
+
   // Financials
   const [annualRent, setAnnualRent] = useState(0)
   const [securityDepositPct, setSecurityDepositPct] = useState(5) // %
+  const [adminFee, setAdminFee] = useState(500)
   const [ejariFee, setEjariFee] = useState(250)
-  const [dldDeposit, setDldDeposit] = useState(0)
   const [otherCharges, setOtherCharges] = useState(0)
+  const [vatOverride, setVatOverride] = useState<number | null>(null) // if user edited manually
 
   // Payment plan
   const [installments, setInstallments] = useState(4) // 1, 2, 3, 4, 6, 12
@@ -109,15 +113,29 @@ export default function NewTenantPage() {
     }
   }, [startDate, endDate])
 
+  // Auto-flip deposit % when contract type changes
+  useEffect(() => {
+    setSecurityDepositPct(contractType === "Commercial" ? 10 : 5)
+  }, [contractType])
+
   // Auto-calc security deposit
   const securityDeposit = useMemo(
     () => Math.round((annualRent * securityDepositPct) / 100),
     [annualRent, securityDepositPct]
   )
 
+  // VAT (UAE 5%):
+  //   Residential → VAT only on Admin Fee
+  //   Commercial  → VAT on Admin Fee + Annual Rent
+  const vatAuto = useMemo(() => {
+    const base = contractType === "Commercial" ? adminFee + annualRent : adminFee
+    return Math.round(base * 0.05)
+  }, [contractType, adminFee, annualRent])
+  const vat = vatOverride !== null ? vatOverride : vatAuto
+
   const totalAmount = useMemo(
-    () => annualRent + securityDeposit + ejariFee + dldDeposit + otherCharges,
-    [annualRent, securityDeposit, ejariFee, dldDeposit, otherCharges]
+    () => annualRent + securityDeposit + adminFee + ejariFee + vat + otherCharges,
+    [annualRent, securityDeposit, adminFee, ejariFee, vat, otherCharges]
   )
 
   // Per-cheque amount
@@ -246,8 +264,8 @@ export default function NewTenantPage() {
           numberOfCheques: installments,
           securityDeposit,
           ejariFee,
-          contractType: "Residential",
-          purpose: "Family Residence",
+          contractType,
+          purpose: contractType === "Commercial" ? "Commercial Use" : "Family Residence",
           reason: "Initial",
         }),
       })
@@ -305,6 +323,32 @@ export default function NewTenantPage() {
             <span>{success}</span>
           </div>
         )}
+
+        {/* SECTION 0: Contract Type — affects VAT and deposit rules */}
+        <div className="mt-6 rounded-xl border-2 border-[#E30613]/30 bg-[#E30613]/5 p-4">
+          <label className="mb-2 block text-sm font-bold text-slate-900">Contract Type *</label>
+          <div className="flex gap-2">
+            {(["Residential", "Commercial"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => { setContractType(t); setVatOverride(null) }}
+                className={
+                  contractType === t
+                    ? "flex-1 rounded-lg bg-[#E30613] px-4 py-2.5 text-sm font-semibold text-white shadow-sm"
+                    : "flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                }
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-600">
+            {contractType === "Commercial"
+              ? "⚙ Commercial: 5% VAT on Admin Fee + Annual Rent · 10% Security Deposit"
+              : "⚙ Residential: 5% VAT on Admin Fee only · 5% Security Deposit"}
+          </p>
+        </div>
 
         {/* SECTION 1: Basic Info */}
         <div className="mt-8">
@@ -425,6 +469,16 @@ export default function NewTenantPage() {
               </p>
             </div>
             <div>
+              <label className={LABEL}>Admin Fee (AED)</label>
+              <input
+                type="number"
+                value={adminFee || ""}
+                onChange={(e) => { setAdminFee(parseFloat(e.target.value) || 0); setVatOverride(null) }}
+                className={INPUT}
+              />
+              <p className="mt-1 text-[11px] text-slate-500">VAT applies on this.</p>
+            </div>
+            <div>
               <label className={LABEL}>Ejari Fee (AED)</label>
               <input
                 type="number"
@@ -434,13 +488,29 @@ export default function NewTenantPage() {
               />
             </div>
             <div>
-              <label className={LABEL}>DLD / Other Deposit (AED)</label>
+              <label className={LABEL}>
+                VAT (5%)
+                {vatOverride !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setVatOverride(null)}
+                    className="ml-2 text-[10px] font-medium text-[#E30613] underline"
+                  >
+                    reset to auto
+                  </button>
+                )}
+              </label>
               <input
                 type="number"
-                value={dldDeposit || ""}
-                onChange={(e) => setDldDeposit(parseFloat(e.target.value) || 0)}
+                value={vat || ""}
+                onChange={(e) => setVatOverride(parseFloat(e.target.value) || 0)}
                 className={INPUT}
               />
+              <p className="mt-1 text-[11px] text-slate-500">
+                {contractType === "Commercial"
+                  ? `Auto = 5% × (Admin Fee + Annual Rent) = AED ${vatAuto.toLocaleString()}`
+                  : `Auto = 5% × Admin Fee = AED ${vatAuto.toLocaleString()}`}
+              </p>
             </div>
             <div className="sm:col-span-2">
               <label className={LABEL}>Other Charges (AED)</label>
@@ -465,12 +535,21 @@ export default function NewTenantPage() {
               <span className="font-semibold text-slate-900">AED {securityDeposit.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-700">Admin Fee</span>
+              <span className="font-semibold text-slate-900">AED {adminFee.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
               <span className="text-slate-700">Ejari Fee</span>
               <span className="font-semibold text-slate-900">AED {ejariFee.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">DLD / Other Deposit</span>
-              <span className="font-semibold text-slate-900">AED {dldDeposit.toLocaleString()}</span>
+              <span className="text-slate-700">
+                VAT (5%)
+                <span className="ml-1 text-[10px] text-slate-500">
+                  {contractType === "Commercial" ? "on Admin Fee + Rent" : "on Admin Fee"}
+                </span>
+              </span>
+              <span className="font-semibold text-slate-900">AED {vat.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-700">Other Charges</span>
@@ -481,10 +560,10 @@ export default function NewTenantPage() {
               <span className="font-semibold text-slate-900">AED {totalAmount.toLocaleString()}</span>
             </div>
             <div className="mt-1 rounded-md bg-[#E30613]/10 border border-[#E30613]/30 p-3 flex items-center justify-between text-base font-bold text-[#E30613]">
-              <span>UPFRONT (1st Cheque + Deposits + Fees)</span>
+              <span>UPFRONT (1st Cheque + Deposits + Fees + VAT)</span>
               <span>
                 AED{" "}
-                {(perCheque + securityDeposit + ejariFee + dldDeposit + otherCharges).toLocaleString()}
+                {(perCheque + securityDeposit + adminFee + ejariFee + vat + otherCharges).toLocaleString()}
               </span>
             </div>
           </div>
