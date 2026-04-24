@@ -1353,20 +1353,27 @@ function PaymentPlan({
         const rent = contract.rentAmount || 0
         const sec = contract.securityDeposit || 0
         const ejari = contract.ejariFee || 0
-        const mun = contract.municipalityFee || 0
         const comm = contract.commissionFee || 0
         const rentVat = isCommercial ? Math.round(rent * 0.05) : 0
         const commVat = Math.round(comm * 0.05)
-        type Row = { label: string; base: number; vat: number }
+        const numCheq = contract.numberOfCheques || sorted.length || 0
+        type Row = { label: string; base: number; vat: number; indent?: boolean }
         const rows: Row[] = [
           { label: 'Annual Rent', base: rent, vat: rentVat },
-          { label: 'Security Deposit', base: sec, vat: 0 },
         ]
+        // Show each cheque as an indented sub-row under Annual Rent.
+        for (let i = 0; i < numCheq; i++) {
+          const c = sorted[i]
+          const amt = c?.amount || (numCheq > 0 ? Math.round(rent / numCheq) : 0)
+          rows.push({ label: `↳ Cheque ${i + 1}`, base: amt, vat: 0, indent: true })
+        }
+        rows.push({ label: 'Security Deposit', base: sec, vat: 0 })
         if (comm) rows.push({ label: 'Admin / Commission Fee', base: comm, vat: commVat })
         if (ejari) rows.push({ label: 'Ejari Fee', base: ejari, vat: 0 })
-        if (mun) rows.push({ label: 'Municipality Fee', base: mun, vat: 0 })
-        const totalBase = rows.reduce((s, r) => s + r.base, 0)
-        const totalVat = rows.reduce((s, r) => s + r.vat, 0)
+        // Totals exclude the indented cheque rows (they already sum into Annual Rent).
+        const billableRows = rows.filter((r) => !r.indent)
+        const totalBase = billableRows.reduce((s, r) => s + r.base, 0)
+        const totalVat = billableRows.reduce((s, r) => s + r.vat, 0)
         const grand = totalBase + totalVat
         return (
           <div className="mx-6 mt-4 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
@@ -1384,11 +1391,11 @@ function PaymentPlan({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((r) => (
-                  <tr key={r.label} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 text-slate-700">{r.label}</td>
-                    <td className="px-4 py-2 text-right font-mono text-slate-900">{r.base.toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right font-mono text-slate-500">{r.vat > 0 ? r.vat.toLocaleString() : '—'}</td>
-                    <td className="px-4 py-2 text-right font-mono font-semibold text-slate-900">{(r.base + r.vat).toLocaleString()}</td>
+                  <tr key={r.label} className={r.indent ? 'bg-slate-50/60' : 'hover:bg-slate-50'}>
+                    <td className={`px-4 py-2 ${r.indent ? 'pl-8 text-slate-500 text-xs' : 'text-slate-700'}`}>{r.label}</td>
+                    <td className={`px-4 py-2 text-right font-mono ${r.indent ? 'text-slate-500 text-xs' : 'text-slate-900'}`}>{r.base.toLocaleString()}</td>
+                    <td className={`px-4 py-2 text-right font-mono ${r.indent ? 'text-slate-400 text-xs' : 'text-slate-500'}`}>{r.vat > 0 ? r.vat.toLocaleString() : '—'}</td>
+                    <td className={`px-4 py-2 text-right font-mono ${r.indent ? 'text-slate-500 text-xs' : 'font-semibold text-slate-900'}`}>{(r.base + r.vat).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
