@@ -35,15 +35,32 @@ interface ParkingSlotOption {
   status: string
 }
 
-// Add 1 year to a YYYY-MM-DD date
-function plusOneYear(dateStr: string): string {
+// UAE lease convention: a "one-year lease" from Jan 5 2026 ends Jan 4 2027
+// (exactly +1 calendar year minus 1 day). Returns YYYY-MM-DD.
+function plusOneLeaseYear(dateStr: string): string {
   if (!dateStr) return ""
   const d = new Date(dateStr)
   d.setFullYear(d.getFullYear() + 1)
+  d.setDate(d.getDate() - 1)
   return d.toISOString().slice(0, 10)
 }
 
-// Months difference
+// Today in YYYY-MM-DD (local date).
+function todayISO(): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString().slice(0, 10)
+}
+
+// Inclusive day count: Jan 5 → Jan 4 next year = 365.
+function leaseDays(start: string, end: string): number {
+  if (!start || !end) return 0
+  const s = new Date(start)
+  const e = new Date(end)
+  return Math.floor((e.getTime() - s.getTime()) / 86400000) + 1
+}
+
+// Months difference (used in per-cheque interval).
 function monthsBetween(start: string, end: string): number {
   if (!start || !end) return 0
   const s = new Date(start)
@@ -177,7 +194,7 @@ export default function NewTenantPage() {
   // When start date changes, auto-set end date to +1 year (if not set)
   useEffect(() => {
     if (startDate && !endDate) {
-      setEndDate(plusOneYear(startDate))
+      setEndDate(plusOneLeaseYear(startDate))
     }
   }, [startDate, endDate])
 
@@ -222,9 +239,12 @@ export default function NewTenantPage() {
   // Date validation
   const dateError = useMemo(() => {
     if (!startDate || !endDate) return ""
-    if (new Date(endDate) <= new Date(startDate)) return "End date must be after start date"
-    const months = monthsBetween(startDate, endDate)
-    if (months < 12) return `Lease must be at least 12 months (currently ${months} months)`
+    if (startDate < todayISO()) return "Start date cannot be in the past"
+    const minEnd = plusOneLeaseYear(startDate)
+    if (endDate < minEnd) {
+      const days = leaseDays(startDate, endDate)
+      return `Lease must be at least 1 year (365 days) — currently ${days} days. Minimum end date: ${minEnd}`
+    }
     return ""
   }, [startDate, endDate])
 
@@ -496,19 +516,28 @@ export default function NewTenantPage() {
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                min={todayISO()}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setStartDate(v)
+                  if (v) setEndDate(plusOneLeaseYear(v))
+                }}
                 className={INPUT}
               />
+              <p className="mt-1 text-[11px] text-slate-500">Cannot be a past date.</p>
             </div>
             <div>
-              <label className={LABEL}>End Date * (min 1 year)</label>
+              <label className={LABEL}>End Date * <span className="text-[11px] text-slate-500">(auto = Start + 1 year − 1 day)</span></label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                min={startDate ? plusOneYear(startDate) : undefined}
+                min={startDate ? plusOneLeaseYear(startDate) : undefined}
                 className={INPUT}
               />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Minimum: <strong>{startDate ? plusOneLeaseYear(startDate) : "—"}</strong> (1-year lease).
+              </p>
             </div>
           </div>
           {dateError && (
@@ -516,7 +545,7 @@ export default function NewTenantPage() {
           )}
           {!dateError && startDate && endDate && (
             <p className="mt-2 text-xs text-slate-500">
-              Lease duration: <strong>{monthsBetween(startDate, endDate)} months</strong>
+              Lease duration: <strong>{leaseDays(startDate, endDate)} days ({(leaseDays(startDate, endDate) / 365).toFixed(2)} years)</strong>
             </p>
           )}
         </div>
