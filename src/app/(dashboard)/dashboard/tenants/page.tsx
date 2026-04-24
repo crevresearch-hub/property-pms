@@ -873,11 +873,40 @@ export default function TenantsPage() {
         </div>
         <div>
           <label className={labelCls}>Start Date *</label>
-          <input type="date" value={contractForm.contractStart} onChange={(e) => setContractForm({ ...contractForm, contractStart: e.target.value })} className={inputCls} />
+          <input
+            type="date"
+            value={contractForm.contractStart}
+            onChange={(e) => {
+              const start = e.target.value
+              let end = contractForm.contractEnd
+              if (start) {
+                const d = new Date(start)
+                d.setDate(d.getDate() + 365)
+                end = d.toISOString().slice(0, 10)
+              }
+              setContractForm({ ...contractForm, contractStart: start, contractEnd: end })
+            }}
+            className={inputCls}
+          />
         </div>
         <div>
-          <label className={labelCls}>End Date *</label>
-          <input type="date" value={contractForm.contractEnd} onChange={(e) => setContractForm({ ...contractForm, contractEnd: e.target.value })} className={inputCls} />
+          <label className={labelCls}>
+            End Date * <span className="text-[10px] text-slate-500">(min 1 year / 365 days)</span>
+          </label>
+          <input
+            type="date"
+            value={contractForm.contractEnd}
+            min={contractForm.contractStart ? (() => { const d = new Date(contractForm.contractStart); d.setDate(d.getDate() + 365); return d.toISOString().slice(0,10) })() : undefined}
+            onChange={(e) => setContractForm({ ...contractForm, contractEnd: e.target.value })}
+            className={inputCls}
+          />
+          {contractForm.contractStart && contractForm.contractEnd && (() => {
+            const s = new Date(contractForm.contractStart)
+            const en = new Date(contractForm.contractEnd)
+            const days = Math.floor((en.getTime() - s.getTime()) / 86400000)
+            if (days < 365) return <p className="mt-1 text-[10px] text-red-400">⚠ Contract is only {days} days — minimum is 365 days.</p>
+            return <p className="mt-1 text-[10px] text-slate-500">Duration: {days} days ({(days / 365).toFixed(2)} years)</p>
+          })()}
         </div>
         <div>
           <label className={labelCls}>Annual Rent (AED) *</label>
@@ -1403,7 +1432,11 @@ export default function TenantsPage() {
             <ModalCancelButton />
             <ModalSaveButton
               onClick={handleGenerate}
-              disabled={saving || !contractForm.unitId || !contractForm.ownerId || !contractForm.contractStart || !contractForm.contractEnd || !contractForm.rentAmount}
+              disabled={saving || !contractForm.unitId || !contractForm.ownerId || !contractForm.contractStart || !contractForm.contractEnd || !contractForm.rentAmount || (() => {
+                const s = new Date(contractForm.contractStart)
+                const en = new Date(contractForm.contractEnd)
+                return Math.floor((en.getTime() - s.getTime()) / 86400000) < 365
+              })()}
             >
               {saving ? "Generating..." : "Generate Contract"}
             </ModalSaveButton>
