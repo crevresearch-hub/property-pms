@@ -1236,10 +1236,16 @@ function PaymentPlan({
         return
       }
 
-      // If upfront includes a cheque, write it into Cheque #1 as Received (not Cleared).
-      // It will only move to Cleared when the bank actually clears it (via the cheque tabs).
+      // If upfront includes a cheque, write it into Cheque #1.
+      // Status defaults to 'Pending' — only the bank-clear action (via PDC tabs
+      // below) should flip it to 'Cleared'.
       const firstCheque = sorted.find((c) => c.sequenceNo === 1)
       if (firstCheque && upfront.chequeAmount > 0) {
+        // If this cheque was previously auto-cleared by the old flow (paymentType=Upfront
+        // and Cleared) but no manual clearedDate marker, reset to Pending. Otherwise
+        // preserve Cleared/Bounced statuses set by the user in PDC tabs.
+        const wasManuallyCleared = firstCheque.status === 'Cleared' && !!firstCheque.clearedDate && firstCheque.paymentType !== 'Upfront'
+        const keepStatus = wasManuallyCleared || firstCheque.status === 'Bounced'
         const r = await fetch(`/api/cheques/${firstCheque.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1248,8 +1254,8 @@ function PaymentPlan({
             bankName: upfront.bankName,
             chequeDate: upfront.chequeDate,
             amount: upfront.chequeAmount,
-            status: firstCheque.status === 'Cleared' || firstCheque.status === 'Bounced' ? firstCheque.status : 'Received',
-            clearedDate: firstCheque.status === 'Cleared' ? firstCheque.clearedDate : '',
+            status: keepStatus ? firstCheque.status : 'Pending',
+            clearedDate: keepStatus && firstCheque.status === 'Cleared' ? firstCheque.clearedDate : '',
             paymentType: 'Upfront',
           }),
         })
@@ -1263,7 +1269,7 @@ function PaymentPlan({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chequeNo: '', bankName: '', chequeDate: '',
-            status: 'Received', clearedDate: '', paymentType: 'Rent',
+            status: 'Pending', clearedDate: '', paymentType: 'Rent',
           }),
         })
         if (!r.ok) {
