@@ -2268,30 +2268,46 @@ function PaymentPlan({
               )}
 
               <div className="ml-auto flex gap-2">
-                {active.status === "Received" && (
-                  <button
-                    onClick={() => updateStatus(active.id, "Deposited")}
-                    className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50"
-                  >
-                    Mark Deposited
-                  </button>
-                )}
-                {(active.status === "Received" || active.status === "Deposited") && (
+                {active.chequeNo && (
                   <>
+                    {/* Deposit (blue) — cheque submitted to bank, awaiting clearance */}
+                    <button
+                      onClick={() => updateStatus(active.id, "Deposited")}
+                      disabled={active.status === "Deposited" || active.status === "Cleared" || active.status === "Bounced"}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                        active.status === "Deposited"
+                          ? "border border-blue-300 bg-blue-600 text-white"
+                          : "border border-blue-300 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                      }`}
+                    >
+                      🏦 Deposit
+                    </button>
+                    {/* Clear (green) — bank confirmed, funds credited */}
                     <button
                       onClick={() => updateStatus(active.id, "Cleared", { clearedDate: new Date().toISOString().split("T")[0] })}
-                      className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                      disabled={active.status === "Cleared"}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                        active.status === "Cleared"
+                          ? "border border-emerald-300 bg-emerald-600 text-white"
+                          : "border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                      }`}
                     >
-                      Mark Cleared
+                      ✓ Clear
                     </button>
+                    {/* Reject (red) — bounced */}
                     <button
                       onClick={() => {
-                        const reason = prompt("Bounce reason:")
+                        const reason = prompt("Reason for rejection / bounce:")
                         if (reason) updateStatus(active.id, "Bounced", { bouncedReason: reason })
                       }}
-                      className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                      disabled={active.status === "Bounced"}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                        active.status === "Bounced"
+                          ? "border border-red-300 bg-red-600 text-white"
+                          : "border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:opacity-40"
+                      }`}
                     >
-                      Mark Bounced
+                      ✕ Reject
                     </button>
                   </>
                 )}
