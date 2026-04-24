@@ -168,6 +168,7 @@ export default function TenantsPage() {
     phone: "",
     email: "",
     unitId: "",
+    usage: "Residential" as "Residential" | "Commercial",
     expectedMoveIn: "",
     preBookingDeposit: "",
     notes: "",
@@ -1106,7 +1107,7 @@ export default function TenantsPage() {
       {/* Pre-Booking Modal */}
       <Modal
         open={preBookOpen}
-        onOpenChange={(v) => { setPreBookOpen(v); if (!v) setPreBookForm({ name: "", phone: "", email: "", unitId: "", expectedMoveIn: "", preBookingDeposit: "", notes: "" }) }}
+        onOpenChange={(v) => { setPreBookOpen(v); if (!v) setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", notes: "" }) }}
         title="Pre-Booking"
         description="Reserve a unit for a future tenant. Record deposit paid. Complete onboarding when they move in."
         size="lg"
@@ -1125,7 +1126,7 @@ export default function TenantsPage() {
                   const data = await res.json()
                   if (!res.ok) throw new Error(data.error || "Failed")
                   setPreBookOpen(false)
-                  setPreBookForm({ name: "", phone: "", email: "", unitId: "", expectedMoveIn: "", preBookingDeposit: "", notes: "" })
+                  setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", notes: "" })
                   fetchTenants()
                 } catch (e) {
                   setError(e instanceof Error ? e.message : "Failed")
@@ -1195,6 +1196,25 @@ export default function TenantsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Type</label>
+              <div className="flex gap-2">
+                {(["Residential", "Commercial"] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setPreBookForm({ ...preBookForm, usage: u })}
+                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      preBookForm.usage === u
+                        ? "bg-amber-500 text-slate-900"
+                        : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
+                    }`}
+                  >
+                    {u === "Commercial" ? "🏢 Commercial (+5% VAT)" : "🏠 Residential"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-medium text-slate-400">Expected Move-In</label>
               <input
                 type="date"
@@ -1203,17 +1223,36 @@ export default function TenantsPage() {
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">Deposit Paid (AED)</label>
-              <input
-                type="number"
-                min="0"
-                value={preBookForm.preBookingDeposit}
-                onChange={(e) => setPreBookForm({ ...preBookForm, preBookingDeposit: e.target.value })}
-                placeholder="e.g. 2000"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
-              />
-            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">
+              Deposit Paid (AED) {preBookForm.usage === "Commercial" && <span className="text-amber-400">— excl. VAT</span>}
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={preBookForm.preBookingDeposit}
+              onChange={(e) => setPreBookForm({ ...preBookForm, preBookingDeposit: e.target.value })}
+              placeholder="e.g. 2000"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+            />
+            {preBookForm.usage === "Commercial" && parseFloat(preBookForm.preBookingDeposit) > 0 && (
+              <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs">
+                <div className="flex justify-between text-slate-300">
+                  <span>Base deposit:</span>
+                  <span className="font-mono">AED {parseFloat(preBookForm.preBookingDeposit).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-amber-300">
+                  <span>VAT (5%):</span>
+                  <span className="font-mono">AED {(parseFloat(preBookForm.preBookingDeposit) * 0.05).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-t border-amber-500/20 mt-2 pt-2 font-semibold text-amber-400">
+                  <span>Total (incl. VAT):</span>
+                  <span className="font-mono">AED {(parseFloat(preBookForm.preBookingDeposit) * 1.05).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
