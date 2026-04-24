@@ -1105,16 +1105,15 @@ function PaymentPlan({
     }
   }
 
-  // Suggested upfront = security deposit + fees + first installment
+  // Suggested upfront = fees + first installment (security deposit is tracked separately above)
   const suggestedUpfront = useMemo(() => {
     const fees =
-      (contract.securityDeposit || 0) +
       (contract.ejariFee || 0) +
       (contract.municipalityFee || 0) +
       (contract.commissionFee || 0)
     const firstCheque = sorted[0]?.amount || 0
     return fees + firstCheque
-  }, [contract.securityDeposit, contract.ejariFee, contract.municipalityFee, contract.commissionFee, sorted])
+  }, [contract.ejariFee, contract.municipalityFee, contract.commissionFee, sorted])
 
   // Auto-fill upfront with the suggested amount ONLY the first time this
   // component mounts or when the saved upfront changes on the server. We
@@ -1590,7 +1589,7 @@ function PaymentPlan({
               <h3 className="text-sm font-semibold text-blue-900">Upfront Payment</h3>
               {suggestedUpfront > 0 && (
                 <p className="text-[11px] text-blue-700 mt-0.5">
-                  Suggested: AED {suggestedUpfront.toLocaleString()} (deposits + fees + 1st cheque).
+                  Suggested: AED {suggestedUpfront.toLocaleString()} (fees + 1st cheque). Security Deposit is tracked separately above.
                   Split between cash and cheque as tenant paid.
                 </p>
               )}
