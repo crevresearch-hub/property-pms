@@ -75,7 +75,6 @@ export default function NewTenantPage() {
   const [adminFee, setAdminFee] = useState(500)
   const [ejariFee, setEjariFee] = useState(250)
   const [otherCharges, setOtherCharges] = useState(0)
-  const [vatOverride, setVatOverride] = useState<number | null>(null) // if user edited manually
 
   // Parking (optional)
   const [parkingSlots, setParkingSlots] = useState<ParkingSlotOption[]>([])
@@ -152,11 +151,10 @@ export default function NewTenantPage() {
   // VAT (UAE 5%):
   //   Residential → VAT only on Admin Fee
   //   Commercial  → VAT on Admin Fee + Annual Rent
-  const vatAuto = useMemo(() => {
+  const vat = useMemo(() => {
     const base = contractType === "Commercial" ? adminFee + annualRent : adminFee
     return Math.round(base * 0.05)
   }, [contractType, adminFee, annualRent])
-  const vat = vatOverride !== null ? vatOverride : vatAuto
 
   const parkingFee = parkingSlotId ? parkingAmount : 0
 
@@ -373,7 +371,7 @@ export default function NewTenantPage() {
               <button
                 key={t}
                 type="button"
-                onClick={() => { setContractType(t); setVatOverride(null) }}
+                onClick={() => setContractType(t)}
                 className={
                   contractType === t
                     ? "flex-1 rounded-lg bg-[#E30613] px-4 py-2.5 text-sm font-semibold text-white shadow-sm"
@@ -514,7 +512,7 @@ export default function NewTenantPage() {
               <input
                 type="number"
                 value={adminFee || ""}
-                onChange={(e) => { setAdminFee(parseFloat(e.target.value) || 0); setVatOverride(null) }}
+                onChange={(e) => setAdminFee(parseFloat(e.target.value) || 0)}
                 className={INPUT}
               />
               <p className="mt-1 text-[11px] text-slate-500">VAT applies on this.</p>
@@ -528,31 +526,6 @@ export default function NewTenantPage() {
                 className={INPUT}
               />
             </div>
-            <div>
-              <label className={LABEL}>
-                VAT (5%)
-                {vatOverride !== null && (
-                  <button
-                    type="button"
-                    onClick={() => setVatOverride(null)}
-                    className="ml-2 text-[10px] font-medium text-[#E30613] underline"
-                  >
-                    reset to auto
-                  </button>
-                )}
-              </label>
-              <input
-                type="number"
-                value={vat || ""}
-                onChange={(e) => setVatOverride(parseFloat(e.target.value) || 0)}
-                className={INPUT}
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                {contractType === "Commercial"
-                  ? `Auto = 5% × (Admin Fee + Annual Rent) = AED ${vatAuto.toLocaleString()}`
-                  : `Auto = 5% × Admin Fee = AED ${vatAuto.toLocaleString()}`}
-              </p>
-            </div>
             <div className="sm:col-span-2">
               <label className={LABEL}>Other Charges (AED)</label>
               <input
@@ -565,57 +538,72 @@ export default function NewTenantPage() {
             </div>
           </div>
 
-          {/* Total */}
-          <div className="mt-4 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-4 space-y-1.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">Annual Rent</span>
-              <span className="font-semibold text-slate-900">AED {annualRent.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">Security Deposit ({securityDepositPct}%)</span>
-              <span className="font-semibold text-slate-900">AED {securityDeposit.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">Admin Fee</span>
-              <span className="font-semibold text-slate-900">AED {adminFee.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">Ejari Fee</span>
-              <span className="font-semibold text-slate-900">AED {ejariFee.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">
-                VAT (5%)
-                <span className="ml-1 text-[10px] text-slate-500">
-                  {contractType === "Commercial" ? "on Admin Fee + Rent" : "on Admin Fee"}
-                </span>
-              </span>
-              <span className="font-semibold text-slate-900">AED {vat.toLocaleString()}</span>
-            </div>
-            {parkingSlotId && parkingAmount > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-700">
-                  Parking ({parkingSlots.find((s) => s.id === parkingSlotId)?.slotNo || ""})
-                </span>
-                <span className="font-semibold text-slate-900">AED {parkingAmount.toLocaleString()}</span>
+          {/* Payment Summary table */}
+          {(() => {
+            const rentVat = contractType === "Commercial" ? Math.round(annualRent * 0.05) : 0
+            const adminVat = Math.round(adminFee * 0.05)
+            const parkingSlotNo = parkingSlots.find((s) => s.id === parkingSlotId)?.slotNo || ""
+            type Row = { label: string; base: number; vat: number }
+            const rows: Row[] = [
+              { label: "Annual Rent", base: annualRent, vat: rentVat },
+              { label: `Security Deposit (${securityDepositPct}%)`, base: securityDeposit, vat: 0 },
+              { label: "Admin Fee", base: adminFee, vat: adminVat },
+              { label: "Ejari Fee", base: ejariFee, vat: 0 },
+            ]
+            if (parkingSlotId && parkingAmount > 0) {
+              rows.push({ label: `Parking (${parkingSlotNo})`, base: parkingAmount, vat: 0 })
+            }
+            if (otherCharges > 0) {
+              rows.push({ label: "Other Charges", base: otherCharges, vat: 0 })
+            }
+            const totalBase = rows.reduce((s, r) => s + r.base, 0)
+            const totalVat = rows.reduce((s, r) => s + r.vat, 0)
+            const grandTotal = totalBase + totalVat
+            const upfront = perCheque + securityDeposit + adminFee + adminVat + ejariFee + parkingFee + otherCharges + (contractType === "Commercial" ? Math.round(perCheque * 0.05) : 0)
+            return (
+              <div className="mt-5 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+                <div className="border-b border-slate-200 bg-slate-900 px-4 py-2.5">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Payment Summary</h3>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-100 text-slate-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide">Details</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Amount (excl. VAT)</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">VAT (5%)</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rows.map((r) => (
+                      <tr key={r.label} className="hover:bg-slate-50">
+                        <td className="px-4 py-2 text-slate-700">{r.label}</td>
+                        <td className="px-4 py-2 text-right font-mono text-slate-900">{r.base.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right font-mono text-slate-500">{r.vat > 0 ? r.vat.toLocaleString() : "—"}</td>
+                        <td className="px-4 py-2 text-right font-mono font-semibold text-slate-900">{(r.base + r.vat).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-300 bg-slate-50">
+                      <td className="px-4 py-2.5 text-sm font-bold text-slate-900">Annual Contract Value</td>
+                      <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalBase.toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalVat.toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-slate-900">AED {grandTotal.toLocaleString()}</td>
+                    </tr>
+                    <tr className="bg-[#E30613]/10">
+                      <td colSpan={3} className="px-4 py-3 text-sm font-bold text-[#E30613]">
+                        UPFRONT (1st Cheque + Deposits + Fees + VAT{parkingFee > 0 ? " + Parking" : ""})
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-base font-bold text-[#E30613]">
+                        AED {upfront.toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
-            )}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">Other Charges</span>
-              <span className="font-semibold text-slate-900">AED {otherCharges.toLocaleString()}</span>
-            </div>
-            <div className="mt-2 border-t border-slate-300 pt-2 flex items-center justify-between text-sm text-slate-700">
-              <span>Annual Contract Value</span>
-              <span className="font-semibold text-slate-900">AED {totalAmount.toLocaleString()}</span>
-            </div>
-            <div className="mt-1 rounded-md bg-[#E30613]/10 border border-[#E30613]/30 p-3 flex items-center justify-between text-base font-bold text-[#E30613]">
-              <span>UPFRONT (1st Cheque + Deposits + Fees + VAT{parkingFee > 0 ? " + Parking" : ""})</span>
-              <span>
-                AED{" "}
-                {(perCheque + securityDeposit + adminFee + ejariFee + vat + parkingFee + otherCharges).toLocaleString()}
-              </span>
-            </div>
-          </div>
+            )
+          })()}
         </div>
 
         {/* SECTION 3.5: Parking (optional) */}
