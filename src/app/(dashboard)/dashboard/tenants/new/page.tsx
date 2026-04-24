@@ -38,9 +38,12 @@ interface ParkingSlotOption {
 // UAE lease convention: a "one-year lease" from Jan 5 2026 ends Jan 4 2027
 // (exactly +1 calendar year minus 1 day). Returns YYYY-MM-DD.
 function plusOneLeaseYear(dateStr: string): string {
+  return plusLeaseYears(dateStr, 1)
+}
+function plusLeaseYears(dateStr: string, years: number): string {
   if (!dateStr) return ""
   const d = new Date(dateStr)
-  d.setFullYear(d.getFullYear() + 1)
+  d.setFullYear(d.getFullYear() + years)
   d.setDate(d.getDate() - 1)
   return d.toISOString().slice(0, 10)
 }
@@ -82,7 +85,8 @@ export default function NewTenantPage() {
 
   // Lease dates
   const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [leaseYears, setLeaseYears] = useState(1)
+  const endDate = startDate ? plusLeaseYears(startDate, leaseYears) : ""
 
   // Contract type — drives VAT rules and security deposit default
   const [contractType, setContractType] = useState<"Residential" | "Commercial">("Residential")
@@ -191,13 +195,6 @@ export default function NewTenantPage() {
     if (u && u.currentRent) setAnnualRent(u.currentRent)
   }, [unitId, units])
 
-  // When start date changes, auto-set end date to +1 year (if not set)
-  useEffect(() => {
-    if (startDate && !endDate) {
-      setEndDate(plusOneLeaseYear(startDate))
-    }
-  }, [startDate, endDate])
-
   // Auto-flip deposit % when contract type changes
   useEffect(() => {
     setSecurityDepositPct(contractType === "Commercial" ? 10 : 5)
@@ -236,17 +233,12 @@ export default function NewTenantPage() {
     return Math.round(monthsForRent / installments)
   }, [monthsForRent, installments])
 
-  // Date validation
+  // Date validation (end date is auto-computed, so only start needs checking)
   const dateError = useMemo(() => {
-    if (!startDate || !endDate) return ""
+    if (!startDate) return ""
     if (startDate < todayISO()) return "Start date cannot be in the past"
-    const minEnd = plusOneLeaseYear(startDate)
-    if (endDate < minEnd) {
-      const days = leaseDays(startDate, endDate)
-      return `Lease must be at least 1 year (365 days) — currently ${days} days. Minimum end date: ${minEnd}`
-    }
     return ""
-  }, [startDate, endDate])
+  }, [startDate])
 
   const [eidOcrRunning, setEidOcrRunning] = useState(false)
 
@@ -517,36 +509,40 @@ export default function NewTenantPage() {
                 type="date"
                 value={startDate}
                 min={todayISO()}
-                onChange={(e) => {
-                  const v = e.target.value
-                  setStartDate(v)
-                  if (v) setEndDate(plusOneLeaseYear(v))
-                }}
+                onChange={(e) => setStartDate(e.target.value)}
                 className={INPUT}
               />
               <p className="mt-1 text-[11px] text-slate-500">Cannot be a past date.</p>
             </div>
             <div>
-              <label className={LABEL}>End Date * <span className="text-[11px] text-slate-500">(auto = Start + 1 year − 1 day)</span></label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate ? plusOneLeaseYear(startDate) : undefined}
+              <label className={LABEL}>Number of Years *</label>
+              <select
+                value={leaseYears}
+                onChange={(e) => setLeaseYears(parseInt(e.target.value))}
                 className={INPUT}
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Minimum: <strong>{startDate ? plusOneLeaseYear(startDate) : "—"}</strong> (1-year lease).
-              </p>
+              >
+                <option value={1}>1 year</option>
+                <option value={2}>2 years</option>
+                <option value={3}>3 years</option>
+                <option value={4}>4 years</option>
+                <option value={5}>5 years</option>
+                <option value={10}>10 years</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">End Date (auto)</span>
+                <span className="text-base font-bold text-slate-900">{endDate || "—"}</span>
+              </div>
+              {startDate && endDate && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {leaseDays(startDate, endDate)} days · Start + {leaseYears} year{leaseYears > 1 ? "s" : ""} − 1 day
+                </p>
+              )}
             </div>
           </div>
           {dateError && (
             <p className="mt-2 text-xs text-red-700">⚠ {dateError}</p>
-          )}
-          {!dateError && startDate && endDate && (
-            <p className="mt-2 text-xs text-slate-500">
-              Lease duration: <strong>{leaseDays(startDate, endDate)} days ({(leaseDays(startDate, endDate) / 365).toFixed(2)} years)</strong>
-            </p>
           )}
         </div>
 
