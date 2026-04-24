@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 import {
   LayoutDashboard,
   Building2,
@@ -40,11 +41,13 @@ interface NavItem {
   href: string
   icon: React.ElementType
   adminOnly?: boolean
+  devOnly?: boolean
 }
 
 interface NavGroup {
   title: string
   items: NavItem[]
+  devOnly?: boolean
 }
 
 const navGroups: NavGroup[] = [
@@ -88,14 +91,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Admin",
+    title: "Developer",
     items: [
-      { label: "Import Data", href: "/dashboard/import", icon: Upload },
-      { label: "Import Tenants (Folder)", href: "/dashboard/import/tenants", icon: Upload },
-      { label: "Import Cheques (Excel)", href: "/dashboard/import/cheques", icon: Upload },
-      { label: "Import Lease Data (Full)", href: "/dashboard/import/lease-data", icon: Upload },
-      { label: "Settings", href: "/dashboard/settings", icon: Settings },
-      { label: "Users", href: "/dashboard/users", icon: UserCog, adminOnly: true },
+      { label: "Developer Tools", href: "/dashboard/developer", icon: Settings },
+      { label: "Import Data", href: "/dashboard/import", icon: Upload, devOnly: true },
+      { label: "Import Tenants (Folder)", href: "/dashboard/import/tenants", icon: Upload, devOnly: true },
+      { label: "Import Cheques (Excel)", href: "/dashboard/import/cheques", icon: Upload, devOnly: true },
+      { label: "Import Lease Data (Full)", href: "/dashboard/import/lease-data", icon: Upload, devOnly: true },
+      { label: "Settings", href: "/dashboard/settings", icon: Settings, devOnly: true },
+      { label: "Users", href: "/dashboard/users", icon: UserCog, adminOnly: true, devOnly: true },
     ],
   },
 ]
@@ -111,6 +115,14 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onMobileClose, collapsed, onCollapsedChange }: SidebarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const [devUnlocked, setDevUnlocked] = useState(false)
+
+  useEffect(() => {
+    const check = () => setDevUnlocked(document.cookie.split(";").some((c) => c.trim().startsWith("dev_unlocked=1")))
+    check()
+    const interval = setInterval(check, 3000) // re-check every 3s
+    return () => clearInterval(interval)
+  }, [])
 
   const userRole = session?.user?.role || ""
 
@@ -140,7 +152,11 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed, onCollapsedChang
             {collapsed && groupIdx > 0 && <div className="mx-auto mb-3 mt-1 h-px w-6 bg-white/10" />}
             <ul className="space-y-0.5">
               {group.items
-                .filter((item) => !item.adminOnly || userRole === "ADMIN")
+                .filter((item) => {
+                  if (item.adminOnly && userRole !== "ADMIN") return false
+                  if (item.devOnly && !devUnlocked) return false
+                  return true
+                })
                 .map((item) => {
                   const Icon = item.icon
                   const active = isActive(item.href)
