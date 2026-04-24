@@ -1058,6 +1058,31 @@ function serializeDeposit(notes: string | undefined | null, data: DepositData): 
   return [cleaned, DEPOSIT_PREFIX + JSON.stringify(data)].filter(Boolean).join('\n')
 }
 
+interface FeesData {
+  method: 'Cash' | 'Cheque' | ''
+  cash: number
+  chequeAmount: number
+  chequeNo: string
+  bankName: string
+  chequeDate: string
+  receivedAt?: string
+}
+const FEES_PREFIX = 'FEES_JSON:'
+function parseFees(notes: string | undefined | null): FeesData {
+  const def: FeesData = { method: '', cash: 0, chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' }
+  if (!notes) return def
+  for (const line of notes.split('\n')) {
+    if (line.startsWith(FEES_PREFIX)) {
+      try { return { ...def, ...JSON.parse(line.slice(FEES_PREFIX.length)) } } catch { /* ignore */ }
+    }
+  }
+  return def
+}
+function serializeFees(notes: string | undefined | null, data: FeesData): string {
+  const cleaned = (notes || '').split('\n').filter((l) => !l.startsWith(FEES_PREFIX)).join('\n').trim()
+  return [cleaned, FEES_PREFIX + JSON.stringify(data)].filter(Boolean).join('\n')
+}
+
 function PaymentPlan({
   cheques,
   contract,
@@ -1084,6 +1109,9 @@ function PaymentPlan({
   const [deposit, setDeposit] = useState<DepositData>(parseDeposit(contract.notes))
   const [depositDirty, setDepositDirty] = useState(false)
   const [savingDeposit, setSavingDeposit] = useState(false)
+  const [fees, setFees] = useState<FeesData>(parseFees(contract.notes))
+  const [feesDirty, setFeesDirty] = useState(false)
+  const [savingFees, setSavingFees] = useState(false)
   const [sendingReceipt, setSendingReceipt] = useState(false)
   const [receiptMsg, setReceiptMsg] = useState<string>('')
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false)
@@ -1137,10 +1165,13 @@ function PaymentPlan({
       setUpfront(parsed)
       setUpfrontDirty(false)
     }
-    // Also sync deposit from notes on the server.
+    // Also sync deposit + fees from notes on the server.
     const parsedDep = parseDeposit(contract.notes)
     setDeposit(parsedDep)
     setDepositDirty(false)
+    const parsedFees = parseFees(contract.notes)
+    setFees(parsedFees)
+    setFeesDirty(false)
     // Intentionally exclude suggestedUpfront from deps so cheque saves
     // don't clobber the upfront fields.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1266,6 +1297,30 @@ function PaymentPlan({
       onChange()
     } finally {
       setSavingDeposit(false)
+    }
+  }
+
+  const saveFees = async () => {
+    setSavingFees(true)
+    try {
+      const newNotes = serializeFees(contract.notes, {
+        ...fees,
+        receivedAt: fees.receivedAt || new Date().toISOString(),
+      })
+      const res = await fetch(`/api/tenancy-contracts/${contract.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: newNotes }),
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        alert(`Saving fees failed: ${e.error || res.status}`)
+        return
+      }
+      setFeesDirty(false)
+      onChange()
+    } finally {
+      setSavingFees(false)
     }
   }
 
@@ -1580,6 +1635,142 @@ function PaymentPlan({
                     className="ml-auto rounded-lg bg-purple-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-purple-700 disabled:opacity-50"
                   >
                     {savingDeposit ? 'Saving…' : depositDirty ? 'Save Deposit' : 'Saved ✓'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Admin + Ejari Fees — separate card (combined) */}
+      {((contract.commissionFee || 0) + (contract.ejariFee || 0)) > 0 && (() => {
+        const comm = contract.commissionFee || 0
+        const ejari = contract.ejariFee || 0
+        const isCommercial = (contract.contractType || '').toLowerCase() === 'commercial'
+        const commVat = Math.round(comm * 0.05)
+        const expected = comm + commVat + ejari
+        const received = fees.method === 'Cash' ? fees.cash : fees.method === 'Cheque' ? fees.chequeAmount : 0
+        const ok = received > 0 && received === expected
+        return (
+          <div className="px-6 pt-5">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-white text-xs font-bold">💼</span>
+                    <h3 className="text-sm font-semibold text-amber-900">Admin + Ejari Fees</h3>
+                    {ok && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                        ✓ Received
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-amber-800">
+                    Admin / Commission {comm ? `AED ${comm.toLocaleString()}` : '—'}
+                    {commVat ? ` (+ VAT ${commVat.toLocaleString()})` : isCommercial ? '' : ''}
+                    {' · '}
+                    Ejari {ejari ? `AED ${ejari.toLocaleString()}` : '—'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600">Expected</p>
+                  <p className="text-lg font-bold text-amber-900">AED {expected.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Method toggle */}
+              <div className="mb-3 flex gap-2">
+                {(['Cash', 'Cheque'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      setFees({ ...fees, method: m, ...(m === 'Cash' ? { chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' } : { cash: 0 }) })
+                      setFeesDirty(true)
+                    }}
+                    className={
+                      fees.method === m
+                        ? 'flex-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white'
+                        : 'flex-1 rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100'
+                    }
+                  >
+                    {m === 'Cash' ? '💵 Cash' : '📝 Cheque'}
+                  </button>
+                ))}
+              </div>
+
+              {fees.method === 'Cash' && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-amber-900">Cash Amount (AED)</label>
+                  <input
+                    type="number"
+                    value={fees.cash || ''}
+                    onChange={(e) => { setFees({ ...fees, cash: Number(e.target.value) }); setFeesDirty(true) }}
+                    placeholder={String(expected)}
+                    className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
+                  />
+                </div>
+              )}
+
+              {fees.method === 'Cheque' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-amber-900">Cheque Amount (AED)</label>
+                    <input
+                      type="number"
+                      value={fees.chequeAmount || ''}
+                      onChange={(e) => { setFees({ ...fees, chequeAmount: Number(e.target.value) }); setFeesDirty(true) }}
+                      placeholder={String(expected)}
+                      className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-amber-900">Cheque #</label>
+                      <input
+                        type="text"
+                        value={fees.chequeNo}
+                        onChange={(e) => { setFees({ ...fees, chequeNo: e.target.value }); setFeesDirty(true) }}
+                        className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-amber-900">Bank</label>
+                      <input
+                        type="text"
+                        value={fees.bankName}
+                        onChange={(e) => { setFees({ ...fees, bankName: e.target.value }); setFeesDirty(true) }}
+                        className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-amber-900">Cheque Date</label>
+                    <input
+                      type="date"
+                      value={fees.chequeDate}
+                      onChange={(e) => { setFees({ ...fees, chequeDate: e.target.value }); setFeesDirty(true) }}
+                      className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {fees.method && (
+                <div className="mt-3 flex items-center justify-between">
+                  {received > 0 && received !== expected && (
+                    <p className="text-[11px] text-amber-700">
+                      ⚠ Amount ({received.toLocaleString()}) doesn&rsquo;t match expected ({expected.toLocaleString()}).
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={saveFees}
+                    disabled={!feesDirty || savingFees || received <= 0}
+                    className="ml-auto rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {savingFees ? 'Saving…' : feesDirty ? 'Save Fees' : 'Saved ✓'}
                   </button>
                 </div>
               )}
