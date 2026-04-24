@@ -26,6 +26,14 @@ interface Unit {
   status: string
 }
 
+interface ParkingSlotOption {
+  id: string
+  slotNo: string
+  zone: string
+  floor: string
+  status: string
+}
+
 // Add 1 year to a YYYY-MM-DD date
 function plusOneYear(dateStr: string): string {
   if (!dateStr) return ""
@@ -69,6 +77,12 @@ export default function NewTenantPage() {
   const [otherCharges, setOtherCharges] = useState(0)
   const [vatOverride, setVatOverride] = useState<number | null>(null) // if user edited manually
 
+  // Parking (optional)
+  const [parkingSlots, setParkingSlots] = useState<ParkingSlotOption[]>([])
+  const [parkingSlotId, setParkingSlotId] = useState("")
+  const [parkingAmount, setParkingAmount] = useState(0)
+  const [vehiclePlate, setVehiclePlate] = useState("")
+
   // Payment plan
   const [installments, setInstallments] = useState(4) // 1, 2, 3, 4, 6, 12
 
@@ -96,6 +110,17 @@ export default function NewTenantPage() {
       .then((data) => {
         const list: Unit[] = Array.isArray(data) ? data : []
         setUnits(list.filter((u) => u.status === "Vacant"))
+      })
+      .catch(() => {})
+  }, [])
+
+  // Load available parking slots
+  useEffect(() => {
+    fetch("/api/parking")
+      .then((r) => r.json())
+      .then((data) => {
+        const list: ParkingSlotOption[] = Array.isArray(data) ? data : []
+        setParkingSlots(list.filter((s) => s.status === "Available"))
       })
       .catch(() => {})
   }, [])
@@ -133,9 +158,11 @@ export default function NewTenantPage() {
   }, [contractType, adminFee, annualRent])
   const vat = vatOverride !== null ? vatOverride : vatAuto
 
+  const parkingFee = parkingSlotId ? parkingAmount : 0
+
   const totalAmount = useMemo(
-    () => annualRent + securityDeposit + adminFee + ejariFee + vat + otherCharges,
-    [annualRent, securityDeposit, adminFee, ejariFee, vat, otherCharges]
+    () => annualRent + securityDeposit + adminFee + ejariFee + vat + parkingFee + otherCharges,
+    [annualRent, securityDeposit, adminFee, ejariFee, vat, parkingFee, otherCharges]
   )
 
   // Per-cheque amount
@@ -276,6 +303,20 @@ export default function NewTenantPage() {
       const ctData = await ctRes.json()
       const contract = ctData.contract || ctData
       const contractId = contract.id
+
+      // 4. Assign parking slot if selected
+      if (parkingSlotId) {
+        await fetch(`/api/parking/${parkingSlotId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "assign",
+            tenantId,
+            unitId,
+            vehiclePlate,
+          }),
+        }).catch(() => {})
+      }
 
       // 5. Send to tenant for signature
       await fetch(`/api/tenants/${tenantId}/tenancy-contracts/${contractId}/send`, {
@@ -551,6 +592,14 @@ export default function NewTenantPage() {
               </span>
               <span className="font-semibold text-slate-900">AED {vat.toLocaleString()}</span>
             </div>
+            {parkingSlotId && parkingAmount > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-700">
+                  Parking ({parkingSlots.find((s) => s.id === parkingSlotId)?.slotNo || ""})
+                </span>
+                <span className="font-semibold text-slate-900">AED {parkingAmount.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-700">Other Charges</span>
               <span className="font-semibold text-slate-900">AED {otherCharges.toLocaleString()}</span>
@@ -560,19 +609,76 @@ export default function NewTenantPage() {
               <span className="font-semibold text-slate-900">AED {totalAmount.toLocaleString()}</span>
             </div>
             <div className="mt-1 rounded-md bg-[#E30613]/10 border border-[#E30613]/30 p-3 flex items-center justify-between text-base font-bold text-[#E30613]">
-              <span>UPFRONT (1st Cheque + Deposits + Fees + VAT)</span>
+              <span>UPFRONT (1st Cheque + Deposits + Fees + VAT{parkingFee > 0 ? " + Parking" : ""})</span>
               <span>
                 AED{" "}
-                {(perCheque + securityDeposit + adminFee + ejariFee + vat + otherCharges).toLocaleString()}
+                {(perCheque + securityDeposit + adminFee + ejariFee + vat + parkingFee + otherCharges).toLocaleString()}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* SECTION 3.5: Parking (optional) */}
+        <div className="mt-8">
+          <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-2 mb-4">
+            4. Parking <span className="text-xs font-normal text-slate-500">(optional)</span>
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={LABEL}>Parking Slot</label>
+              <select
+                value={parkingSlotId}
+                onChange={(e) => {
+                  setParkingSlotId(e.target.value)
+                  if (!e.target.value) { setParkingAmount(0); setVehiclePlate("") }
+                }}
+                className={INPUT}
+              >
+                <option value="">Not assigned</option>
+                {parkingSlots.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.slotNo} — Zone {s.zone} · {s.floor}
+                  </option>
+                ))}
+              </select>
+              {parkingSlots.length === 0 && (
+                <p className="mt-1 text-[11px] text-amber-700">
+                  No available slots. Add some via{" "}
+                  <Link href="/dashboard/parking" className="underline">Parking page</Link>.
+                </p>
+              )}
+            </div>
+            {parkingSlotId && (
+              <>
+                <div>
+                  <label className={LABEL}>Parking Amount (AED / year)</label>
+                  <input
+                    type="number"
+                    value={parkingAmount || ""}
+                    onChange={(e) => setParkingAmount(parseFloat(e.target.value) || 0)}
+                    placeholder="e.g. 3000"
+                    className={INPUT}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={LABEL}>Vehicle Plate <span className="text-slate-400">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={vehiclePlate}
+                    onChange={(e) => setVehiclePlate(e.target.value)}
+                    placeholder="e.g. A 12345 Dubai"
+                    className={INPUT}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* SECTION 4: Payment Plan */}
         <div className="mt-8">
           <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-2 mb-4">
-            4. Rent Payment Plan
+            5. Rent Payment Plan
           </h2>
           <div>
             <label className={LABEL}>Number of Cheques (Installments)</label>
