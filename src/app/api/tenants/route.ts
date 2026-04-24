@@ -23,6 +23,10 @@ export async function GET() {
             unitType: true,
             status: true,
             currentRent: true,
+            contractStart: true,
+            contractEnd: true,
+            sqFt: true,
+            notes: true,
           },
         },
         documents: {

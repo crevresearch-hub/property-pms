@@ -49,7 +49,7 @@ interface TenantRow {
   companyTradeLicenseExpiry: string
   signatoryName: string
   signatoryTitle: string
-  units: { id: string; unitNo: string; unitType: string; status: string; currentRent: number }[]
+  units: { id: string; unitNo: string; unitType: string; status: string; currentRent: number; contractStart?: string; contractEnd?: string; sqFt?: number; notes?: string }[]
   reservedUnitNo: string
   documents: { id: string; docType: string }[]
   has_ejari: boolean
@@ -1411,20 +1411,89 @@ export default function TenantsPage() {
             </div>
 
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase text-slate-400">Units</h3>
+              <h3 className="mb-2 text-xs font-semibold uppercase text-slate-400">Unit &amp; Contract Details</h3>
               {detailTenant.units.length === 0 ? (
                 <p className="text-sm text-slate-600">No units assigned</p>
               ) : (
-                <div className="space-y-2">
-                  {detailTenant.units.map((u) => (
-                    <div key={u.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/30 p-3 text-sm">
-                      <span className="text-white">{u.unitNo}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-slate-400">{formatCurrency(u.currentRent)}</span>
-                        <StatusBadge status={u.status} />
+                <div className="space-y-3">
+                  {detailTenant.units.map((u) => {
+                    // Parse notes for fees and extras
+                    const notes = u.notes || ""
+                    const pick = (label: RegExp) => {
+                      const m = notes.match(label)
+                      return m ? m[1].trim() : ""
+                    }
+                    const securityDeposit = pick(/Security Deposit:\s*AED\s*([\d,.]+)/i)
+                    const ejariFee = pick(/Ejari\s*Fee:?\s*AED\s*([\d,.]+)/i)
+                    const municipalityFee = pick(/Municipality\s*Fee:?\s*AED\s*([\d,.]+)/i)
+                    const commissionFee = pick(/Commission:?\s*AED\s*([\d,.]+)/i)
+                    const adminFee = pick(/Admin\s*Fee:?\s*AED\s*([\d,.]+)/i)
+                    const dewaNo = pick(/DEWA\s*Premise\s*No:?\s*(\S+)/i)
+                    const buildingName = pick(/Building:?\s*([^\n]+?)$/im)
+                    const ejariContract = pick(/Ejari\s*Contract\s*No:?\s*(\S+)/i)
+
+                    return (
+                      <div key={u.id} className="rounded-lg border border-slate-800 bg-slate-800/30 p-4 text-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg font-bold text-white">{u.unitNo}</span>
+                            <span className="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-semibold text-slate-300">{u.unitType}</span>
+                            {u.sqFt ? <span className="text-xs text-slate-500">{u.sqFt} sq ft</span> : null}
+                          </div>
+                          <StatusBadge status={u.status} />
+                        </div>
+
+                        {/* Contract dates + rent row */}
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          <div className="rounded bg-slate-900/60 p-2">
+                            <p className="text-[10px] uppercase tracking-wider text-slate-500">Contract Start</p>
+                            <p className="mt-0.5 font-mono text-xs text-white">{u.contractStart ? formatDate(u.contractStart) : "—"}</p>
+                          </div>
+                          <div className="rounded bg-slate-900/60 p-2">
+                            <p className="text-[10px] uppercase tracking-wider text-slate-500">Contract End</p>
+                            <p className="mt-0.5 font-mono text-xs text-white">{u.contractEnd ? formatDate(u.contractEnd) : "—"}</p>
+                          </div>
+                          <div className="rounded bg-amber-500/10 border border-amber-500/20 p-2">
+                            <p className="text-[10px] uppercase tracking-wider text-amber-400">Annual Rent</p>
+                            <p className="mt-0.5 font-semibold text-amber-300">{formatCurrency(u.currentRent)}</p>
+                          </div>
+                        </div>
+
+                        {/* Fees row (only shows filled fees) */}
+                        {(securityDeposit || ejariFee || municipalityFee || commissionFee || adminFee) && (
+                          <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Fees &amp; Deposit</p>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 text-xs">
+                              {securityDeposit && (
+                                <div><span className="text-slate-500">Security Deposit:</span> <span className="ml-1 font-semibold text-green-400">AED {securityDeposit}</span></div>
+                              )}
+                              {ejariFee && (
+                                <div><span className="text-slate-500">Ejari Fee:</span> <span className="ml-1 text-white">AED {ejariFee}</span></div>
+                              )}
+                              {municipalityFee && (
+                                <div><span className="text-slate-500">Municipality Fee:</span> <span className="ml-1 text-white">AED {municipalityFee}</span></div>
+                              )}
+                              {adminFee && (
+                                <div><span className="text-slate-500">Admin Fee:</span> <span className="ml-1 text-white">AED {adminFee}</span></div>
+                              )}
+                              {commissionFee && (
+                                <div><span className="text-slate-500">Commission:</span> <span className="ml-1 text-white">AED {commissionFee}</span></div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Property info */}
+                        {(dewaNo || buildingName || ejariContract) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+                            {buildingName && <span><span className="text-slate-500">Building:</span> <span className="text-slate-300">{buildingName}</span></span>}
+                            {dewaNo && <span><span className="text-slate-500">DEWA:</span> <span className="font-mono text-slate-300">{dewaNo}</span></span>}
+                            {ejariContract && <span><span className="text-slate-500">Ejari Contract:</span> <span className="font-mono text-slate-300">{ejariContract}</span></span>}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
