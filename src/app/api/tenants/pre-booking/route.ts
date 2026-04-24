@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
         preBookingDeposit: totalDeposit,  // stores total including VAT for commercial
         preBookingDate: new Date().toISOString().slice(0, 10),
         expectedMoveIn: expectedMoveIn || '',
+        reservedUnitNo: unit?.unitNo || '',
         notes: combinedNotes,
       },
     })

@@ -35,10 +35,10 @@ export async function GET() {
       orderBy: { name: 'asc' },
     })
 
-    // Sort by unit number (numeric), tenants without a unit go last
+    // Sort by unit number (numeric), using reservedUnitNo if no assigned unit; tenants without any go last
     tenants.sort((a, b) => {
-      const au = a.units[0]?.unitNo || ''
-      const bu = b.units[0]?.unitNo || ''
+      const au = a.units[0]?.unitNo || a.reservedUnitNo || ''
+      const bu = b.units[0]?.unitNo || b.reservedUnitNo || ''
       if (!au && !bu) return 0
       if (!au) return 1
       if (!bu) return -1

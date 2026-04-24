@@ -50,6 +50,7 @@ interface TenantRow {
   signatoryName: string
   signatoryTitle: string
   units: { id: string; unitNo: string; unitType: string; status: string; currentRent: number }[]
+  reservedUnitNo: string
   documents: { id: string; docType: string }[]
   has_ejari: boolean
   has_cheque: boolean
@@ -548,11 +549,19 @@ export default function TenantsPage() {
       header: "Unit",
       sortable: true,
       filterable: true,
-      filterValue: (row) => row.units.map((u) => u.unitNo).join(", "),
-      render: (row) =>
-        row.units.length > 0
-          ? row.units.map((u) => u.unitNo).join(", ")
-          : <span className="text-slate-600">--</span>,
+      filterValue: (row) => [...row.units.map((u) => u.unitNo), row.reservedUnitNo].filter(Boolean).join(", "),
+      render: (row) => {
+        if (row.units.length > 0) return row.units.map((u) => u.unitNo).join(", ")
+        if (row.reservedUnitNo) {
+          return (
+            <span className="inline-flex items-center gap-1">
+              <span className="font-mono">{row.reservedUnitNo}</span>
+              <span className="rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400 ring-1 ring-blue-500/30">📌 Reserved</span>
+            </span>
+          )
+        }
+        return <span className="text-slate-600">--</span>
+      },
     },
     {
       key: "unitType",
