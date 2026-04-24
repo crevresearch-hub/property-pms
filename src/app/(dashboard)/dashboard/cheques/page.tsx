@@ -358,9 +358,10 @@ export default function ChequesPage() {
       {error && <div className="rounded-lg border border-red-800 bg-red-900/20 p-3 text-sm text-red-400">{error} <button onClick={() => setError("")} className="ml-2 underline">Dismiss</button></div>}
 
       {summary && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <KpiCard label="Total Cheques" value={summary.total} subtitle={formatCurrency(summary.totalAmount)} color="blue" icon={<CreditCard className="h-5 w-5" />} />
-          <KpiCard label="Received" value={summary.received.count} subtitle={formatCurrency(summary.received.amount)} color="amber" icon={<CreditCard className="h-5 w-5" />} />
+          <KpiCard label="Received / PDC Holding" value={summary.received.count} subtitle={formatCurrency(summary.received.amount)} color="amber" icon={<CreditCard className="h-5 w-5" />} />
+          <KpiCard label="Deposited" value={summary.deposited.count} subtitle={formatCurrency(summary.deposited.amount)} color="blue" icon={<CreditCard className="h-5 w-5" />} />
           <KpiCard label="Cleared" value={summary.cleared.count} subtitle={formatCurrency(summary.cleared.amount)} color="green" icon={<CheckCircle className="h-5 w-5" />} />
           <KpiCard label="Bounced" value={summary.bounced.count} subtitle={formatCurrency(summary.bounced.amount)} color="red" icon={<XCircle className="h-5 w-5" />} />
         </div>
