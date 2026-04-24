@@ -41,6 +41,9 @@ export async function PUT(
     if (body.sequenceNo !== undefined) updateData.sequenceNo = parseInt(body.sequenceNo, 10)
     if (body.totalCheques !== undefined) updateData.totalCheques = parseInt(body.totalCheques, 10)
     if (body.bouncedReason !== undefined) updateData.bouncedReason = body.bouncedReason
+    if (body.bouncedDate !== undefined) updateData.bouncedDate = body.bouncedDate
+    if (body.depositedDate !== undefined) updateData.depositedDate = body.depositedDate
+    if (body.depositRemarks !== undefined) updateData.depositRemarks = body.depositRemarks
     if (body.clearedDate !== undefined) updateData.clearedDate = body.clearedDate
     if (body.notes !== undefined) updateData.notes = body.notes
     if (body.unitId !== undefined) updateData.unitId = body.unitId || null

@@ -720,22 +720,50 @@ function ChequeUnitCards({
 }) {
   const [pendingAction, setPendingAction] = useState<ChequeAction | null>(null)
   const [rejectReason, setRejectReason] = useState("")
+  const [bouncedDate, setBouncedDate] = useState("")
+  const [depositDate, setDepositDate] = useState("")
+  const [depositRemarks, setDepositRemarks] = useState("")
+  const [depositSlipFile, setDepositSlipFile] = useState<File | null>(null)
+  const [clearDate, setClearDate] = useState("")
   const [busyAction, setBusyAction] = useState(false)
+
+  const todayStr = () => new Date().toISOString().slice(0, 10)
+  const resetActionState = () => {
+    setPendingAction(null)
+    setRejectReason("")
+    setBouncedDate("")
+    setDepositDate("")
+    setDepositRemarks("")
+    setDepositSlipFile(null)
+    setClearDate("")
+  }
 
   const runAction = async () => {
     if (!pendingAction) return
     setBusyAction(true)
     try {
-      const tdy = new Date().toISOString().slice(0, 10)
       if (pendingAction.type === "deposit") {
-        await updateStatus(pendingAction.cheque.id, "Deposited")
+        await updateStatus(pendingAction.cheque.id, "Deposited", {
+          depositedDate: depositDate || todayStr(),
+          depositRemarks,
+        })
+        // Upload deposit slip (optional) as a tenant document tagged to this cheque.
+        if (depositSlipFile && pendingAction.cheque.tenant?.id) {
+          const fd = new FormData()
+          fd.append('file', depositSlipFile)
+          fd.append('tenantId', pendingAction.cheque.tenant.id)
+          fd.append('docType', `Deposit-Slip-Cheque-${pendingAction.cheque.id}`)
+          await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+        }
       } else if (pendingAction.type === "clear") {
-        await updateStatus(pendingAction.cheque.id, "Cleared", { clearedDate: tdy })
+        await updateStatus(pendingAction.cheque.id, "Cleared", { clearedDate: clearDate || todayStr() })
       } else {
-        await updateStatus(pendingAction.cheque.id, "Bounced", { bouncedReason: rejectReason })
+        await updateStatus(pendingAction.cheque.id, "Bounced", {
+          bouncedReason: rejectReason,
+          bouncedDate: bouncedDate || todayStr(),
+        })
       }
-      setPendingAction(null)
-      setRejectReason("")
+      resetActionState()
     } finally {
       setBusyAction(false)
     }
@@ -917,7 +945,7 @@ function ChequeUnitCards({
       {/* Confirmation modal — replaces native browser confirm() */}
       <Modal
         open={!!pendingAction}
-        onOpenChange={(o) => { if (!o && !busyAction) { setPendingAction(null); setRejectReason("") } }}
+        onOpenChange={(o) => { if (!o && !busyAction) resetActionState() }}
         title={
           pendingAction?.type === "deposit"
             ? "Confirm: Mark as Deposited"
@@ -928,10 +956,13 @@ function ChequeUnitCards({
         size="md"
         footer={
           <>
-            <ModalCancelButton onClick={() => { setPendingAction(null); setRejectReason("") }} />
+            <ModalCancelButton onClick={resetActionState} />
             <button
               onClick={runAction}
-              disabled={busyAction || (pendingAction?.type === "reject" && rejectReason.trim().length < 2)}
+              disabled={
+                busyAction ||
+                (pendingAction?.type === "reject" && (rejectReason.trim().length < 2 || !(bouncedDate || todayStr())))
+              }
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 ${
                 pendingAction?.type === "deposit"
                   ? "bg-blue-600 hover:bg-blue-500"
@@ -1011,18 +1042,89 @@ function ChequeUnitCards({
               </div>
             </div>
 
-            {pendingAction.type === "reject" && (
+            {pendingAction.type === "deposit" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Deposit Date <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={depositDate || todayStr()}
+                      onChange={(e) => setDepositDate(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Deposit Slip <span className="text-slate-500 normal-case font-normal">(optional — PDF/JPG/PNG)</span>
+                    </label>
+                    <input
+                      type="file"
+                      accept=".pdf,image/*"
+                      onChange={(e) => setDepositSlipFile(e.target.files?.[0] || null)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-blue-600 file:px-3 file:py-1 file:text-white"
+                    />
+                    {depositSlipFile && (
+                      <p className="mt-1 text-[11px] text-emerald-400">✓ {depositSlipFile.name}</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Remarks <span className="text-slate-500 normal-case font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    value={depositRemarks}
+                    onChange={(e) => setDepositRemarks(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Deposited at Emirates NBD Bur Dubai branch, cashier stamp attached"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
+                  />
+                </div>
+              </div>
+            )}
+
+            {pendingAction.type === "clear" && (
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Reason for Rejection <span className="text-red-400">*</span>
+                  Cleared Date <span className="text-red-400">*</span>
                 </label>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. insufficient funds, signature mismatch, post-dated"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+                <input
+                  type="date"
+                  value={clearDate || todayStr()}
+                  onChange={(e) => setClearDate(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
                 />
+              </div>
+            )}
+
+            {pendingAction.type === "reject" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Bounced Date <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={bouncedDate || todayStr()}
+                    onChange={(e) => setBouncedDate(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Reason for Bounce <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. insufficient funds, signature mismatch, post-dated"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+                  />
+                </div>
               </div>
             )}
 
