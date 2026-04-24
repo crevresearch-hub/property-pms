@@ -1031,6 +1031,33 @@ function serializeUpfront(notes: string | undefined | null, data: UpfrontData): 
   return [cleaned, UPFRONT_PREFIX + JSON.stringify(data)].filter(Boolean).join('\n')
 }
 
+interface DepositData {
+  method: 'Cash' | 'Cheque' | ''
+  cash: number
+  chequeAmount: number
+  chequeNo: string
+  bankName: string
+  chequeDate: string
+  receivedAt?: string
+}
+const DEPOSIT_PREFIX = 'DEPOSIT_JSON:'
+function parseDeposit(notes: string | undefined | null): DepositData {
+  const def: DepositData = { method: '', cash: 0, chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' }
+  if (!notes) return def
+  for (const line of notes.split('\n')) {
+    if (line.startsWith(DEPOSIT_PREFIX)) {
+      try {
+        return { ...def, ...JSON.parse(line.slice(DEPOSIT_PREFIX.length)) }
+      } catch { /* ignore */ }
+    }
+  }
+  return def
+}
+function serializeDeposit(notes: string | undefined | null, data: DepositData): string {
+  const cleaned = (notes || '').split('\n').filter((l) => !l.startsWith(DEPOSIT_PREFIX)).join('\n').trim()
+  return [cleaned, DEPOSIT_PREFIX + JSON.stringify(data)].filter(Boolean).join('\n')
+}
+
 function PaymentPlan({
   cheques,
   contract,
@@ -1054,6 +1081,9 @@ function PaymentPlan({
   const [localEdits, setLocalEdits] = useState<Record<string, Partial<Cheque>>>({})
   const [upfront, setUpfront] = useState<UpfrontData>(parseUpfront(contract.notes))
   const [upfrontDirty, setUpfrontDirty] = useState(false)
+  const [deposit, setDeposit] = useState<DepositData>(parseDeposit(contract.notes))
+  const [depositDirty, setDepositDirty] = useState(false)
+  const [savingDeposit, setSavingDeposit] = useState(false)
   const [sendingReceipt, setSendingReceipt] = useState(false)
   const [receiptMsg, setReceiptMsg] = useState<string>('')
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false)
@@ -1108,6 +1138,10 @@ function PaymentPlan({
       setUpfront(parsed)
       setUpfrontDirty(false)
     }
+    // Also sync deposit from notes on the server.
+    const parsedDep = parseDeposit(contract.notes)
+    setDeposit(parsedDep)
+    setDepositDirty(false)
     // Intentionally exclude suggestedUpfront from deps so cheque saves
     // don't clobber the upfront fields.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1209,6 +1243,30 @@ function PaymentPlan({
       onChange()
     } finally {
       setSaving(false)
+    }
+  }
+
+  const saveDeposit = async () => {
+    setSavingDeposit(true)
+    try {
+      const newNotes = serializeDeposit(contract.notes, {
+        ...deposit,
+        receivedAt: deposit.receivedAt || new Date().toISOString(),
+      })
+      const res = await fetch(`/api/tenancy-contracts/${contract.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: newNotes }),
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        alert(`Saving security deposit failed: ${e.error || res.status}`)
+        return
+      }
+      setDepositDirty(false)
+      onChange()
+    } finally {
+      setSavingDeposit(false)
     }
   }
 
@@ -1391,31 +1449,138 @@ function PaymentPlan({
         ))}
       </div>
 
-      {/* Security Deposit — separate card */}
-      {(contract.securityDeposit || 0) > 0 && (
-        <div className="px-6 pt-5">
-          <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold">🛡</span>
-                  <h3 className="text-sm font-semibold text-purple-900">Security Deposit</h3>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
-                    {(contract.contractType || '').toLowerCase() === 'commercial' ? '10% of rent' : '5% of rent'}
-                  </span>
+      {/* Security Deposit — separate card with cash/cheque tracking */}
+      {(contract.securityDeposit || 0) > 0 && (() => {
+        const expected = contract.securityDeposit || 0
+        const received = deposit.method === 'Cash' ? deposit.cash : deposit.method === 'Cheque' ? deposit.chequeAmount : 0
+        const ok = received > 0 && received === expected
+        return (
+          <div className="px-6 pt-5">
+            <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold">🛡</span>
+                    <h3 className="text-sm font-semibold text-purple-900">Security Deposit</h3>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
+                      {(contract.contractType || '').toLowerCase() === 'commercial' ? '10% of rent' : '5% of rent'}
+                    </span>
+                    {ok && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                        ✓ Received
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-purple-700">
+                    Refundable at lease end. Held separately from rent.
+                  </p>
                 </div>
-                <p className="mt-1 text-[11px] text-purple-700">
-                  Refundable at lease end, subject to unit condition. Held separately from rent collection.
-                </p>
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-500">Expected</p>
+                  <p className="text-lg font-bold text-purple-900">AED {expected.toLocaleString()}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-500">Amount</p>
-                <p className="text-lg font-bold text-purple-900">AED {(contract.securityDeposit || 0).toLocaleString()}</p>
+
+              {/* Method toggle */}
+              <div className="mb-3 flex gap-2">
+                {(['Cash', 'Cheque'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      setDeposit({ ...deposit, method: m, ...(m === 'Cash' ? { chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' } : { cash: 0 }) })
+                      setDepositDirty(true)
+                    }}
+                    className={
+                      deposit.method === m
+                        ? 'flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white'
+                        : 'flex-1 rounded-lg border border-purple-300 bg-white px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100'
+                    }
+                  >
+                    {m === 'Cash' ? '💵 Cash' : '📝 Cheque'}
+                  </button>
+                ))}
               </div>
+
+              {/* Inputs based on method */}
+              {deposit.method === 'Cash' && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-purple-800">Cash Amount (AED)</label>
+                  <input
+                    type="number"
+                    value={deposit.cash || ''}
+                    onChange={(e) => { setDeposit({ ...deposit, cash: Number(e.target.value) }); setDepositDirty(true) }}
+                    placeholder={String(expected)}
+                    className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
+                  />
+                </div>
+              )}
+
+              {deposit.method === 'Cheque' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-purple-800">Cheque Amount (AED)</label>
+                    <input
+                      type="number"
+                      value={deposit.chequeAmount || ''}
+                      onChange={(e) => { setDeposit({ ...deposit, chequeAmount: Number(e.target.value) }); setDepositDirty(true) }}
+                      placeholder={String(expected)}
+                      className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-purple-800">Cheque #</label>
+                      <input
+                        type="text"
+                        value={deposit.chequeNo}
+                        onChange={(e) => { setDeposit({ ...deposit, chequeNo: e.target.value }); setDepositDirty(true) }}
+                        className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-purple-800">Bank</label>
+                      <input
+                        type="text"
+                        value={deposit.bankName}
+                        onChange={(e) => { setDeposit({ ...deposit, bankName: e.target.value }); setDepositDirty(true) }}
+                        className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-purple-800">Cheque Date</label>
+                    <input
+                      type="date"
+                      value={deposit.chequeDate}
+                      onChange={(e) => { setDeposit({ ...deposit, chequeDate: e.target.value }); setDepositDirty(true) }}
+                      className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {deposit.method && (
+                <div className="mt-3 flex items-center justify-between">
+                  {received > 0 && received !== expected && (
+                    <p className="text-[11px] text-amber-700">
+                      ⚠ Amount ({received.toLocaleString()}) doesn&rsquo;t match expected ({expected.toLocaleString()}).
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={saveDeposit}
+                    disabled={!depositDirty || savingDeposit || received <= 0}
+                    className="ml-auto rounded-lg bg-purple-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {savingDeposit ? 'Saving…' : depositDirty ? 'Save Deposit' : 'Saved ✓'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Upfront payment card */}
       <div className="px-6 pt-5">
