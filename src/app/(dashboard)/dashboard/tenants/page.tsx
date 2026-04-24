@@ -1127,12 +1127,26 @@ export default function TenantsPage() {
               onClick={async () => {
                 setPreBookBusy(true)
                 try {
-                  const res = await fetch("/api/tenants/pre-booking", {
+                  let res = await fetch("/api/tenants/pre-booking", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(preBookForm),
                   })
-                  const data = await res.json()
+                  let data = await res.json()
+
+                  // Conflict: unit already pre-booked
+                  if (res.status === 409 && data.conflict) {
+                    const ex = data.existingPreBooking
+                    const msg = `⚠ Unit is already pre-booked by:\n\n• ${ex.name}\n• Phone: ${ex.phone}\n• Deposit: AED ${ex.preBookingDeposit}\n• Expected move-in: ${ex.expectedMoveIn || "TBD"}\n\nCreate a SECOND pre-booking (waitlist) anyway?`
+                    if (!confirm(msg)) { setPreBookBusy(false); return }
+                    res = await fetch("/api/tenants/pre-booking", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ ...preBookForm, forceBook: true }),
+                    })
+                    data = await res.json()
+                  }
+
                   if (!res.ok) throw new Error(data.error || "Failed")
                   setPreBookOpen(false)
                   setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", notes: "" })

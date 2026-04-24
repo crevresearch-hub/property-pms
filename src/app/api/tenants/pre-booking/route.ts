@@ -31,11 +31,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
     }
 
+    const forceBook = body.forceBook === true
+
     // Validate unit if provided
     let unit = null
     if (unitId) {
       unit = await prisma.unit.findFirst({ where: { id: unitId, organizationId } })
       if (!unit) return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
+
+      // Check for existing pre-booking on the same unit
+      const existingPreBook = await prisma.tenant.findFirst({
+        where: {
+          organizationId,
+          status: 'Pre-Booked',
+          reservedUnitNo: unit.unitNo,
+        },
+        select: { id: true, name: true, phone: true, expectedMoveIn: true, preBookingDeposit: true },
+      })
+
+      if (existingPreBook && !forceBook) {
+        return NextResponse.json({
+          conflict: true,
+          existingPreBooking: existingPreBook,
+          message: `Unit ${unit.unitNo} is already pre-booked by ${existingPreBook.name}. Confirm to override or create a second (waitlist) pre-booking.`,
+        }, { status: 409 })
+      }
     }
 
     const combinedNotes = [
