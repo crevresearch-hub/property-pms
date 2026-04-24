@@ -703,6 +703,7 @@ function ChequeFilters({
 }
 
 type ChequeAction =
+  | { type: "deposit"; cheque: ChequeRow }
   | { type: "clear"; cheque: ChequeRow }
   | { type: "reject"; cheque: ChequeRow }
 
@@ -726,7 +727,9 @@ function ChequeUnitCards({
     setBusyAction(true)
     try {
       const tdy = new Date().toISOString().slice(0, 10)
-      if (pendingAction.type === "clear") {
+      if (pendingAction.type === "deposit") {
+        await updateStatus(pendingAction.cheque.id, "Deposited")
+      } else if (pendingAction.type === "clear") {
         await updateStatus(pendingAction.cheque.id, "Cleared", { clearedDate: tdy })
       } else {
         await updateStatus(pendingAction.cheque.id, "Bounced", { bouncedReason: rejectReason })
@@ -873,6 +876,14 @@ function ChequeUnitCards({
                           <div className="flex justify-end gap-1.5">
                             {c.status !== "Cleared" && c.status !== "Bounced" && c.status !== "Replaced" && (
                               <>
+                                {c.status !== "Deposited" && (
+                                  <button
+                                    onClick={() => setPendingAction({ type: "deposit", cheque: c })}
+                                    className="inline-flex items-center gap-1 rounded-md bg-blue-600 hover:bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                  >
+                                    🏦 Deposit
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => setPendingAction({ type: "clear", cheque: c })}
                                   className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
@@ -907,7 +918,13 @@ function ChequeUnitCards({
       <Modal
         open={!!pendingAction}
         onOpenChange={(o) => { if (!o && !busyAction) { setPendingAction(null); setRejectReason("") } }}
-        title={pendingAction?.type === "clear" ? "Confirm: Mark as Cleared" : "Confirm: Reject Cheque"}
+        title={
+          pendingAction?.type === "deposit"
+            ? "Confirm: Mark as Deposited"
+            : pendingAction?.type === "clear"
+            ? "Confirm: Mark as Cleared"
+            : "Confirm: Reject Cheque"
+        }
         size="md"
         footer={
           <>
@@ -916,13 +933,17 @@ function ChequeUnitCards({
               onClick={runAction}
               disabled={busyAction || (pendingAction?.type === "reject" && rejectReason.trim().length < 2)}
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 ${
-                pendingAction?.type === "clear"
+                pendingAction?.type === "deposit"
+                  ? "bg-blue-600 hover:bg-blue-500"
+                  : pendingAction?.type === "clear"
                   ? "bg-emerald-600 hover:bg-emerald-500"
                   : "bg-red-600 hover:bg-red-500"
               }`}
             >
               {busyAction
                 ? "Saving…"
+                : pendingAction?.type === "deposit"
+                ? "🏦 Confirm Deposit"
                 : pendingAction?.type === "clear"
                 ? "✓ Confirm Clear"
                 : "✕ Confirm Reject"}
@@ -933,19 +954,30 @@ function ChequeUnitCards({
         {pendingAction && (
           <div className="space-y-4">
             <div className={`rounded-xl border p-4 ${
-              pendingAction.type === "clear"
+              pendingAction.type === "deposit"
+                ? "border-blue-700/40 bg-blue-900/10"
+                : pendingAction.type === "clear"
                 ? "border-emerald-700/40 bg-emerald-900/10"
                 : "border-red-700/40 bg-red-900/10"
             }`}>
               <div className="flex items-start gap-3">
                 <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
+                  pendingAction.type === "deposit" ? "bg-blue-500/20 text-blue-300" :
                   pendingAction.type === "clear" ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
                 }`}>
-                  {pendingAction.type === "clear" ? <CheckCircle className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
+                  {pendingAction.type === "deposit"
+                    ? <span className="text-lg">🏦</span>
+                    : pendingAction.type === "clear"
+                    ? <CheckCircle className="h-5 w-5" />
+                    : <XCircle className="h-5 w-5" />}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-white">
-                    {pendingAction.type === "clear" ? "Mark this cheque as Cleared?" : "Reject this cheque?"}
+                    {pendingAction.type === "deposit"
+                      ? "Mark this cheque as Deposited (submitted to bank, awaiting clearance)?"
+                      : pendingAction.type === "clear"
+                      ? "Mark this cheque as Cleared?"
+                      : "Reject this cheque?"}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                     <div>
