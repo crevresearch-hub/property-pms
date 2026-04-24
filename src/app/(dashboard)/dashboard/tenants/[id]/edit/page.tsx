@@ -1179,6 +1179,8 @@ function PaymentPlan({
 
   const upfrontTotal = (upfront.cash || 0) + (upfront.chequeAmount || 0)
   const upfrontCheqImg = documents.find((d) => d.docType === 'Upfront-Cheque')
+  const depositCheqImg = documents.find((d) => d.docType === 'Deposit-Cheque')
+  const feesCheqImg = documents.find((d) => d.docType === 'Fees-Cheque')
   const chequeImgByType = (seq: number) => documents.find((d) => d.docType === `Cheque-${seq}`)
 
   const annualRent = contract.rentAmount || 0
@@ -1613,45 +1615,80 @@ function PaymentPlan({
               )}
 
               {deposit.method === 'Cheque' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-purple-800">Cheque Amount (AED)</label>
-                    <input
-                      type="number"
-                      value={deposit.chequeAmount || ''}
-                      onChange={(e) => { setDeposit({ ...deposit, chequeAmount: Number(e.target.value) }); setDepositDirty(true) }}
-                      placeholder={String(expected)}
-                      className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-purple-800">Cheque #</label>
+                      <label className="mb-1 block text-xs font-medium text-purple-800">Cheque Amount (AED)</label>
                       <input
-                        type="text"
-                        value={deposit.chequeNo}
-                        onChange={(e) => { setDeposit({ ...deposit, chequeNo: e.target.value }); setDepositDirty(true) }}
-                        className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                        type="number"
+                        value={deposit.chequeAmount || ''}
+                        onChange={(e) => { setDeposit({ ...deposit, chequeAmount: Number(e.target.value) }); setDepositDirty(true) }}
+                        placeholder={String(expected)}
+                        className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-purple-800">Cheque #</label>
+                        <input
+                          type="text"
+                          value={deposit.chequeNo}
+                          onChange={(e) => { setDeposit({ ...deposit, chequeNo: e.target.value }); setDepositDirty(true) }}
+                          className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-purple-800">Bank</label>
+                        <input
+                          type="text"
+                          value={deposit.bankName}
+                          onChange={(e) => { setDeposit({ ...deposit, bankName: e.target.value }); setDepositDirty(true) }}
+                          className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900"
+                        />
+                      </div>
+                    </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-purple-800">Bank</label>
+                      <label className="mb-1 block text-xs font-medium text-purple-800">Cheque Date</label>
                       <input
-                        type="text"
-                        value={deposit.bankName}
-                        onChange={(e) => { setDeposit({ ...deposit, bankName: e.target.value }); setDepositDirty(true) }}
+                        type="date"
+                        value={deposit.chequeDate}
+                        onChange={(e) => { setDeposit({ ...deposit, chequeDate: e.target.value }); setDepositDirty(true) }}
                         className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-purple-800">Cheque Date</label>
-                    <input
-                      type="date"
-                      value={deposit.chequeDate}
-                      onChange={(e) => { setDeposit({ ...deposit, chequeDate: e.target.value }); setDepositDirty(true) }}
-                      className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900"
-                    />
+                    <label className="mb-1 block text-xs font-medium text-purple-800">Cheque Image</label>
+                    {depositCheqImg ? (
+                      <div className="relative rounded-lg border border-purple-200 bg-white p-2">
+                        <img
+                          src={`/api/documents/${depositCheqImg.id}/file`}
+                          alt="Deposit cheque"
+                          className="w-full rounded"
+                          style={{ maxHeight: 220, objectFit: 'contain' }}
+                        />
+                        <label className="mt-2 inline-block cursor-pointer text-xs font-medium text-[#E30613] hover:underline">
+                          Replace image
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Deposit-Cheque')}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="flex h-40 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-purple-300 bg-white text-xs text-purple-700 hover:border-[#E30613] hover:text-[#E30613]">
+                        <Upload className="h-5 w-5 mb-1" />
+                        Click to upload cheque image
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Deposit-Cheque')}
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
               )}
@@ -1749,45 +1786,80 @@ function PaymentPlan({
               )}
 
               {fees.method === 'Cheque' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-amber-900">Cheque Amount (AED)</label>
-                    <input
-                      type="number"
-                      value={fees.chequeAmount || ''}
-                      onChange={(e) => { setFees({ ...fees, chequeAmount: Number(e.target.value) }); setFeesDirty(true) }}
-                      placeholder={String(expected)}
-                      className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-amber-900">Cheque #</label>
+                      <label className="mb-1 block text-xs font-medium text-amber-900">Cheque Amount (AED)</label>
                       <input
-                        type="text"
-                        value={fees.chequeNo}
-                        onChange={(e) => { setFees({ ...fees, chequeNo: e.target.value }); setFeesDirty(true) }}
-                        className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                        type="number"
+                        value={fees.chequeAmount || ''}
+                        onChange={(e) => { setFees({ ...fees, chequeAmount: Number(e.target.value) }); setFeesDirty(true) }}
+                        placeholder={String(expected)}
+                        className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-amber-900">Cheque #</label>
+                        <input
+                          type="text"
+                          value={fees.chequeNo}
+                          onChange={(e) => { setFees({ ...fees, chequeNo: e.target.value }); setFeesDirty(true) }}
+                          className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-amber-900">Bank</label>
+                        <input
+                          type="text"
+                          value={fees.bankName}
+                          onChange={(e) => { setFees({ ...fees, bankName: e.target.value }); setFeesDirty(true) }}
+                          className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900"
+                        />
+                      </div>
+                    </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-amber-900">Bank</label>
+                      <label className="mb-1 block text-xs font-medium text-amber-900">Cheque Date</label>
                       <input
-                        type="text"
-                        value={fees.bankName}
-                        onChange={(e) => { setFees({ ...fees, bankName: e.target.value }); setFeesDirty(true) }}
+                        type="date"
+                        value={fees.chequeDate}
+                        onChange={(e) => { setFees({ ...fees, chequeDate: e.target.value }); setFeesDirty(true) }}
                         className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-amber-900">Cheque Date</label>
-                    <input
-                      type="date"
-                      value={fees.chequeDate}
-                      onChange={(e) => { setFees({ ...fees, chequeDate: e.target.value }); setFeesDirty(true) }}
-                      className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900"
-                    />
+                    <label className="mb-1 block text-xs font-medium text-amber-900">Cheque Image</label>
+                    {feesCheqImg ? (
+                      <div className="relative rounded-lg border border-amber-200 bg-white p-2">
+                        <img
+                          src={`/api/documents/${feesCheqImg.id}/file`}
+                          alt="Fees cheque"
+                          className="w-full rounded"
+                          style={{ maxHeight: 220, objectFit: 'contain' }}
+                        />
+                        <label className="mt-2 inline-block cursor-pointer text-xs font-medium text-[#E30613] hover:underline">
+                          Replace image
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Fees-Cheque')}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="flex h-40 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-300 bg-white text-xs text-amber-800 hover:border-[#E30613] hover:text-[#E30613]">
+                        <Upload className="h-5 w-5 mb-1" />
+                        Click to upload cheque image
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => e.target.files?.[0] && uploadChequeImage(e.target.files[0], 'Fees-Cheque')}
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
               )}
