@@ -81,6 +81,14 @@ export default function NewTenantPage() {
   const [parkingSlotId, setParkingSlotId] = useState("")
   const [parkingAmount, setParkingAmount] = useState(0)
   const [vehiclePlate, setVehiclePlate] = useState("")
+  // Inline "create new parking slot" form
+  const [showNewParking, setShowNewParking] = useState(false)
+  const [newParkingSlotNo, setNewParkingSlotNo] = useState("")
+  const [newParkingZone, setNewParkingZone] = useState("A")
+  const [newParkingFloor, setNewParkingFloor] = useState("Basement")
+  const [newParkingType, setNewParkingType] = useState("Standard")
+  const [creatingParking, setCreatingParking] = useState(false)
+  const [parkingError, setParkingError] = useState("")
 
   // Payment plan
   const [installments, setInstallments] = useState(4) // 1, 2, 3, 4, 6, 12
@@ -123,6 +131,41 @@ export default function NewTenantPage() {
       })
       .catch(() => {})
   }, [])
+
+  // Create a new parking slot inline and select it
+  const handleCreateParking = async () => {
+    setParkingError("")
+    if (!newParkingSlotNo.trim()) {
+      setParkingError("Slot number is required")
+      return
+    }
+    setCreatingParking(true)
+    try {
+      const res = await fetch("/api/parking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotNo: newParkingSlotNo.trim(),
+          zone: newParkingZone,
+          floor: newParkingFloor,
+          type: newParkingType,
+        }),
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        throw new Error(e.error || "Failed to create parking slot")
+      }
+      const slot = await res.json()
+      setParkingSlots((prev) => [...prev, { id: slot.id, slotNo: slot.slotNo, zone: slot.zone, floor: slot.floor, status: slot.status }])
+      setParkingSlotId(slot.id)
+      setShowNewParking(false)
+      setNewParkingSlotNo("")
+    } catch (err) {
+      setParkingError(err instanceof Error ? err.message : "Failed to create parking slot")
+    } finally {
+      setCreatingParking(false)
+    }
+  }
 
   // When unit changes, auto-fill rent
   useEffect(() => {
@@ -612,8 +655,17 @@ export default function NewTenantPage() {
             4. Parking <span className="text-xs font-normal text-slate-500">(optional)</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL}>Parking Slot</label>
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <label className={LABEL}>Parking Slot</label>
+                <button
+                  type="button"
+                  onClick={() => { setShowNewParking((v) => !v); setParkingError("") }}
+                  className="mb-1.5 text-xs font-semibold text-[#E30613] hover:underline"
+                >
+                  {showNewParking ? "× Cancel" : "+ Add new slot"}
+                </button>
+              </div>
               <select
                 value={parkingSlotId}
                 onChange={(e) => {
@@ -629,11 +681,74 @@ export default function NewTenantPage() {
                   </option>
                 ))}
               </select>
-              {parkingSlots.length === 0 && (
-                <p className="mt-1 text-[11px] text-amber-700">
-                  No available slots. Add some via{" "}
-                  <Link href="/dashboard/parking" className="underline">Parking page</Link>.
-                </p>
+
+              {showNewParking && (
+                <div className="mt-3 rounded-lg border-2 border-dashed border-[#E30613]/40 bg-[#E30613]/5 p-4">
+                  <p className="mb-3 text-xs font-semibold text-slate-700">Create new parking slot</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={LABEL}>Slot No *</label>
+                      <input
+                        type="text"
+                        value={newParkingSlotNo}
+                        onChange={(e) => setNewParkingSlotNo(e.target.value)}
+                        placeholder="e.g. P-101"
+                        className={INPUT}
+                      />
+                    </div>
+                    <div>
+                      <label className={LABEL}>Zone</label>
+                      <input
+                        type="text"
+                        value={newParkingZone}
+                        onChange={(e) => setNewParkingZone(e.target.value)}
+                        placeholder="A / B / C"
+                        className={INPUT}
+                      />
+                    </div>
+                    <div>
+                      <label className={LABEL}>Floor</label>
+                      <select
+                        value={newParkingFloor}
+                        onChange={(e) => setNewParkingFloor(e.target.value)}
+                        className={INPUT}
+                      >
+                        <option>Basement</option>
+                        <option>Ground</option>
+                        <option>Level 1</option>
+                        <option>Level 2</option>
+                        <option>Level 3</option>
+                        <option>Rooftop</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Type</label>
+                      <select
+                        value={newParkingType}
+                        onChange={(e) => setNewParkingType(e.target.value)}
+                        className={INPUT}
+                      >
+                        <option>Standard</option>
+                        <option>Covered</option>
+                        <option>Disabled</option>
+                        <option>Visitor</option>
+                      </select>
+                    </div>
+                  </div>
+                  {parkingError && (
+                    <p className="mt-2 text-xs text-red-700">⚠ {parkingError}</p>
+                  )}
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCreateParking}
+                      disabled={creatingParking || !newParkingSlotNo.trim()}
+                      className="rounded-lg bg-[#E30613] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#c20510] disabled:opacity-50"
+                    >
+                      {creatingParking ? "Creating..." : "Create & Select"}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
             {parkingSlotId && (
