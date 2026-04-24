@@ -994,44 +994,6 @@ export default function TenantEditPage() {
             </div>
           </section>
 
-          {/* 5. Documents */}
-          <section className={SECTION}>
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <div className="flex items-center gap-2">
-                <FolderOpen className="h-4 w-4 text-[#E30613]" />
-                <h2 className="text-sm font-semibold text-slate-900">Documents ({tenant.documents.length})</h2>
-              </div>
-              {docUploading && <span className="text-xs text-slate-500">Uploading…</span>}
-            </div>
-            <div className="p-6">
-              <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-                {["Emirates ID", "Passport", "Visa", "Other"].map((dt) => (
-                  <DocUploadButton key={dt} label={dt} onSelect={(f) => uploadDoc(f, dt)} />
-                ))}
-              </div>
-              {tenant.documents.length === 0 ? (
-                <p className="text-sm text-slate-500">No documents uploaded.</p>
-              ) : (
-                <div className="space-y-2">
-                  {tenant.documents.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">{d.docType}</p>
-                          <p className="text-xs text-slate-500">{d.originalFilename || d.filename} · {fmtDate(d.uploadedAt)}{d.expiryDate && ` · expires ${fmtDate(d.expiryDate)}`}</p>
-                        </div>
-                      </div>
-                      <button onClick={() => deleteDoc(d.id)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
           {/* Payment Plan — upfront + cheque tabs + receipt */}
           {latestContract && (
             <PaymentPlan
@@ -2305,15 +2267,26 @@ function MandatoryDocBox({
           )}
           <p className={`text-xs font-semibold ${uploaded ? "text-emerald-800" : "text-slate-700"}`}>{label}</p>
         </div>
-        {uploaded && (
-          <button
-            onClick={onDelete}
-            title="Remove document"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-500 shadow-sm hover:bg-red-50 hover:text-red-700"
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+              uploaded
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-red-100 text-red-700"
+            }`}
           >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+            {uploaded ? "✓ Attached" : "✗ Not Attached"}
+          </span>
+          {uploaded && (
+            <button
+              onClick={onDelete}
+              title="Remove document"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-500 shadow-sm hover:bg-red-50 hover:text-red-700"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {uploaded ? (
