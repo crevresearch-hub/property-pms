@@ -73,6 +73,7 @@ const navGroups: NavGroup[] = [
       { label: "Vendors", href: "/dashboard/vendors", icon: Truck },
       { label: "Complaints", href: "/dashboard/complaints", icon: MessageSquareWarning },
       { label: "Violations", href: "/dashboard/violations", icon: ShieldAlert },
+      { label: "Legal", href: "/dashboard/legal", icon: ShieldAlert },
       { label: "Parking", href: "/dashboard/parking", icon: Car },
       { label: "DEWA", href: "/dashboard/dewa", icon: Zap },
       { label: "Documents", href: "/dashboard/documents", icon: FolderOpen },
