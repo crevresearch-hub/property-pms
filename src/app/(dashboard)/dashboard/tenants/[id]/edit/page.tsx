@@ -840,7 +840,7 @@ export default function TenantEditPage() {
                 <div className="p-6 space-y-6">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <MandatoryDocBox
-                      label="Ejari Registration"
+                      label="Upload Signed Ejari"
                       hint="PDF"
                       accept=".pdf"
                       doc={ejariDoc}
