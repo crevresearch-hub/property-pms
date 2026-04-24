@@ -741,8 +741,14 @@ export default function TenantsPage() {
           <input type="text" value={form.employer} onChange={(e) => setForm({ ...form, employer: e.target.value })} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Family Size</label>
-          <input type="number" min={1} value={form.familySize} onChange={(e) => setForm({ ...form, familySize: Number(e.target.value) })} className={inputCls} />
+          <label className={labelCls}>Family Members</label>
+          <input type="number" min={1} placeholder="e.g. 4" value={form.familySize} onChange={(e) => setForm({ ...form, familySize: Number(e.target.value) })} className={inputCls} />
+          <p className="mt-1 text-[11px] text-slate-500">
+            Total people living in the unit (include the tenant).
+            {form.familySize > 0 && (
+              <span className="ml-1 font-medium text-emerald-400">👪 {form.familySize} member{form.familySize === 1 ? "" : "s"}</span>
+            )}
+          </p>
         </div>
         <div>
           <label className={labelCls}>Status</label>

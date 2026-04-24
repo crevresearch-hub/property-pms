@@ -678,8 +678,14 @@ export default function TenantEditPage() {
                 <input className={INPUT} value={tenant.employer} onChange={(e) => updateField({ employer: e.target.value })} />
               </div>
               <div>
-                <label className={LABEL}>Family Size</label>
-                <input type="number" min="1" className={INPUT} value={tenant.familySize} onChange={(e) => updateField({ familySize: Number(e.target.value) })} />
+                <label className={LABEL}>Family Members</label>
+                <input type="number" min="1" placeholder="e.g. 4" className={INPUT} value={tenant.familySize} onChange={(e) => updateField({ familySize: Number(e.target.value) })} />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Total people living in the unit (include the tenant).
+                  {tenant.familySize > 0 && (
+                    <span className="ml-1 font-medium text-emerald-700">👪 {tenant.familySize} member{tenant.familySize === 1 ? "" : "s"}</span>
+                  )}
+                </p>
               </div>
               <div>
                 <label className={LABEL}>Emergency Contact Name</label>
