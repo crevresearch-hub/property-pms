@@ -111,32 +111,32 @@ export default function DeveloperPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E30613]/20">
+    <div className="space-y-4 sm:space-y-6 max-w-full">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-[#E30613]/20">
             <Shield className="h-5 w-5 text-[#E30613]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">Developer Tools</h1>
-            <p className="text-sm text-slate-400">All sensitive system access in one place</p>
+            <h1 className="text-lg sm:text-2xl font-bold text-white">Developer Tools</h1>
+            <p className="text-xs sm:text-sm text-slate-400 hidden sm:block">All sensitive system access in one place</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] text-slate-300 hover:bg-slate-700 shrink-0"
         >
-          <LogOut className="h-3.5 w-3.5" /> Lock developer tools
+          <LogOut className="h-3.5 w-3.5" /> Lock
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-800">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-800 scrollbar-hide">
         {(["staff", "owner", "tenant", "tools"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`border-b-2 px-4 py-2 text-sm font-semibold capitalize ${tab === t ? "border-[#E30613] text-white" : "border-transparent text-slate-400 hover:text-white"}`}
+            className={`whitespace-nowrap border-b-2 px-3 py-2 text-xs sm:text-sm font-semibold capitalize ${tab === t ? "border-[#E30613] text-white" : "border-transparent text-slate-400 hover:text-white"}`}
           >
             {t === "staff" ? `Staff (${data.staff.length})` : t === "owner" ? `Owners (${data.owners.length})` : t === "tenant" ? `Tenants (${data.tenants.length})` : "Admin Tools"}
           </button>
@@ -144,22 +144,22 @@ export default function DeveloperPage() {
       </div>
 
       {tab === "tools" ? (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {[
-            { href: "/dashboard/import", label: "Import Data", icon: Upload, color: "amber" },
-            { href: "/dashboard/import/tenants", label: "Import Tenants (Folder)", icon: Upload, color: "blue" },
-            { href: "/dashboard/import/cheques", label: "Import Cheques (Excel)", icon: Upload, color: "green" },
-            { href: "/dashboard/import/lease-data", label: "Import Lease Data (Full)", icon: Upload, color: "purple" },
-            { href: "/dashboard/reconciliation", label: "Bank Reconciliation", icon: Database, color: "amber" },
-            { href: "/dashboard/settings", label: "Settings", icon: SettingsIcon, color: "red" },
+            { href: "/dashboard/import", label: "Import Data", icon: Upload },
+            { href: "/dashboard/import/tenants", label: "Import Tenants (Folder)", icon: Upload },
+            { href: "/dashboard/import/cheques", label: "Import Cheques (Excel)", icon: Upload },
+            { href: "/dashboard/import/lease-data", label: "Import Lease Data (Full)", icon: Upload },
+            { href: "/dashboard/reconciliation", label: "Bank Reconciliation", icon: Database },
+            { href: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
           ].map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 p-6 text-center hover:border-[#E30613]/50 hover:bg-slate-800/60"
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 p-4 sm:p-6 text-center hover:border-[#E30613]/50 hover:bg-slate-800/60 min-h-[100px]"
             >
-              <Icon className="h-8 w-8 text-amber-400" />
-              <span className="text-sm font-semibold text-white">{label}</span>
+              <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-amber-400" />
+              <span className="text-xs sm:text-sm font-semibold text-white leading-tight">{label}</span>
             </Link>
           ))}
         </div>
@@ -181,17 +181,17 @@ export default function DeveloperPage() {
           )}
 
           <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-full">
               <thead className="bg-slate-900/60 text-slate-400">
                 <tr>
-                  <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">Email</th>
-                  {tab === "tenant" && <th className="px-3 py-2">Unit</th>}
-                  {tab === "tenant" && <th className="px-3 py-2">Phone</th>}
-                  {tab === "owner" && <th className="px-3 py-2">Building</th>}
-                  {tab === "staff" && <th className="px-3 py-2">Role</th>}
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2 text-right">Action</th>
+                  <th className="px-2 sm:px-3 py-2">Name</th>
+                  <th className="px-2 sm:px-3 py-2 hidden sm:table-cell">Email</th>
+                  {tab === "tenant" && <th className="px-2 sm:px-3 py-2">Unit</th>}
+                  {tab === "tenant" && <th className="px-2 sm:px-3 py-2 hidden md:table-cell">Phone</th>}
+                  {tab === "owner" && <th className="px-2 sm:px-3 py-2 hidden md:table-cell">Building</th>}
+                  {tab === "staff" && <th className="px-2 sm:px-3 py-2 hidden md:table-cell">Role</th>}
+                  <th className="px-2 sm:px-3 py-2 hidden sm:table-cell">Status</th>
+                  <th className="px-2 sm:px-3 py-2 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -200,13 +200,17 @@ export default function DeveloperPage() {
                   const r = row as Row
                   return (
                     <tr key={r.id} className="text-slate-300">
-                      <td className="px-3 py-2 font-semibold text-white">{r.name}</td>
-                      <td className="px-3 py-2 font-mono text-slate-400">{r.email || <span className="text-red-400">(no email)</span>}</td>
-                      {tab === "tenant" && <td className="px-3 py-2 font-mono">{r.unitNo || "—"}</td>}
-                      {tab === "tenant" && <td className="px-3 py-2 font-mono">{r.phone || "—"}</td>}
-                      {tab === "owner" && <td className="px-3 py-2">{r.building}</td>}
-                      {tab === "staff" && <td className="px-3 py-2">{r.role}</td>}
-                      <td className="px-3 py-2">
+                      <td className="px-2 sm:px-3 py-2 font-semibold text-white">
+                        <div>{r.name}</div>
+                        {/* Show email on mobile under the name */}
+                        <div className="sm:hidden font-mono text-[10px] text-slate-500 truncate">{r.email || <span className="text-red-400">(no email)</span>}</div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 font-mono text-slate-400 hidden sm:table-cell">{r.email || <span className="text-red-400">(no email)</span>}</td>
+                      {tab === "tenant" && <td className="px-2 sm:px-3 py-2 font-mono">{r.unitNo || "—"}</td>}
+                      {tab === "tenant" && <td className="px-2 sm:px-3 py-2 font-mono hidden md:table-cell">{r.phone || "—"}</td>}
+                      {tab === "owner" && <td className="px-2 sm:px-3 py-2 hidden md:table-cell">{r.building}</td>}
+                      {tab === "staff" && <td className="px-2 sm:px-3 py-2 hidden md:table-cell">{r.role}</td>}
+                      <td className="px-2 sm:px-3 py-2 hidden sm:table-cell">
                         {r.hasPassword ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] text-green-400">
                             <Eye className="h-3 w-3" /> Password set
@@ -217,12 +221,12 @@ export default function DeveloperPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-2 sm:px-3 py-2 text-right">
                         <button
                           onClick={() => { setResetTarget({ type: tab, id: r.id, name: r.name }); setNewPassword("") }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-600 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-800"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-600 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-800 whitespace-nowrap"
                         >
-                          <Key className="h-3 w-3" /> Set / Reset Password
+                          <Key className="h-3 w-3" /> <span className="hidden sm:inline">Set / Reset</span> Password
                         </button>
                       </td>
                     </tr>
