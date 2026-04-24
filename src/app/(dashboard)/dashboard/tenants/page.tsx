@@ -1128,6 +1128,13 @@ export default function TenantsPage() {
                   setPreBookOpen(false)
                   setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", notes: "" })
                   fetchTenants()
+                  if (preBookForm.email) {
+                    if (data.emailSent) {
+                      alert(`✓ Pre-booking created and receipt emailed to ${preBookForm.email}`)
+                    } else {
+                      alert(`✓ Pre-booking created. ⚠ Email not sent: ${data.emailError || "unknown error"}`)
+                    }
+                  }
                 } catch (e) {
                   setError(e instanceof Error ? e.message : "Failed")
                 } finally {
