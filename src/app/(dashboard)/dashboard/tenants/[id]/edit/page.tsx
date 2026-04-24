@@ -33,6 +33,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/components/ui/toast"
 import { UaePhoneInput } from "@/components/ui/uae-phone-input"
+import { UaeBankInput } from "@/components/ui/uae-bank-input"
 
 const LABEL = "mb-1.5 block text-xs font-medium text-slate-600"
 const INPUT =
@@ -1646,10 +1647,9 @@ function PaymentPlan({
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-medium text-purple-800">Bank</label>
-                        <input
-                          type="text"
+                        <UaeBankInput
                           value={deposit.bankName}
-                          onChange={(e) => { setDeposit({ ...deposit, bankName: e.target.value }); setDepositDirty(true) }}
+                          onChange={(v) => { setDeposit({ ...deposit, bankName: v }); setDepositDirty(true) }}
                           className="w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900"
                         />
                       </div>
@@ -1817,10 +1817,9 @@ function PaymentPlan({
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-medium text-amber-900">Bank</label>
-                        <input
-                          type="text"
+                        <UaeBankInput
                           value={fees.bankName}
-                          onChange={(e) => { setFees({ ...fees, bankName: e.target.value }); setFeesDirty(true) }}
+                          onChange={(v) => { setFees({ ...fees, bankName: v }); setFeesDirty(true) }}
                           className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900"
                         />
                       </div>
@@ -1988,10 +1987,9 @@ function PaymentPlan({
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-medium text-blue-900">Bank</label>
-                        <input
-                          type="text"
+                        <UaeBankInput
                           value={upfront.bankName}
-                          onChange={(e) => { setUpfront({ ...upfront, bankName: e.target.value }); setUpfrontDirty(true) }}
+                          onChange={(v) => { setUpfront({ ...upfront, bankName: v }); setUpfrontDirty(true) }}
                           className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900"
                         />
                       </div>
@@ -2177,10 +2175,9 @@ function PaymentPlan({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-700">Bank</label>
-                  <input
-                    type="text"
+                  <UaeBankInput
                     value={edited.bankName}
-                    onChange={(e) => setLocalEdits((m) => ({ ...m, [active.id]: { ...m[active.id], bankName: e.target.value } }))}
+                    onChange={(v) => setLocalEdits((m) => ({ ...m, [active.id]: { ...m[active.id], bankName: v } }))}
                     placeholder="e.g. Emirates NBD"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400"
                   />

@@ -8,6 +8,7 @@ import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal
 import { HelpPanel } from "@/components/ui/help-panel"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { UaePhoneInput } from "@/components/ui/uae-phone-input"
+import { UaeBankInput } from "@/components/ui/uae-bank-input"
 import {
   Plus,
   Pencil,
@@ -1416,10 +1417,9 @@ export default function TenantsPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-400">Bank *</label>
-                  <input
-                    type="text"
+                  <UaeBankInput
                     value={preBookForm.bankName}
-                    onChange={(e) => setPreBookForm({ ...preBookForm, bankName: e.target.value })}
+                    onChange={(v) => setPreBookForm({ ...preBookForm, bankName: v })}
                     placeholder="e.g. Emirates NBD"
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
                   />
