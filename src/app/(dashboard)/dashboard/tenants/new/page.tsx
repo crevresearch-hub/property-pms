@@ -580,73 +580,6 @@ export default function NewTenantPage() {
               />
             </div>
           </div>
-
-          {/* Payment Summary table */}
-          {(() => {
-            const rentVat = contractType === "Commercial" ? Math.round(annualRent * 0.05) : 0
-            const adminVat = Math.round(adminFee * 0.05)
-            const parkingSlotNo = parkingSlots.find((s) => s.id === parkingSlotId)?.slotNo || ""
-            type Row = { label: string; base: number; vat: number }
-            const rows: Row[] = [
-              { label: "Annual Rent", base: annualRent, vat: rentVat },
-              { label: `Security Deposit (${securityDepositPct}%)`, base: securityDeposit, vat: 0 },
-              { label: "Admin Fee", base: adminFee, vat: adminVat },
-              { label: "Ejari Fee", base: ejariFee, vat: 0 },
-            ]
-            if (parkingSlotId && parkingAmount > 0) {
-              rows.push({ label: `Parking (${parkingSlotNo})`, base: parkingAmount, vat: 0 })
-            }
-            if (otherCharges > 0) {
-              rows.push({ label: "Other Charges", base: otherCharges, vat: 0 })
-            }
-            const totalBase = rows.reduce((s, r) => s + r.base, 0)
-            const totalVat = rows.reduce((s, r) => s + r.vat, 0)
-            const grandTotal = totalBase + totalVat
-            const upfront = perCheque + securityDeposit + adminFee + adminVat + ejariFee + parkingFee + otherCharges + (contractType === "Commercial" ? Math.round(perCheque * 0.05) : 0)
-            return (
-              <div className="mt-5 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-                <div className="border-b border-slate-200 bg-slate-900 px-4 py-2.5">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Payment Summary</h3>
-                </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-100 text-slate-700">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide">Details</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Amount (excl. VAT)</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">VAT (5%)</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {rows.map((r) => (
-                      <tr key={r.label} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 text-slate-700">{r.label}</td>
-                        <td className="px-4 py-2 text-right font-mono text-slate-900">{r.base.toLocaleString()}</td>
-                        <td className="px-4 py-2 text-right font-mono text-slate-500">{r.vat > 0 ? r.vat.toLocaleString() : "—"}</td>
-                        <td className="px-4 py-2 text-right font-mono font-semibold text-slate-900">{(r.base + r.vat).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-slate-300 bg-slate-50">
-                      <td className="px-4 py-2.5 text-sm font-bold text-slate-900">Annual Contract Value</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalBase.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalVat.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-slate-900">AED {grandTotal.toLocaleString()}</td>
-                    </tr>
-                    <tr className="bg-[#E30613]/10">
-                      <td colSpan={3} className="px-4 py-3 text-sm font-bold text-[#E30613]">
-                        UPFRONT (1st Cheque + Deposits + Fees + VAT{parkingFee > 0 ? " + Parking" : ""})
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-base font-bold text-[#E30613]">
-                        AED {upfront.toLocaleString()}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )
-          })()}
         </div>
 
         {/* SECTION 3.5: Parking (optional) */}
@@ -777,6 +710,73 @@ export default function NewTenantPage() {
             )}
           </div>
         </div>
+
+        {/* PAYMENT SUMMARY (placed after Parking so parking row is included) */}
+        {(() => {
+          const rentVat = contractType === "Commercial" ? Math.round(annualRent * 0.05) : 0
+          const adminVat = Math.round(adminFee * 0.05)
+          const parkingSlotNo = parkingSlots.find((s) => s.id === parkingSlotId)?.slotNo || ""
+          type Row = { label: string; base: number; vat: number }
+          const rows: Row[] = [
+            { label: "Annual Rent", base: annualRent, vat: rentVat },
+            { label: `Security Deposit (${securityDepositPct}%)`, base: securityDeposit, vat: 0 },
+            { label: "Admin Fee", base: adminFee, vat: adminVat },
+            { label: "Ejari Fee", base: ejariFee, vat: 0 },
+          ]
+          if (parkingSlotId && parkingAmount > 0) {
+            rows.push({ label: `Parking (${parkingSlotNo})`, base: parkingAmount, vat: 0 })
+          }
+          if (otherCharges > 0) {
+            rows.push({ label: "Other Charges", base: otherCharges, vat: 0 })
+          }
+          const totalBase = rows.reduce((s, r) => s + r.base, 0)
+          const totalVat = rows.reduce((s, r) => s + r.vat, 0)
+          const grandTotal = totalBase + totalVat
+          const upfront = perCheque + securityDeposit + adminFee + adminVat + ejariFee + parkingFee + otherCharges + (contractType === "Commercial" ? Math.round(perCheque * 0.05) : 0)
+          return (
+            <div className="mt-8 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+              <div className="border-b border-slate-200 bg-slate-900 px-4 py-2.5">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-white">Payment Summary</h3>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide">Details</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Amount (excl. VAT)</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">VAT (5%)</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map((r) => (
+                    <tr key={r.label} className="hover:bg-slate-50">
+                      <td className="px-4 py-2 text-slate-700">{r.label}</td>
+                      <td className="px-4 py-2 text-right font-mono text-slate-900">{r.base.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right font-mono text-slate-500">{r.vat > 0 ? r.vat.toLocaleString() : "—"}</td>
+                      <td className="px-4 py-2 text-right font-mono font-semibold text-slate-900">{(r.base + r.vat).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-50">
+                    <td className="px-4 py-2.5 text-sm font-bold text-slate-900">Annual Contract Value</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalBase.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{totalVat.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-slate-900">AED {grandTotal.toLocaleString()}</td>
+                  </tr>
+                  <tr className="bg-[#E30613]/10">
+                    <td colSpan={3} className="px-4 py-3 text-sm font-bold text-[#E30613]">
+                      UPFRONT (1st Cheque + Deposits + Fees + VAT{parkingFee > 0 ? " + Parking" : ""})
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-base font-bold text-[#E30613]">
+                      AED {upfront.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )
+        })()}
 
         {/* SECTION 4: Payment Plan */}
         <div className="mt-8">
