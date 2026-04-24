@@ -49,6 +49,7 @@ model Organization {
   ownerContracts     OwnerContract[]
   emailLogs          EmailLog[]
   tenancyContracts   TenancyContract[]
+  cashDeposits       CashDeposit[]
 }
 
 // ════════════════════════════════════════════
@@ -340,6 +341,37 @@ model Cheque {
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId])
+  @@index([tenantId])
+}
+
+// ════════════════════════════════════════════
+// CASH DEPOSITS — PMS staff deposit tenant cash into owner bank account
+// Used to track accountability for cash collections (upfront, deposit, fees, rent)
+// ════════════════════════════════════════════
+model CashDeposit {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  amount            Float        @default(0)
+  cashSource        String       @default("")   // e.g. "Upfront", "Security Deposit", "Admin Fees", "Rent"
+  tenantId          String?                      // origin tenant (optional — could be mixed)
+  tenantName        String       @default("")
+  unitNo            String       @default("")
+  ownerId           String?                      // destination owner
+  ownerName         String       @default("")
+  bankName          String       @default("")
+  accountNo         String       @default("")   // owner's account number
+  referenceNo       String       @default("")   // bank deposit reference / slip number
+  depositedBy       String       @default("")   // staff name (from session)
+  depositedAt       String       @default("")   // YYYY-MM-DD when physically deposited
+  status            String       @default("Deposited") // Pending | Deposited | Verified
+  slipDocType       String       @default("")   // tenant-doc docType for slip image
+  notes             String       @default("")
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([ownerId])
   @@index([tenantId])
 }
 
