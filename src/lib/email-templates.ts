@@ -468,6 +468,52 @@ interface TenancyContractLike {
   numberOfCheques?: number
   contractType?: string
   signatureToken?: string
+  securityDeposit?: number
+  ejariFee?: number
+  municipalityFee?: number
+  commissionFee?: number
+}
+
+// Payment-summary mini table used inside tenant emails.
+// Columns: Details | Amount (excl. VAT) | VAT (5%) | Total
+function paymentSummaryTable(rows: { label: string; base: number; vat: number }[]) {
+  const totalBase = rows.reduce((s, r) => s + r.base, 0)
+  const totalVat = rows.reduce((s, r) => s + r.vat, 0)
+  const grand = totalBase + totalVat
+  const th = 'padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#334155;background:#f1f5f9;border-bottom:1px solid #cbd5e1;'
+  const td = 'padding:8px 10px;font-size:13px;color:#111;border-bottom:1px solid #f1f5f9;'
+  const body = rows.map(r => `
+    <tr>
+      <td style="${td}">${esc(r.label)}</td>
+      <td style="${td}text-align:right;font-family:ui-monospace,SFMono-Regular,monospace;">${r.base.toLocaleString()}</td>
+      <td style="${td}text-align:right;font-family:ui-monospace,SFMono-Regular,monospace;color:#64748b;">${r.vat > 0 ? r.vat.toLocaleString() : '—'}</td>
+      <td style="${td}text-align:right;font-family:ui-monospace,SFMono-Regular,monospace;font-weight:600;">${(r.base + r.vat).toLocaleString()}</td>
+    </tr>
+  `).join('')
+  return `
+    <div style="margin:16px 0;border:1px solid ${BORDER};border-radius:8px;overflow:hidden;">
+      <div style="background:#0f172a;color:#fff;padding:10px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">Payment Summary</div>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#fff;">
+        <thead>
+          <tr>
+            <th style="${th}text-align:left;">Details</th>
+            <th style="${th}text-align:right;">Amount (excl. VAT)</th>
+            <th style="${th}text-align:right;">VAT (5%)</th>
+            <th style="${th}text-align:right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot>
+          <tr>
+            <td style="${td}background:#f8fafc;font-weight:700;">Annual Contract Value</td>
+            <td style="${td}background:#f8fafc;text-align:right;font-family:ui-monospace,SFMono-Regular,monospace;font-weight:600;">${totalBase.toLocaleString()}</td>
+            <td style="${td}background:#f8fafc;text-align:right;font-family:ui-monospace,SFMono-Regular,monospace;font-weight:600;">${totalVat.toLocaleString()}</td>
+            <td style="${td}background:#f8fafc;text-align:right;font-family:ui-monospace,SFMono-Regular,monospace;font-weight:700;color:#111;">AED ${grand.toLocaleString()}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `
 }
 
 export function tenancyContractGeneratedTemplate(
@@ -484,11 +530,29 @@ export function tenancyContractGeneratedTemplate(
     ['Contract No', `${contract.contractNo} (v${contract.version})`],
     ['Building', owner?.buildingName || '—'],
     ['Type', contract.contractType || '—'],
-    ['Annual Rent', contract.rentAmount != null ? `AED ${contract.rentAmount.toLocaleString()}` : '—'],
     ['Cheques', String(contract.numberOfCheques ?? '—')],
     ['Start Date', fmtDate(contract.contractStart)],
     ['End Date', fmtDate(contract.contractEnd)],
   ])
+  // Payment summary with UAE VAT logic:
+  //   Residential → VAT only on Commission (admin) fee
+  //   Commercial  → VAT on Commission fee + Annual Rent
+  const rent = contract.rentAmount || 0
+  const sec = contract.securityDeposit || 0
+  const ejari = contract.ejariFee || 0
+  const mun = contract.municipalityFee || 0
+  const comm = contract.commissionFee || 0
+  const isCommercial = (contract.contractType || '').toLowerCase() === 'commercial'
+  const rentVat = isCommercial ? Math.round(rent * 0.05) : 0
+  const commVat = Math.round(comm * 0.05)
+  const summaryRows: { label: string; base: number; vat: number }[] = [
+    { label: 'Annual Rent', base: rent, vat: rentVat },
+    { label: 'Security Deposit', base: sec, vat: 0 },
+  ]
+  if (comm) summaryRows.push({ label: 'Admin / Commission Fee', base: comm, vat: commVat })
+  if (ejari) summaryRows.push({ label: 'Ejari Fee', base: ejari, vat: 0 })
+  if (mun) summaryRows.push({ label: 'Municipality Fee', base: mun, vat: 0 })
+  const summary = paymentSummaryTable(summaryRows)
   const bodyHtml = `
     <p style="margin:0 0 14px 0;">Dear ${esc(tenant.name)},</p>
     <p style="margin:0 0 14px 0;">
@@ -498,6 +562,7 @@ export function tenancyContractGeneratedTemplate(
     </p>
     <p style="margin:18px 0 10px 0;font-weight:600;">Key Terms</p>
     ${terms}
+    ${summary}
     <p style="margin:14px 0 0 0;">
       Click below to review the bilingual (English / Arabic) contract and
       sign it securely online.

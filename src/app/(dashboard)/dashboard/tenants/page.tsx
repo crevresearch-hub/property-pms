@@ -84,6 +84,7 @@ interface ContractRow {
   contractType: string
   signedFilePath: string
   signedFileName: string
+  signatureToken?: string
   createdAt: string
 }
 
@@ -1656,6 +1657,35 @@ export default function TenantsPage() {
                             Send
                           </button>
                         )}
+                        {c.signatureToken && (c.status === "Draft" || c.status === "Sent") && (() => {
+                          const signUrl = `${window.location.origin}/sign/${c.signatureToken}`
+                          const msg = `Hello ${detailTenant?.name || ''}, please review and sign your tenancy contract ${c.contractNo} here: ${signUrl}`
+                          const digits = (detailTenant?.phone || '').replace(/\D/g, '')
+                          const waUrl = `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
+                          return (
+                            <>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(signUrl)
+                                  alert("Sign link copied!\n\n" + signUrl)
+                                }}
+                                className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-600"
+                                title="Copy sign link"
+                              >
+                                📋 Copy Link
+                              </button>
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1 rounded bg-emerald-700/50 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-700"
+                                title={digits ? `Send via WhatsApp to ${detailTenant?.phone}` : "No phone on file — opens WhatsApp with just the message"}
+                              >
+                                💬 WhatsApp
+                              </a>
+                            </>
+                          )
+                        })()}
                         {c.signedFilePath && (
                           <a
                             href={`/api/tenancy-contracts/${c.id}/download`}
