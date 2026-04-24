@@ -63,6 +63,7 @@ const navGroups: NavGroup[] = [
       { label: "Units", href: "/dashboard/units", icon: Building2 },
       { label: "Tenants & Agreements", href: "/dashboard/tenants", icon: Users },
       { label: "Cheque Tracker", href: "/dashboard/cheques", icon: BookCheck },
+      { label: "Cash Tracker", href: "/dashboard/cash-tracker", icon: BadgeDollarSign },
       { label: "Cash Deposits", href: "/dashboard/cash-deposits", icon: BadgeDollarSign },
       { label: "Bank Reconciliation", href: "/dashboard/reconciliation", icon: BookCheck },
       { label: "Renewals", href: "/dashboard/renewals", icon: RefreshCw },
