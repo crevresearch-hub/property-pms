@@ -36,6 +36,7 @@ interface UnitRow {
   notes: string
   tenantId: string | null
   tenant: Tenant | null
+  preBooking?: { id: string; name: string; phone: string; expectedMoveIn: string; deposit: number } | null
   [key: string]: unknown
 }
 
@@ -317,7 +318,25 @@ export default function UnitsPage() {
   }
 
   const columns: Column<UnitRow>[] = [
-    { key: "unitNo", header: "Unit No", sortable: true, filterable: true },
+    {
+      key: "unitNo",
+      header: "Unit No",
+      sortable: true,
+      filterable: true,
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono">{row.unitNo}</span>
+          {row.preBooking && (
+            <span
+              title={`Pre-booked by ${row.preBooking.name} for ${row.preBooking.expectedMoveIn || 'TBD'} — deposit AED ${row.preBooking.deposit}`}
+              className="inline-flex items-center rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400 ring-1 ring-blue-500/30"
+            >
+              📌 Pre-Booked Next
+            </span>
+          )}
+        </div>
+      ),
+    },
     { key: "unitType", header: "Type", sortable: true, filterable: true },
     {
       key: "tenant",

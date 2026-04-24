@@ -28,7 +28,18 @@ export async function GET() {
       orderBy: { unitNo: 'asc' },
     })
 
-    return NextResponse.json(units)
+    // Attach pending pre-bookings per unit (by matching "Pre-Booked" note tag)
+    const preBooked = await prisma.tenant.findMany({
+      where: { organizationId, status: 'Pre-Booked' },
+      select: { id: true, name: true, phone: true, expectedMoveIn: true, preBookingDeposit: true, notes: true },
+    })
+
+    const withPreBookings = units.map((u) => {
+      const match = preBooked.find((pb) => (u.notes || '').includes(`Pre-Booked: ${pb.name}`) || (u.notes || '').includes(pb.name))
+      return { ...u, preBooking: match ? { id: match.id, name: match.name, phone: match.phone, expectedMoveIn: match.expectedMoveIn, deposit: match.preBookingDeposit } : null }
+    })
+
+    return NextResponse.json(withPreBookings)
   } catch (error) {
     console.error('GET /api/units error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
