@@ -187,7 +187,13 @@ export default function TenantEditPage() {
       setTenant(await tRes.json())
       if (cRes.ok) {
         const data = await cRes.json()
-        setContracts(data.contracts || [])
+        const list = data.contracts || []
+        setContracts(list)
+        // Sync numCheques from the latest contract (used at activation)
+        const latest = list[0]
+        if (latest?.numberOfCheques && latest.numberOfCheques >= 1 && latest.numberOfCheques <= 12) {
+          setNumCheques(latest.numberOfCheques)
+        }
       }
       if (qRes.ok) {
         const data = await qRes.json()
@@ -855,32 +861,6 @@ export default function TenantEditPage() {
                           ✓ EID auto-verified from tenant upload — name, number, expiry and nationality saved.
                         </p>
                       )}
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white p-4">
-                      <div className="mb-2 flex items-center gap-2">
-                        <Hash className="h-4 w-4 text-[#E30613]" />
-                        <label className="text-sm font-semibold text-slate-900">
-                          Number of Cheques <span className="text-[#E30613]">*</span>
-                        </label>
-                      </div>
-                      <input
-                        type="number"
-                        min={1}
-                        max={12}
-                        step={1}
-                        value={numCheques}
-                        onChange={(e) => {
-                          const n = parseInt(e.target.value, 10)
-                          setNumCheques(Number.isFinite(n) ? n : 0)
-                        }}
-                        className={INPUT}
-                      />
-                      <p className="mt-1.5 text-[11px] text-slate-500">
-                        Enter a value between <strong>1 and 12</strong>. {numCheques} cheque record{numCheques === 1 ? "" : "s"} will be seeded on activation.
-                      </p>
-                      <p className="mt-2 text-[11px] text-slate-500">
-                        Cheque images are uploaded per cheque in the <strong>Payment Plan</strong> section below.
-                      </p>
                     </div>
                   </div>
 

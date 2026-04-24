@@ -19,6 +19,9 @@ tar -czf $TAR_NAME `
     --exclude=property-pms/.next `
     --exclude=property-pms/.git `
     --exclude=property-pms/uploads `
+    --exclude=property-pms/.env `
+    --exclude=property-pms/.env.local `
+    --exclude=property-pms/.env.production `
     property-pms
 Write-Host "  Archive created: $(Get-Item $TAR_NAME | ForEach-Object { '{0:N1} MB' -f ($_.Length / 1MB) })" -ForegroundColor Green
 
