@@ -33,6 +33,9 @@ interface ChequeRow {
   sequenceNo: number
   totalCheques: number
   bouncedReason: string
+  bouncedDate?: string
+  depositedDate?: string
+  depositRemarks?: string
   clearedDate: string
   notes: string
   [key: string]: unknown
@@ -529,6 +532,8 @@ function ChequeFilters({
         if (!d) return false
         if (dateRange === "today" && d !== today) return false
         if (dateRange === "cleared-today" && c.clearedDate !== today) return false
+        if (dateRange === "deposited-today" && c.depositedDate !== today) return false
+        if (dateRange === "bounced-today" && c.bouncedDate !== today) return false
         if (dateRange === "overdue" && !(d < today && c.status !== "Cleared" && c.status !== "Replaced")) return false
         if (dateRange === "this-week" && !(d >= today && d <= in7Str)) return false
         if (dateRange === "this-month" && !(d >= thisMonthStart && d <= today.slice(0, 7) + "-31")) return false
@@ -586,7 +591,9 @@ function ChequeFilters({
           <div className="flex flex-wrap gap-1.5">
             <DateButton value="all" label="Anytime" />
             <DateButton value="today" label="📅 Due Today" />
+            <DateButton value="deposited-today" label="🏦 Deposited Today" />
             <DateButton value="cleared-today" label="✓ Cleared Today" />
+            <DateButton value="bounced-today" label="✕ Bounced Today" />
             <DateButton value="overdue" label="🔴 Overdue" />
             <DateButton value="this-week" label="This Week" />
             <DateButton value="this-month" label="This Month" />
