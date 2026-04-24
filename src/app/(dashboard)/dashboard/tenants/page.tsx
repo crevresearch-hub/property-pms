@@ -916,7 +916,7 @@ export default function TenantsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Tenant Management</h1>
+          <h1 className="text-2xl font-bold text-white">Tenants &amp; Agreements</h1>
           <p className="mt-1 text-sm text-slate-400">{tenants.length} tenants registered</p>
         </div>
         <div className="flex items-center gap-2">
@@ -1388,7 +1388,16 @@ export default function TenantsPage() {
         {contractFormFields}
       </Modal>
 
-      <Modal open={detailOpen} onOpenChange={setDetailOpen} title={detailTenant?.name || "Tenant Details"} size="xl">
+      <Modal
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={
+          detailTenant
+            ? `${detailTenant.name}${detailTenant.units?.[0]?.unitNo ? ` — Unit ${detailTenant.units[0].unitNo}` : detailTenant.reservedUnitNo ? ` — Unit ${detailTenant.reservedUnitNo} (Reserved)` : ''}`
+            : "Tenant Details"
+        }
+        size="xl"
+      >
         {detailTenant && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-2">
@@ -1444,18 +1453,18 @@ export default function TenantsPage() {
                         </div>
 
                         {/* Contract dates + rent row */}
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          <div className="rounded bg-slate-900/60 p-2">
-                            <p className="text-[10px] uppercase tracking-wider text-slate-500">Contract Start</p>
-                            <p className="mt-0.5 font-mono text-xs text-white">{u.contractStart ? formatDate(u.contractStart) : "—"}</p>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div className="rounded-lg bg-slate-900/60 p-3 border border-slate-700">
+                            <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Contract Start</p>
+                            <p className="mt-1 text-base font-semibold text-white">{u.contractStart ? formatDate(u.contractStart) : "—"}</p>
                           </div>
-                          <div className="rounded bg-slate-900/60 p-2">
-                            <p className="text-[10px] uppercase tracking-wider text-slate-500">Contract End</p>
-                            <p className="mt-0.5 font-mono text-xs text-white">{u.contractEnd ? formatDate(u.contractEnd) : "—"}</p>
+                          <div className="rounded-lg bg-slate-900/60 p-3 border border-slate-700">
+                            <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Contract End</p>
+                            <p className="mt-1 text-base font-semibold text-white">{u.contractEnd ? formatDate(u.contractEnd) : "—"}</p>
                           </div>
-                          <div className="rounded bg-amber-500/10 border border-amber-500/20 p-2">
-                            <p className="text-[10px] uppercase tracking-wider text-amber-400">Annual Rent</p>
-                            <p className="mt-0.5 font-semibold text-amber-300">{formatCurrency(u.currentRent)}</p>
+                          <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3">
+                            <p className="text-[11px] uppercase tracking-wider text-amber-400 font-semibold">Annual Rent</p>
+                            <p className="mt-1 text-base font-bold text-amber-300">{formatCurrency(u.currentRent)}</p>
                           </div>
                         </div>
 
@@ -1501,12 +1510,41 @@ export default function TenantsPage() {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase text-slate-400">Tenant Contracts</h3>
-                <button
-                  onClick={() => { setDetailOpen(false); openGenerate(detailTenant) }}
-                  className="flex items-center gap-1 rounded bg-amber-600/20 px-2 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-600/30"
-                >
-                  <Plus className="h-3 w-3" /> New Contract
-                </button>
+                {(() => {
+                  // Find the nearest contract end date across all units
+                  const endDates = detailTenant.units.map((u) => u.contractEnd).filter(Boolean)
+                  const today = new Date()
+                  const ninetyDaysLater = new Date()
+                  ninetyDaysLater.setDate(ninetyDaysLater.getDate() + 90)
+                  const hasUpcomingRenewal = endDates.some((d) => {
+                    if (!d) return false
+                    const dt = new Date(d)
+                    return dt <= ninetyDaysLater
+                  })
+                  const daysToEnd = endDates.length > 0
+                    ? Math.floor((new Date(endDates.sort()[0]!).getTime() - today.getTime()) / 86400000)
+                    : null
+
+                  if (hasUpcomingRenewal) {
+                    return (
+                      <button
+                        onClick={() => { setDetailOpen(false); openGenerate(detailTenant) }}
+                        className="flex items-center gap-1 rounded bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                      >
+                        <Plus className="h-3 w-3" /> Renew Contract
+                        {daysToEnd !== null && <span className="ml-1 text-[10px] opacity-80">· {daysToEnd >= 0 ? `${daysToEnd}d left` : `expired ${Math.abs(daysToEnd)}d ago`}</span>}
+                      </button>
+                    )
+                  }
+                  return (
+                    <span
+                      title={daysToEnd !== null ? `Renewal available when contract end is within 90 days (currently ${daysToEnd} days away)` : undefined}
+                      className="flex items-center gap-1 rounded bg-slate-700/40 px-3 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed"
+                    >
+                      🔒 Renew Contract {daysToEnd !== null && <span className="text-[10px] opacity-70">(available at T-90d)</span>}
+                    </span>
+                  )
+                })()}
               </div>
               {tenantContracts.length === 0 ? (
                 <p className="text-sm text-slate-600">No contracts generated yet</p>
