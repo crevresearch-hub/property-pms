@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 interface TopbarProps {
   title: string
@@ -67,6 +68,9 @@ export function Topbar({ title, onMenuToggle, notificationCount = 0 }: TopbarPro
           <FileDown className="h-3.5 w-3.5" />
           Export PDF
         </button>
+
+        {/* Theme toggle */}
+        <ThemeToggle />
 
         {/* Notifications */}
         <button
