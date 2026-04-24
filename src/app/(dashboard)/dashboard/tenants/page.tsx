@@ -172,6 +172,10 @@ export default function TenantsPage() {
     usage: "Residential" as "Residential" | "Commercial",
     expectedMoveIn: "",
     preBookingDeposit: "",
+    paymentMethod: "Cash" as "Cash" | "Cheque",
+    chequeNo: "",
+    chequeDate: "",
+    bankName: "",
     notes: "",
   })
   const [preBookBusy, setPreBookBusy] = useState(false)
@@ -1116,7 +1120,7 @@ export default function TenantsPage() {
       {/* Pre-Booking Modal */}
       <Modal
         open={preBookOpen}
-        onOpenChange={(v) => { setPreBookOpen(v); if (!v) setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", notes: "" }) }}
+        onOpenChange={(v) => { setPreBookOpen(v); if (!v) setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", paymentMethod: "Cash", chequeNo: "", chequeDate: "", bankName: "", notes: "" }) }}
         title="Pre-Booking"
         description="Reserve a unit for a future tenant. Record deposit paid. Complete onboarding when they move in."
         size="lg"
@@ -1149,7 +1153,7 @@ export default function TenantsPage() {
 
                   if (!res.ok) throw new Error(data.error || "Failed")
                   setPreBookOpen(false)
-                  setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", notes: "" })
+                  setPreBookForm({ name: "", phone: "", email: "", unitId: "", usage: "Residential", expectedMoveIn: "", preBookingDeposit: "", paymentMethod: "Cash", chequeNo: "", chequeDate: "", bankName: "", notes: "" })
                   fetchTenants()
                   if (preBookForm.email) {
                     if (data.emailSent) {
@@ -1257,7 +1261,7 @@ export default function TenantsPage() {
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-400">
-              Deposit Paid (AED) {preBookForm.usage === "Commercial" && <span className="text-amber-400">— excl. VAT</span>}
+              Booking Amount (AED) {preBookForm.usage === "Commercial" && <span className="text-amber-400">— excl. VAT</span>}
             </label>
             <input
               type="number"
@@ -1270,7 +1274,7 @@ export default function TenantsPage() {
             {preBookForm.usage === "Commercial" && parseFloat(preBookForm.preBookingDeposit) > 0 && (
               <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs">
                 <div className="flex justify-between text-slate-300">
-                  <span>Base deposit:</span>
+                  <span>Booking amount:</span>
                   <span className="font-mono">AED {parseFloat(preBookForm.preBookingDeposit).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-amber-300">
@@ -1284,6 +1288,66 @@ export default function TenantsPage() {
               </div>
             )}
           </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">Payment Method</label>
+            <div className="flex gap-2">
+              {(["Cash", "Cheque"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPreBookForm({ ...preBookForm, paymentMethod: m })}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    preBookForm.paymentMethod === m
+                      ? m === "Cash" ? "bg-green-500 text-white" : "bg-blue-500 text-white"
+                      : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
+                  }`}
+                >
+                  {m === "Cash" ? "💵 Cash" : "💳 Cheque"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {preBookForm.paymentMethod === "Cheque" && (
+            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-3">
+              <p className="text-xs font-semibold text-blue-300">💳 Cheque Details</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-400">Cheque No *</label>
+                  <input
+                    type="text"
+                    value={preBookForm.chequeNo}
+                    onChange={(e) => setPreBookForm({ ...preBookForm, chequeNo: e.target.value })}
+                    placeholder="e.g. 100015"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-400">Cheque Date *</label>
+                  <input
+                    type="date"
+                    value={preBookForm.chequeDate}
+                    onChange={(e) => setPreBookForm({ ...preBookForm, chequeDate: e.target.value })}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-400">Bank *</label>
+                  <input
+                    type="text"
+                    value={preBookForm.bankName}
+                    onChange={(e) => setPreBookForm({ ...preBookForm, bankName: e.target.value })}
+                    placeholder="e.g. Emirates NBD"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-blue-300">
+                ℹ A Cheque Tracker record will be created automatically with status &quot;Received&quot;.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-400">Notes</label>

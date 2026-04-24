@@ -19,6 +19,10 @@ export async function POST(request: NextRequest) {
       usage,
       expectedMoveIn,
       preBookingDeposit,
+      paymentMethod,
+      chequeNo,
+      chequeDate,
+      bankName,
       notes,
     } = body
 
@@ -26,6 +30,12 @@ export async function POST(request: NextRequest) {
     const isCommercial = usage === 'Commercial'
     const vat = isCommercial ? +(baseDeposit * 0.05).toFixed(2) : 0
     const totalDeposit = +(baseDeposit + vat).toFixed(2)
+    const isCheque = paymentMethod === 'Cheque'
+
+    // Validate cheque fields if chosen
+    if (isCheque && (!chequeNo || !chequeDate || !bankName)) {
+      return NextResponse.json({ error: 'Cheque No, Date, and Bank are required when paying by cheque' }, { status: 400 })
+    }
 
     if (!name?.trim() || !phone?.trim()) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
@@ -60,9 +70,11 @@ export async function POST(request: NextRequest) {
 
     const combinedNotes = [
       `Usage: ${usage || 'Residential'}`,
-      isCommercial && `Base deposit: AED ${baseDeposit}`,
+      `Payment Method: ${paymentMethod || 'Cash'}`,
+      isCheque && `Cheque ${chequeNo} dated ${chequeDate} from ${bankName}`,
+      isCommercial && `Booking amount: AED ${baseDeposit}`,
       isCommercial && `VAT (5%): AED ${vat}`,
-      isCommercial && `Total deposit (incl. VAT): AED ${totalDeposit}`,
+      isCommercial && `Total booking (incl. VAT): AED ${totalDeposit}`,
       notes,
     ].filter(Boolean).join('\n')
 
@@ -93,11 +105,30 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Create Cheque record if paid by cheque
+    let chequeRecord = null
+    if (isCheque) {
+      chequeRecord = await prisma.cheque.create({
+        data: {
+          organizationId,
+          tenantId: tenant.id,
+          unitId: unit?.id || null,
+          chequeNo: chequeNo.trim(),
+          chequeDate: chequeDate,
+          amount: totalDeposit,
+          bankName: bankName.trim(),
+          status: 'Received',
+          paymentType: 'Booking',
+          notes: `Pre-Booking cheque for ${name}${unit ? ' — unit ' + unit.unitNo : ''}`,
+        },
+      })
+    }
+
     await logActivity(
       organizationId,
       session.user.name,
       'Pre-Booking Created',
-      `${name} pre-booked${unit ? ` unit ${unit.unitNo}` : ''} — ${usage || 'Residential'} — deposit AED ${totalDeposit}${isCommercial ? ` (base ${baseDeposit} + VAT ${vat})` : ''}`
+      `${name} pre-booked${unit ? ` unit ${unit.unitNo}` : ''} — ${usage || 'Residential'} — booking AED ${totalDeposit} via ${paymentMethod}${isCheque ? ` (cheque ${chequeNo})` : ''}${isCommercial ? ` (base ${baseDeposit} + VAT ${vat})` : ''}`
     )
 
     // Send receipt email to tenant (if email provided)
@@ -138,17 +169,27 @@ export async function POST(request: NextRequest) {
 
       <!-- Amount -->
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:20px;margin:20px 0">
-        <p style="margin:0 0 12px;font-size:11px;color:#92400e;font-weight:700;letter-spacing:2px;text-transform:uppercase">Payment Received</p>
+        <p style="margin:0 0 12px;font-size:11px;color:#92400e;font-weight:700;letter-spacing:2px;text-transform:uppercase">Payment Received — ${paymentMethod || 'Cash'}</p>
         <table style="width:100%;font-size:13px">
           ${isCommercial ? `
-          <tr><td style="padding:4px 0;color:#78350f">Base Deposit:</td><td style="padding:4px 0;text-align:right;font-family:monospace">${fmt(baseDeposit)}</td></tr>
+          <tr><td style="padding:4px 0;color:#78350f">Booking Amount:</td><td style="padding:4px 0;text-align:right;font-family:monospace">${fmt(baseDeposit)}</td></tr>
           <tr><td style="padding:4px 0;color:#78350f">VAT (5%):</td><td style="padding:4px 0;text-align:right;font-family:monospace">${fmt(vat)}</td></tr>
           <tr><td colspan="2" style="border-top:2px solid #fcd34d;padding:0;height:1px"></td></tr>
-          <tr><td style="padding:8px 0 0;color:#92400e;font-weight:700;font-size:15px">Total Paid:</td><td style="padding:8px 0 0;text-align:right;font-family:monospace;font-weight:700;font-size:16px;color:#92400e">${fmt(totalDeposit)}</td></tr>
+          <tr><td style="padding:8px 0 0;color:#92400e;font-weight:700;font-size:15px">Total:</td><td style="padding:8px 0 0;text-align:right;font-family:monospace;font-weight:700;font-size:16px;color:#92400e">${fmt(totalDeposit)}</td></tr>
           ` : `
-          <tr><td style="padding:4px 0;color:#92400e;font-weight:700;font-size:15px">Deposit Paid:</td><td style="padding:4px 0;text-align:right;font-family:monospace;font-weight:700;font-size:16px;color:#92400e">${fmt(totalDeposit)}</td></tr>
+          <tr><td style="padding:4px 0;color:#92400e;font-weight:700;font-size:15px">Booking Amount:</td><td style="padding:4px 0;text-align:right;font-family:monospace;font-weight:700;font-size:16px;color:#92400e">${fmt(totalDeposit)}</td></tr>
           `}
         </table>
+        ${isCheque ? `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #fcd34d">
+          <p style="margin:0 0 6px;font-size:11px;color:#78350f;font-weight:700">Cheque Details</p>
+          <table style="width:100%;font-size:12px;color:#78350f">
+            <tr><td>Cheque No:</td><td style="text-align:right;font-family:monospace">${chequeNo}</td></tr>
+            <tr><td>Date:</td><td style="text-align:right;font-family:monospace">${chequeDate}</td></tr>
+            <tr><td>Bank:</td><td style="text-align:right">${bankName}</td></tr>
+          </table>
+        </div>
+        ` : ''}
       </div>
 
       <!-- Next steps -->
