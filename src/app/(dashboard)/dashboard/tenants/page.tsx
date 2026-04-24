@@ -129,7 +129,7 @@ const defaultContractForm = {
   purpose: "Family residence",
   commissionFee: 0,
   ejariFee: 250,
-  municipalityFee: 210,
+  municipalityFee: 0,
   reason: "Initial",
 }
 
