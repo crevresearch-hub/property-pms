@@ -1236,7 +1236,8 @@ function PaymentPlan({
         return
       }
 
-      // If upfront includes a cheque, write it into Cheque #1 and mark Cleared.
+      // If upfront includes a cheque, write it into Cheque #1 as Received (not Cleared).
+      // It will only move to Cleared when the bank actually clears it (via the cheque tabs).
       const firstCheque = sorted.find((c) => c.sequenceNo === 1)
       if (firstCheque && upfront.chequeAmount > 0) {
         const r = await fetch(`/api/cheques/${firstCheque.id}`, {
@@ -1247,8 +1248,8 @@ function PaymentPlan({
             bankName: upfront.bankName,
             chequeDate: upfront.chequeDate,
             amount: upfront.chequeAmount,
-            status: 'Cleared',
-            clearedDate: new Date().toISOString().split('T')[0],
+            status: firstCheque.status === 'Cleared' || firstCheque.status === 'Bounced' ? firstCheque.status : 'Received',
+            clearedDate: firstCheque.status === 'Cleared' ? firstCheque.clearedDate : '',
             paymentType: 'Upfront',
           }),
         })
