@@ -1562,7 +1562,13 @@ function PaymentPlan({
                     key={m}
                     type="button"
                     onClick={() => {
-                      setDeposit({ ...deposit, method: m, ...(m === 'Cash' ? { chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' } : { cash: 0 }) })
+                      setDeposit({
+                        ...deposit,
+                        method: m,
+                        ...(m === 'Cash'
+                          ? { cash: deposit.cash || expected, chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' }
+                          : { cash: 0, chequeAmount: deposit.chequeAmount || expected }),
+                      })
                       setDepositDirty(true)
                     }}
                     className={
@@ -1750,7 +1756,13 @@ function PaymentPlan({
                     key={m}
                     type="button"
                     onClick={() => {
-                      setFees({ ...fees, method: m, ...(m === 'Cash' ? { chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' } : { cash: 0 }) })
+                      setFees({
+                        ...fees,
+                        method: m,
+                        ...(m === 'Cash'
+                          ? { cash: fees.cash || expected, chequeAmount: 0, chequeNo: '', bankName: '', chequeDate: '' }
+                          : { cash: 0, chequeAmount: fees.chequeAmount || expected }),
+                      })
                       setFeesDirty(true)
                     }}
                     className={
