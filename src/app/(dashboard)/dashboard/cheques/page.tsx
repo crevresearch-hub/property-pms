@@ -760,20 +760,81 @@ function parseNotesBlock(notes: string | null | undefined, prefix: string): Reco
   return null
 }
 
-// Builds a chronological lifecycle log for a cheque from the data we have.
-// Used by the history popover so staff can see what happened over time
-// (issued → deposited → bounced → replaced → partially collected, etc.).
+// Append a structured event line to a cheque's notes. Format:
+//   EVENT:<date>|<type>|<detail>
+// All lifecycle changes go through this helper so the history modal has a
+// single source of truth.
+function appendEvent(notes: string | null | undefined, type: string, detail: string, date: string): string {
+  const line = `EVENT:${date}|${type}|${detail.replace(/\|/g, " ")}`
+  return `${(notes || "").trim()}\n${line}`.trim()
+}
+
+// Ensures the cheque's ORIGINAL details are recorded as an ISSUED event before
+// any replacement / bounce / partial mutates the chequeNo / amount fields.
+// Without this, replacements would erase the audit of "this used to be cheque #X".
+function ensureIssuedEvent(notes: string | null | undefined, c: { chequeNo: string; bankName: string; chequeDate: string; amount: number; sequenceNo: number }): string {
+  if ((notes || "").includes("EVENT:") && /\|ISSUED\|/.test(notes || "")) return notes || ""
+  const date = c.chequeDate || ""
+  const ref = c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`
+  const detail = `${ref} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`
+  return appendEvent(notes, "ISSUED", detail, date)
+}
+
+// Map event types to icon + human label
+const EVENT_META: Record<string, { icon: string; label: string }> = {
+  ISSUED: { icon: "📅", label: "Cheque issued" },
+  DEPOSITED: { icon: "🏦", label: "Deposited at bank" },
+  CLEARED: { icon: "✓", label: "Cleared" },
+  BOUNCED: { icon: "✕", label: "Bounced" },
+  REPLACED_BY_CASH: { icon: "🔄", label: "Replaced by Cash" },
+  REPLACED_BY_CHEQUE: { icon: "🔄", label: "Replaced by new Cheque" },
+  PARTIAL_CASH: { icon: "💰", label: "Partial collected — Cash" },
+  PARTIAL_CHEQUE: { icon: "💰", label: "Partial collected — Cheque" },
+  BANKED_TO_OWNER: { icon: "💼", label: "Banked to Owner" },
+  COLLECTED_AFTER_BOUNCE_CASH: { icon: "💰", label: "Bounce collected — Cash" },
+  COLLECTED_AFTER_BOUNCE_CHEQUE: { icon: "💰", label: "Bounce collected — Cheque" },
+  SLIP_UPLOADED: { icon: "📎", label: "Slip uploaded" },
+}
+
+// Builds a chronological lifecycle log for a cheque. Reads:
+//   1. EVENT:<date>|<type>|<detail> lines (canonical, written by appendEvent)
+//   2. Legacy fields (chequeDate, depositedDate, clearedDate, bouncedDate, OWNER_DEPOSITED, PARTIAL_*)
+//      — kept for backwards compat with rows created before the EVENT log existed.
 function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail: string; icon: string }[] {
   type Entry = { date: string; label: string; detail: string; icon: string }
   const entries: Entry[] = []
-  if (c.chequeDate) entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅" })
-  if (c.depositedDate) entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦" })
-  if (c.clearedDate) entries.push({ date: c.clearedDate, label: "Cleared", detail: "Funds credited", icon: "✓" })
-  if (c.bouncedDate) entries.push({ date: c.bouncedDate, label: "Bounced", detail: c.bouncedReason || "—", icon: "✕" })
-  // Each individual partial collection event (newest format)
+  const seen = new Set<string>()
+
+  // 1) Canonical EVENT lines
+  const eventLines = [...(c.notes || "").matchAll(/EVENT:([^|]*)\|([^|]+)\|([^\n]*)/g)]
+  for (const m of eventLines) {
+    const [, date, type, detail] = m
+    const meta = EVENT_META[type] || { icon: "•", label: type }
+    const key = `${date}|${type}|${detail}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    entries.push({ date: date || "", label: meta.label, detail: detail || "—", icon: meta.icon })
+  }
+
+  // 2) Legacy fallbacks — only add if the corresponding canonical event isn't already in seen
+  const seenTypes = new Set([...eventLines].map((m) => m[2]))
+  if (c.chequeDate && !seenTypes.has("ISSUED")) {
+    entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅" })
+  }
+  if (c.depositedDate && !seenTypes.has("DEPOSITED")) {
+    entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦" })
+  }
+  if (c.clearedDate && !seenTypes.has("CLEARED")) {
+    entries.push({ date: c.clearedDate, label: "Cleared", detail: c.bankName ? `via ${c.bankName}` : "Funds credited", icon: "✓" })
+  }
+  if (c.bouncedDate && !seenTypes.has("BOUNCED")) {
+    entries.push({ date: c.bouncedDate, label: "Bounced", detail: c.bouncedReason || "—", icon: "✕" })
+  }
+  // Legacy per-event partial entries
   const partialEvents = [...(c.notes || "").matchAll(/PARTIAL_EVENT:([^|]*)\|([^|]*)\|([^\s]*)/g)]
   for (const m of partialEvents) {
     const [, evDate, evAmt, evMethod] = m
+    if (seenTypes.has(`PARTIAL_${(evMethod || "CASH").toUpperCase()}`)) continue
     entries.push({
       date: evDate || "",
       label: `Partial collected — ${evMethod || "Cash"}`,
@@ -781,14 +842,22 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
       icon: "💰",
     })
   }
-  // Fallback: if only the cumulative marker exists (older data), show it as a single entry
-  if (partialEvents.length === 0) {
+  if (partialEvents.length === 0 && !seenTypes.has("PARTIAL_CASH") && !seenTypes.has("PARTIAL_CHEQUE")) {
     const partialMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
     if (partialMatch) entries.push({ date: c.chequeDate || "", label: "Partial collected (cumulative)", detail: `AED ${parseFloat(partialMatch[1]).toLocaleString()} of AED ${(c.amount || 0).toLocaleString()}`, icon: "💰" })
   }
   const ownerMatch = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
-  if (ownerMatch) entries.push({ date: ownerMatch[1], label: "Banked to owner", detail: "Cash deposited into owner account", icon: "💼" })
-  if (c.status === "Replaced") entries.push({ date: "", label: "Replaced", detail: c.bouncedReason || "Replaced with a new cheque/cash", icon: "↻" })
+  if (ownerMatch && !seenTypes.has("BANKED_TO_OWNER")) {
+    entries.push({ date: ownerMatch[1], label: "Banked to Owner", detail: "Cash deposited into owner account", icon: "💼" })
+  }
+  // Heuristic for old replacements based on bouncedReason text
+  if (!seenTypes.has("REPLACED_BY_CASH") && /replaced by cash/i.test(c.bouncedReason || "")) {
+    entries.push({ date: c.clearedDate || "", label: "Replaced by Cash", detail: c.bouncedReason || "", icon: "🔄" })
+  }
+  if (!seenTypes.has("REPLACED_BY_CHEQUE") && /replaced by new cheque/i.test(c.bouncedReason || "")) {
+    entries.push({ date: c.chequeDate || "", label: "Replaced by new Cheque", detail: `${c.chequeNo ? `New #${c.chequeNo} · ` : ""}${c.bankName || ""}`, icon: "🔄" })
+  }
+
   return entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""))
 }
 
@@ -872,9 +941,14 @@ function ChequeUnitCards({
     setBusyAction(true)
     try {
       if (pendingAction.type === "deposit") {
+        const date = depositDate || todayStr()
+        const refLabel = `Cheque ${pendingAction.cheque.chequeNo ? `#${pendingAction.cheque.chequeNo}` : `seq ${pendingAction.cheque.sequenceNo}`}`
+        const baseNotes = ensureIssuedEvent(pendingAction.cheque.notes, pendingAction.cheque)
+        const newNotes = appendEvent(baseNotes, "DEPOSITED", `${refLabel} → ${pendingAction.cheque.bankName || "bank"} · ${depositRemarks || "awaiting clearance"}`, date)
         await updateStatus(pendingAction.cheque.id, "Deposited", {
-          depositedDate: depositDate || todayStr(),
+          depositedDate: date,
           depositRemarks,
+          notes: newNotes,
         })
         if (depositSlipFile && pendingAction.cheque.tenant?.id) {
           const fd = new FormData()
@@ -884,13 +958,19 @@ function ChequeUnitCards({
           await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
         }
       } else if (pendingAction.type === "clear") {
-        await updateStatus(pendingAction.cheque.id, "Cleared", { clearedDate: clearDate || todayStr() })
+        const date = clearDate || todayStr()
+        const refLabel = `Cheque ${pendingAction.cheque.chequeNo ? `#${pendingAction.cheque.chequeNo}` : `seq ${pendingAction.cheque.sequenceNo}`}`
+        const baseNotes = ensureIssuedEvent(pendingAction.cheque.notes, pendingAction.cheque)
+        const newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(pendingAction.cheque.amount || 0).toLocaleString()} via ${pendingAction.cheque.bankName || "bank"}`, date)
+        await updateStatus(pendingAction.cheque.id, "Cleared", { clearedDate: date, notes: newNotes })
       } else if (pendingAction.type === "reverse") {
         const c = pendingAction.cheque
         const date = reverseDate || todayStr()
         const amt = parseFloat(reverseAmount || String(c.amount)) || c.amount
+        const oldRef = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
+        const baseNotesR = ensureIssuedEvent(c.notes, c)
         if (reverseSubtype === "ReplacementCash") {
-          // Old cheque settled by cash → mark Cleared, record reason as Replacement
+          const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash collected`, date)
           await updateStatus(c.id, "Cleared", {
             clearedDate: date,
             chequeNo: "",
@@ -898,9 +978,10 @@ function ChequeUnitCards({
             amount: String(amt),
             bouncedReason: "Replaced by Cash",
             paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
+            notes: newNotes,
           })
         } else if (reverseSubtype === "ReplacementCheque") {
-          // Replace with new cheque details, restart cycle as Pending
+          const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
             chequeNo: reverseChequeNo,
             bankName: reverseChequeBank,
@@ -910,24 +991,30 @@ function ChequeUnitCards({
             clearedDate: "",
             depositedDate: "",
             paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
+            notes: newNotes,
           })
         } else if (reverseSubtype === "Bounced") {
+          const newNotes = appendEvent(baseNotesR, "BOUNCED", `${oldRef} · ${rejectReason}`, date)
           await updateStatus(c.id, "Bounced", {
             bouncedDate: date,
             bouncedReason: rejectReason,
+            notes: newNotes,
           })
         } else if (reverseSubtype === "Partial") {
-          // Partial collection: keep cumulative PARTIAL_COLLECTED + append each
-          // event as a PARTIAL_EVENT:<date>|<amount>|<method> line so the
-          // history log can show every collection separately.
           const collectedSoFar = (typeof c.notes === "string" && c.notes.match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)?.[1]) || "0"
           const newCollected = parseFloat(collectedSoFar) + amt
           const remaining = (c.amount || 0) - newCollected
-          const cleanedNotes = (c.notes || "").replace(/PARTIAL_COLLECTED:[^\n]*/g, "").trim()
-          const newNotes = `${cleanedNotes}\nPARTIAL_COLLECTED:${newCollected}\nPARTIAL_EVENT:${date}|${amt}|${collectMethod || "Cash"}`.trim()
+          const cleanedNotes = baseNotesR.replace(/PARTIAL_COLLECTED:[^\n]*/g, "").trim()
+          const eventType = collectMethod === "Cheque" ? "PARTIAL_CHEQUE" : "PARTIAL_CASH"
+          const eventDetail = collectMethod === "Cheque"
+            ? `${oldRef} · AED ${amt.toLocaleString()} via #${reverseChequeNo} ${reverseChequeBank}`
+            : `${oldRef} · AED ${amt.toLocaleString()} cash`
+          let withEvent = `${cleanedNotes}\nPARTIAL_COLLECTED:${newCollected}\nPARTIAL_EVENT:${date}|${amt}|${collectMethod || "Cash"}`.trim()
+          withEvent = appendEvent(withEvent, eventType, eventDetail, date)
           const isFullyCollected = remaining <= 0
+          if (isFullyCollected) withEvent = appendEvent(withEvent, "CLEARED", `${oldRef} fully collected (AED ${(c.amount || 0).toLocaleString()})`, date)
           await updateStatus(c.id, isFullyCollected ? "Cleared" : "Partial", {
-            notes: newNotes,
+            notes: withEvent,
             ...(isFullyCollected ? { clearedDate: date } : {}),
             ...(collectMethod === "Cash" ? { bankName: collectMethod === "Cash" ? "Cash" : (c.bankName || "") } : {}),
           })
@@ -941,11 +1028,11 @@ function ChequeUnitCards({
           await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
         }
       } else if (pendingAction.type === "deposit-to-owner") {
-        // Cash from tenant → bank deposit into owner's account.
-        // Creates a CashDeposit row + uploads slip + marks cheque.notes with OWNER_DEPOSITED:<date>.
         const c = pendingAction.cheque
         const date = reverseDate || todayStr()
         const amt = parseFloat(reverseAmount || String(c.amount)) || c.amount
+        const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
+        const baseNotes = ensureIssuedEvent(c.notes, c)
         // Find the contract → owner
         const ctr = contracts.find((x) =>
           (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId)
@@ -977,18 +1064,22 @@ function ChequeUnitCards({
             fd.append("file", reverseSlipFile)
             await fetch(`/api/cash-deposits/${created.id}/slip`, { method: "POST", body: fd }).catch(() => {})
           }
-          // Update the cheque's notes with the marker so the row visually flips to "Deposit Done".
-          const newNotes = `${(c.notes || "").replace(/OWNER_DEPOSITED:[^\s]*/g, "").trim()}\nOWNER_DEPOSITED:${date}`.trim()
-          await updateStatus(c.id, c.status, { notes: newNotes })
+          // Update notes with both the marker and an EVENT entry so the timeline shows it.
+          const cleared = baseNotes.replace(/OWNER_DEPOSITED:[^\s]*/g, "").trim()
+          const withMarker = `${cleared}\nOWNER_DEPOSITED:${date}`
+          const finalNotes = appendEvent(withMarker, "BANKED_TO_OWNER", `${refLabel} · AED ${amt.toLocaleString()} into owner account`, date)
+          await updateStatus(c.id, c.status, { notes: finalNotes })
         } catch (e) {
           console.error("deposit-to-owner failed:", e)
         }
       } else if (pendingAction.type === "bounce-collect") {
-        // After a bounce, collect the full amount (cash or cheque) → moves to Cleared
         const c = pendingAction.cheque
         const date = reverseDate || todayStr()
         const amt = c.amount
+        const oldRef = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
+        const baseNotes = ensureIssuedEvent(c.notes, c)
         if (collectMethod === "Cash") {
+          const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash settled the bounce`, date)
           await updateStatus(c.id, "Cleared", {
             clearedDate: date,
             chequeNo: "",
@@ -996,8 +1087,10 @@ function ChequeUnitCards({
             amount: String(amt),
             bouncedReason: `${c.bouncedReason || "Bounced"} — collected by Cash`,
             paymentType: "Replacement",
+            notes: newNotes,
           })
         } else if (collectMethod === "Cheque") {
+          const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
             chequeNo: reverseChequeNo,
             bankName: reverseChequeBank,
@@ -1007,6 +1100,7 @@ function ChequeUnitCards({
             clearedDate: "",
             depositedDate: "",
             paymentType: "Replacement",
+            notes: newNotes,
           })
         }
         if (reverseSlipFile && pendingAction.cheque.tenant?.id) {
