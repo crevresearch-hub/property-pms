@@ -7,7 +7,7 @@ import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
-import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle, FileText, Upload, Mail } from "lucide-react"
+import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle, FileText, Upload, Mail, Pencil } from "lucide-react"
 import { TrackerTabs } from "@/components/ui/tracker-tabs"
 import { HelpPanel } from "@/components/ui/help-panel"
 
@@ -74,6 +74,7 @@ export default function CashDepositsPage() {
   const [form, setForm] = useState(defaultForm)
   const [slipFile, setSlipFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     try {
@@ -98,38 +99,89 @@ export default function CashDepositsPage() {
     setError("")
     if (!form.amount || parseFloat(form.amount) <= 0) { setError("Enter a valid amount"); return }
     if (!form.depositedAt) { setError("Deposit date is required"); return }
-    if (!slipFile) { setError("Deposit slip is required — please attach the bank slip image or PDF"); return }
+    // Slip is mandatory for new deposits but optional when editing (existing slip stays)
+    if (!editingId && !slipFile) { setError("Deposit slip is required — please attach the bank slip image or PDF"); return }
     setSaving(true)
     try {
-      const res = await fetch("/api/cash-deposits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      })
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}))
-        throw new Error(e.error || "Failed")
+      let depositId: string
+      if (editingId) {
+        // Edit mode — PUT to existing row
+        const res = await fetch(`/api/cash-deposits/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        })
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}))
+          throw new Error(e.error || "Failed to update")
+        }
+        depositId = editingId
+      } else {
+        const res = await fetch("/api/cash-deposits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        })
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}))
+          throw new Error(e.error || "Failed")
+        }
+        const created: CashDeposit = await res.json()
+        depositId = created.id
       }
-      const created: CashDeposit = await res.json()
 
-      // Upload slip (mandatory)
-      const fd = new FormData()
-      fd.append('file', slipFile)
-      const slipRes = await fetch(`/api/cash-deposits/${created.id}/slip`, { method: 'POST', body: fd })
-      if (!slipRes.ok) {
-        const e = await slipRes.json().catch(() => ({}))
-        throw new Error(e.error || "Slip upload failed; deposit was saved but slip is missing.")
+      // Upload slip if a new one was attached (always for new deposits;
+      // optional replacement for edits)
+      if (slipFile) {
+        const fd = new FormData()
+        fd.append('file', slipFile)
+        const slipRes = await fetch(`/api/cash-deposits/${depositId}/slip`, { method: 'POST', body: fd })
+        if (!slipRes.ok) {
+          const e = await slipRes.json().catch(() => ({}))
+          throw new Error(e.error || "Slip upload failed.")
+        }
+      }
+
+      // After an edit, auto-resend the notification email so the owner
+      // sees the corrected information.
+      if (editingId && form.ownerId) {
+        await fetch(`/api/cash-deposits/${depositId}/notify`, { method: "POST" })
+          .catch(() => {})
       }
 
       setAddOpen(false)
       setForm(defaultForm)
       setSlipFile(null)
+      setEditingId(null)
       await loadAll()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed")
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleEdit = (d: CashDeposit) => {
+    setEditingId(d.id)
+    setForm({
+      amount: String(d.amount),
+      cashSource: d.cashSource || "Upfront",
+      tenantId: d.tenantId || "",
+      tenantName: d.tenantName || "",
+      unitNo: d.unitNo || "",
+      ownerId: d.ownerId || "",
+      ownerName: d.ownerName || "",
+      bankName: d.bankName || "",
+      accountNo: d.accountNo || "",
+      referenceNo: d.referenceNo || "",
+      depositedAt: d.depositedAt || new Date().toISOString().slice(0, 10),
+      status: d.status || "Deposited",
+      notes: d.notes || "",
+      notifyOwner: true,
+    })
+    setSlipFile(null)
+    setError("")
+    setAddOpen(true)
   }
 
   const handleDelete = async (d: CashDeposit) => {
@@ -247,6 +299,13 @@ export default function CashDepositsPage() {
       header: "Actions",
       render: (r) => (
         <div className="flex gap-1">
+          <button
+            onClick={() => handleEdit(r)}
+            title="Edit this deposit (will auto-resend email to owner on save)"
+            className="rounded p-1.5 text-slate-400 hover:bg-amber-900/50 hover:text-amber-400"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
           {r.ownerId && (
             <button
               onClick={() => handleResendEmail(r)}
@@ -396,18 +455,22 @@ export default function CashDepositsPage() {
 
       <DataTable<CashDeposit> data={deposits} columns={columns} searchKeys={["tenantName", "ownerName", "referenceNo", "depositedBy", "unitNo"]} />
 
-      {/* Add modal */}
+      {/* Add / Edit modal */}
       <Modal
         open={addOpen}
-        onOpenChange={(v) => { setAddOpen(v); if (!v) setForm(defaultForm) }}
-        title="Record Cash Deposit"
-        description="Staff handed cash to the bank for the owner's account — log it for accountability."
+        onOpenChange={(v) => { setAddOpen(v); if (!v) { setForm(defaultForm); setSlipFile(null); setEditingId(null) } }}
+        title={editingId ? "Edit Cash Deposit" : "Record Cash Deposit"}
+        description={
+          editingId
+            ? "Update the deposit details. Saving will automatically resend the corrected email to the owner."
+            : "Staff handed cash to the bank for the owner's account — log it for accountability."
+        }
         size="lg"
         footer={
           <>
             <ModalCancelButton />
-            <ModalSaveButton onClick={handleAdd} disabled={saving || !form.amount || !form.depositedAt || !slipFile}>
-              {saving ? "Saving..." : "Save"}
+            <ModalSaveButton onClick={handleAdd} disabled={saving || !form.amount || !form.depositedAt || (!editingId && !slipFile)}>
+              {saving ? "Saving..." : editingId ? "Save & Resend Email" : "Save"}
             </ModalSaveButton>
           </>
         }
@@ -488,7 +551,12 @@ export default function CashDepositsPage() {
               <input type="text" value={form.referenceNo} onChange={(e) => setForm({ ...form, referenceNo: e.target.value })} placeholder="e.g. DEP-2026-00123" className={inputCls} />
             </div>
             <div className="col-span-2">
-              <label className={labelCls}>Deposit Slip <span className="text-red-400">*</span> <span className="text-slate-500 font-normal normal-case">(PDF / JPG / PNG)</span></label>
+              <label className={labelCls}>
+                Deposit Slip {editingId
+                  ? <span className="text-slate-500 font-normal normal-case">(optional — leave blank to keep the existing slip)</span>
+                  : <><span className="text-red-400">*</span> <span className="text-slate-500 font-normal normal-case">(PDF / JPG / PNG)</span></>
+                }
+              </label>
               <label className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed p-3 transition-colors ${slipFile ? 'border-emerald-600 bg-emerald-900/10' : 'border-slate-700 bg-slate-800 hover:border-amber-500/50'}`}>
                 <input
                   type="file"
@@ -502,6 +570,11 @@ export default function CashDepositsPage() {
                     <>
                       <p className="text-sm font-medium text-emerald-300 truncate">✓ {slipFile.name}</p>
                       <p className="text-[11px] text-emerald-400/70">{(slipFile.size / 1024).toFixed(1)} KB · click to replace</p>
+                    </>
+                  ) : editingId ? (
+                    <>
+                      <p className="text-sm text-slate-300">Click to replace the slip</p>
+                      <p className="text-[11px] text-slate-500">Existing slip stays unless you attach a new one</p>
                     </>
                   ) : (
                     <>
