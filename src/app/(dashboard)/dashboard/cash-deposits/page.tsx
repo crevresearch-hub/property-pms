@@ -7,7 +7,7 @@ import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
-import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle, FileText, Upload } from "lucide-react"
+import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle, FileText, Upload, Mail } from "lucide-react"
 import { TrackerTabs } from "@/components/ui/tracker-tabs"
 import { HelpPanel } from "@/components/ui/help-panel"
 
@@ -147,6 +147,22 @@ export default function CashDepositsPage() {
     await loadAll()
   }
 
+  const handleResendEmail = async (d: CashDeposit) => {
+    if (!d.ownerId) {
+      setError("This deposit has no owner attached — can't email anyone.")
+      return
+    }
+    if (!confirm(`Resend the deposit notification email to ${d.ownerName || "the owner"}?`)) return
+    try {
+      const res = await fetch(`/api/cash-deposits/${d.id}/notify`, { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Failed to resend")
+      alert(`✓ Email re-sent to ${data.to || "owner"}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to resend email")
+    }
+  }
+
   // Summary stats
   const summary = useMemo(() => {
     const total = deposits.reduce((s, d) => s + d.amount, 0)
@@ -231,6 +247,15 @@ export default function CashDepositsPage() {
       header: "Actions",
       render: (r) => (
         <div className="flex gap-1">
+          {r.ownerId && (
+            <button
+              onClick={() => handleResendEmail(r)}
+              title="Resend deposit email + notification to the owner"
+              className="rounded p-1.5 text-slate-400 hover:bg-blue-900/50 hover:text-blue-400"
+            >
+              <Mail className="h-4 w-4" />
+            </button>
+          )}
           {r.status !== "Verified" && (
             <button
               onClick={() => handleVerify(r)}
