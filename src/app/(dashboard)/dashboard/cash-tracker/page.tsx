@@ -6,7 +6,7 @@ import { KpiCard } from "@/components/ui/kpi-card"
 import { formatCurrency } from "@/lib/utils"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
-import { Banknote, Wallet, ArrowRight, CheckCircle, Plus, ExternalLink } from "lucide-react"
+import { Banknote, Wallet, ArrowRight, CheckCircle, Plus, ExternalLink, Upload } from "lucide-react"
 import { TrackerTabs } from "@/components/ui/tracker-tabs"
 
 interface Unit {
@@ -67,6 +67,7 @@ export default function CashTrackerPage() {
   // (optionally) logs the bank deposit to the owner in one shot.
   const [recordOpen, setRecordOpen] = useState(false)
   const [recordTarget, setRecordTarget] = useState<{ unit: Unit; annualRent: number } | null>(null)
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     amount: "",
     cashSource: "Rent",
@@ -186,6 +187,7 @@ export default function CashTrackerPage() {
     const amt = parseFloat(form.amount)
     if (!amt || amt <= 0) { setError("Enter amount > 0"); return }
     if (!form.depositedAt) { setError("Deposit date required"); return }
+    if (!receiptFile) { setError("Payment receipt is required — please attach the bank slip / proof"); return }
     setSaving(true)
     try {
       const res = await fetch("/api/cash-deposits", {
@@ -208,7 +210,19 @@ export default function CashTrackerPage() {
         }),
       })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed")
+      const created = await res.json()
+
+      // Upload receipt slip (mandatory)
+      const fd = new FormData()
+      fd.append("file", receiptFile)
+      const slipRes = await fetch(`/api/cash-deposits/${created.id}/slip`, { method: "POST", body: fd })
+      if (!slipRes.ok) {
+        const e = await slipRes.json().catch(() => ({}))
+        throw new Error(e.error || "Receipt upload failed; deposit saved without proof.")
+      }
+
       setRecordOpen(false)
+      setReceiptFile(null)
       await loadAll()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed")
@@ -385,14 +399,14 @@ export default function CashTrackerPage() {
       {/* Record cash modal */}
       <Modal
         open={recordOpen}
-        onOpenChange={(v) => { setRecordOpen(v); if (!v) setRecordTarget(null) }}
+        onOpenChange={(v) => { setRecordOpen(v); if (!v) { setRecordTarget(null); setReceiptFile(null) } }}
         title={recordTarget ? `Record Cash — ${recordTarget.unit.unitNo} · ${recordTarget.unit.tenant?.name || ""}` : "Record Cash"}
         description="Log cash collected from this tenant and deposited into the owner's bank account."
         size="lg"
         footer={
           <>
             <ModalCancelButton />
-            <ModalSaveButton onClick={saveRecord} disabled={saving || !form.amount || !form.depositedAt}>
+            <ModalSaveButton onClick={saveRecord} disabled={saving || !form.amount || !form.depositedAt || !receiptFile}>
               {saving ? "Saving…" : "Save Collection"}
             </ModalSaveButton>
           </>
@@ -490,6 +504,33 @@ export default function CashTrackerPage() {
               placeholder="e.g. DEP-2026-00123"
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
             />
+          </div>
+          <div className="col-span-2">
+            <label className="mb-1 block text-xs font-medium text-slate-400">
+              Payment Receipt <span className="text-red-400">*</span> <span className="text-slate-500 font-normal normal-case">(PDF / JPG / PNG)</span>
+            </label>
+            <label className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed p-3 transition-colors ${receiptFile ? "border-emerald-600 bg-emerald-900/10" : "border-slate-700 bg-slate-800 hover:border-amber-500/50"}`}>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                className="hidden"
+              />
+              <Upload className={`h-5 w-5 ${receiptFile ? "text-emerald-400" : "text-slate-400"}`} />
+              <div className="flex-1 min-w-0">
+                {receiptFile ? (
+                  <>
+                    <p className="text-sm font-medium text-emerald-300 truncate">✓ {receiptFile.name}</p>
+                    <p className="text-[11px] text-emerald-400/70">{(receiptFile.size / 1024).toFixed(1)} KB · click to replace</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-300">Click to attach the bank deposit slip / payment receipt</p>
+                    <p className="text-[11px] text-slate-500">Required so the owner can verify the payment</p>
+                  </>
+                )}
+              </div>
+            </label>
           </div>
           <div className="col-span-2">
             <label className="mb-1 block text-xs font-medium text-slate-400">Notes</label>
