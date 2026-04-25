@@ -85,7 +85,7 @@ export default function ChequesPage() {
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([])
   const [units, setUnits] = useState<{ id: string; unitNo: string }[]>([])
   const [allUnits, setAllUnits] = useState<Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>>([])
-  const [contracts, setContracts] = useState<Array<{ id: string; tenantId: string; unitId: string | null; contractType: string; securityDeposit: number; ejariFee: number; commissionFee: number; notes: string | null }>>([])
+  const [contracts, setContracts] = useState<ContractLite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [addOpen, setAddOpen] = useState(false)
@@ -734,11 +734,14 @@ type ChequeAction =
   | { type: "reverse"; cheque: ChequeRow }
   // Bounce-collection: when a cheque is already Bounced, "Reverse" jumps straight to collecting full amount.
   | { type: "bounce-collect"; cheque: ChequeRow }
+  // Cash collected from tenant, now staff is recording the bank deposit into the owner's account.
+  | { type: "deposit-to-owner"; cheque: ChequeRow }
 
 type ContractLite = {
   id: string
   tenantId: string
   unitId: string | null
+  ownerId?: string | null
   contractType: string
   securityDeposit: number
   ejariFee: number
@@ -878,6 +881,49 @@ function ChequeUnitCards({
           fd.append('tenantId', pendingAction.cheque.tenant.id)
           fd.append('docType', `Reverse-${reverseSubtype}-Cheque-${pendingAction.cheque.id}`)
           await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+        }
+      } else if (pendingAction.type === "deposit-to-owner") {
+        // Cash from tenant → bank deposit into owner's account.
+        // Creates a CashDeposit row + uploads slip + marks cheque.notes with OWNER_DEPOSITED:<date>.
+        const c = pendingAction.cheque
+        const date = reverseDate || todayStr()
+        const amt = parseFloat(reverseAmount || String(c.amount)) || c.amount
+        // Find the contract → owner
+        const ctr = contracts.find((x) =>
+          (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId)
+        )
+        try {
+          const depRes = await fetch("/api/cash-deposits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: amt,
+              cashSource: c.paymentType === "Upfront" ? "Upfront" : "Rent",
+              tenantId: c.tenantId,
+              tenantName: c.tenant?.name || "",
+              unitNo: c.unit?.unitNo || "",
+              ownerId: ctr?.ownerId || null,
+              ownerName: "",
+              bankName: "",
+              accountNo: "",
+              referenceNo: "",
+              depositedAt: date,
+              status: "Deposited",
+              notes: rejectReason || `Cash collected for cheque ${c.chequeNo || `#${c.sequenceNo}`}`,
+              notifyOwner: true,
+            }),
+          })
+          if (depRes.ok && reverseSlipFile) {
+            const created = await depRes.json()
+            const fd = new FormData()
+            fd.append("file", reverseSlipFile)
+            await fetch(`/api/cash-deposits/${created.id}/slip`, { method: "POST", body: fd }).catch(() => {})
+          }
+          // Update the cheque's notes with the marker so the row visually flips to "Deposit Done".
+          const newNotes = `${(c.notes || "").replace(/OWNER_DEPOSITED:[^\s]*/g, "").trim()}\nOWNER_DEPOSITED:${date}`.trim()
+          await updateStatus(c.id, c.status, { notes: newNotes })
+        } catch (e) {
+          console.error("deposit-to-owner failed:", e)
         }
       } else if (pendingAction.type === "bounce-collect") {
         // After a bounce, collect the full amount (cash or cheque) → moves to Cleared
@@ -1142,10 +1188,14 @@ function ChequeUnitCards({
                   {g.cheques.map((c) => {
                     const isUpfront = c.paymentType === "Upfront"
                     const isOverdue = c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced"
-                    // Cash payments: bankName === "Cash" or no cheque number means it was settled in cash.
-                    // Show "Cash" channel and remap a Cleared status to "Received" (cash is in hand, no bank cycle).
                     const isCashPayment = (c.bankName || "").toLowerCase() === "cash" || (isUpfront && !c.chequeNo)
-                    const displayStatus = isCashPayment && c.status === "Cleared" ? "Received" : c.status
+                    // OWNER_DEPOSITED marker tracks whether cash collected from tenant has been
+                    // physically banked into the owner's account.
+                    const ownerDepositMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
+                    const ownerDepositedDate = ownerDepositMarker ? ownerDepositMarker[1] : ""
+                    const displayStatus = isCashPayment && c.status === "Cleared"
+                      ? (ownerDepositedDate ? "Deposit Done" : "Received")
+                      : c.status
                     return (
                       <tr key={c.id} className={`border-t border-slate-800 ${isOverdue ? "bg-red-500/5" : ""}`}>
                         <td className="px-2 py-1.5">
@@ -1162,7 +1212,12 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5 font-mono">{c.chequeNo || "—"}</td>
                         <td className="px-2 py-1.5">{c.bankName || "—"}</td>
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(c.amount)}</td>
-                        <td className="px-2 py-1.5"><StatusBadge status={displayStatus} /></td>
+                        <td className="px-2 py-1.5">
+                          <StatusBadge status={displayStatus} />
+                          {ownerDepositedDate && (
+                            <div className="text-[9px] text-emerald-400 mt-0.5">→ Owner {ownerDepositedDate}</div>
+                          )}
+                        </td>
                         <td className="px-2 py-1.5">
                           <div className="flex justify-end gap-1.5">
                             {c.status === "Bounced" && (
@@ -1197,7 +1252,20 @@ function ChequeUnitCards({
                                 </button>
                               </>
                             )}
-                            {c.status === "Cleared" && (
+                            {/* Cash collected → staff still needs to bank it into owner's account */}
+                            {c.status === "Cleared" && isCashPayment && !ownerDepositedDate && (
+                              <button
+                                onClick={() => { resetActionState(); setPendingAction({ type: "deposit-to-owner", cheque: c }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                title="Record bank deposit of this cash into the owner's account"
+                              >
+                                💼 Deposit Cash
+                              </button>
+                            )}
+                            {c.status === "Cleared" && isCashPayment && ownerDepositedDate && (
+                              <span className="text-[10px] text-emerald-400">✓ Banked to Owner</span>
+                            )}
+                            {c.status === "Cleared" && !isCashPayment && (
                               <span className="text-[10px] text-slate-500">— Final —</span>
                             )}
                           </div>
@@ -1224,6 +1292,8 @@ function ChequeUnitCards({
             ? "Confirm: Mark as Cleared"
             : pendingAction?.type === "bounce-collect"
             ? "Collect Bounced Cheque"
+            : pendingAction?.type === "deposit-to-owner"
+            ? "Deposit Cash to Owner Account"
             : "Reverse Cheque"
         }
         size="md"
@@ -1239,7 +1309,8 @@ function ChequeUnitCards({
                 (pendingAction?.type === "reverse" && reverseSubtype === "ReplacementCheque" && (!reverseChequeNo || !reverseChequeBank)) ||
                 (pendingAction?.type === "reverse" && reverseSubtype === "Partial" && (!collectMethod || !reverseAmount)) ||
                 (pendingAction?.type === "bounce-collect" && !collectMethod) ||
-                (pendingAction?.type === "bounce-collect" && collectMethod === "Cheque" && (!reverseChequeNo || !reverseChequeBank))
+                (pendingAction?.type === "bounce-collect" && collectMethod === "Cheque" && (!reverseChequeNo || !reverseChequeBank)) ||
+                (pendingAction?.type === "deposit-to-owner" && !reverseSlipFile)
               }
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 ${
                 pendingAction?.type === "deposit"
@@ -1248,6 +1319,8 @@ function ChequeUnitCards({
                   ? "bg-emerald-600 hover:bg-emerald-500"
                   : pendingAction?.type === "bounce-collect"
                   ? "bg-amber-600 hover:bg-amber-500"
+                  : pendingAction?.type === "deposit-to-owner"
+                  ? "bg-purple-600 hover:bg-purple-500"
                   : "bg-red-600 hover:bg-red-500"
               }`}
             >
@@ -1259,6 +1332,8 @@ function ChequeUnitCards({
                 ? "✓ Confirm Clear"
                 : pendingAction?.type === "bounce-collect"
                 ? "💰 Confirm Collection"
+                : pendingAction?.type === "deposit-to-owner"
+                ? "💼 Confirm Bank Deposit"
                 : "✓ Confirm Reverse"}
             </button>
           </>
@@ -1546,10 +1621,41 @@ function ChequeUnitCards({
               </div>
             )}
 
-            <div className="rounded-lg border border-blue-700/40 bg-blue-900/20 p-3 text-xs text-blue-200">
-              ✉️ The tenant will be automatically emailed an updated payment statement
-              showing total paid + remaining balance.
-            </div>
+            {pendingAction.type === "deposit-to-owner" && (
+              <div className="space-y-3 rounded-lg border border-purple-700/40 bg-purple-900/10 p-3">
+                <p className="text-[11px] text-purple-200">
+                  Cash <strong>{formatCurrency(pendingAction.cheque.amount)}</strong> was collected from the tenant.
+                  Now record the bank deposit you made into the owner&rsquo;s account.
+                  This is internal accounting — the tenant won&rsquo;t see this in their portal.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Deposit Date *</label>
+                    <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Amount (AED)</label>
+                    <input type="number" value={reverseAmount || pendingAction.cheque.amount} onChange={(e) => setReverseAmount(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bank Slip * <span className="text-slate-500 normal-case font-normal">(PDF/JPG/PNG)</span></label>
+                  <input type="file" accept=".pdf,image/*" onChange={(e) => setReverseSlipFile(e.target.files?.[0] || null)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-purple-600 file:px-3 file:py-1 file:text-white" />
+                  {reverseSlipFile && <p className="mt-1 text-[11px] text-emerald-400">✓ {reverseSlipFile.name}</p>}
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Notes (optional)</label>
+                  <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={2} placeholder="e.g. Deposited at Emirates NBD Bur Dubai branch, slip #4432" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                </div>
+              </div>
+            )}
+
+            {pendingAction.type !== "deposit-to-owner" && (
+              <div className="rounded-lg border border-blue-700/40 bg-blue-900/20 p-3 text-xs text-blue-200">
+                ✉️ The tenant will be automatically emailed an updated payment statement
+                showing total paid + remaining balance.
+              </div>
+            )}
           </div>
         )}
       </Modal>
