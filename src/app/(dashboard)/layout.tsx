@@ -33,7 +33,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div data-shell="staff" className="min-h-screen bg-[#0a0a0a]">
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}

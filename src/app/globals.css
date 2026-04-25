@@ -62,106 +62,109 @@ input[type="number"] {
    is set. Kept with moderate specificity so per-page dark card styles
    can still override when needed by using inline styles or !important.
    ─────────────────────────────────────────────────────────────────── */
-html[data-theme="light"] body {
+html[data-theme="light"] body:has([data-shell="staff"]) {
   background: #f4f5f7 !important;
   color: #0f172a !important;
 }
+html[data-theme="light"] [data-shell="staff"] {
+  color: #0f172a;
+}
 
 /* Page background & shell */
-html[data-theme="light"] .bg-\[\#0a0a0a\],
-html[data-theme="light"] .bg-\[\#0a0a0a\]\/90,
-html[data-theme="light"] .bg-\[\#1a1a1a\] {
+html[data-theme="light"] [data-shell="staff"] .bg-\[\#0a0a0a\],
+html[data-theme="light"] [data-shell="staff"] .bg-\[\#0a0a0a\]\/90,
+html[data-theme="light"] [data-shell="staff"] .bg-\[\#1a1a1a\] {
   background: #ffffff !important;
 }
-html[data-theme="light"] .bg-gradient-to-b.from-\[\#0a0a0a\],
-html[data-theme="light"] .lg\:bg-gradient-to-b.lg\:from-\[\#0a0a0a\] {
+html[data-theme="light"] [data-shell="staff"] .bg-gradient-to-b.from-\[\#0a0a0a\],
+html[data-theme="light"] [data-shell="staff"] .lg\:bg-gradient-to-b.lg\:from-\[\#0a0a0a\] {
   background: #ffffff !important;
   background-image: none !important;
 }
 
 /* Cards / panels */
-html[data-theme="light"] .bg-slate-900,
-html[data-theme="light"] .bg-slate-900\/40,
-html[data-theme="light"] .bg-slate-900\/60,
-html[data-theme="light"] .bg-slate-900\/80 {
+html[data-theme="light"] [data-shell="staff"] .bg-slate-900,
+html[data-theme="light"] [data-shell="staff"] .bg-slate-900\/40,
+html[data-theme="light"] [data-shell="staff"] .bg-slate-900\/60,
+html[data-theme="light"] [data-shell="staff"] .bg-slate-900\/80 {
   background: #ffffff !important;
 }
-html[data-theme="light"] .bg-slate-800,
-html[data-theme="light"] .bg-slate-800\/30,
-html[data-theme="light"] .bg-slate-800\/40,
-html[data-theme="light"] .bg-slate-800\/50,
-html[data-theme="light"] .bg-slate-800\/60 {
+html[data-theme="light"] [data-shell="staff"] .bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] .bg-slate-800\/30,
+html[data-theme="light"] [data-shell="staff"] .bg-slate-800\/40,
+html[data-theme="light"] [data-shell="staff"] .bg-slate-800\/50,
+html[data-theme="light"] [data-shell="staff"] .bg-slate-800\/60 {
   background: #f8fafc !important;
 }
 
 /* Text colors */
-html[data-theme="light"] .text-white {
+html[data-theme="light"] [data-shell="staff"] .text-white {
   color: #0f172a !important;
 }
-html[data-theme="light"] .text-slate-200,
-html[data-theme="light"] .text-slate-300 {
+html[data-theme="light"] [data-shell="staff"] .text-slate-200,
+html[data-theme="light"] [data-shell="staff"] .text-slate-300 {
   color: #334155 !important;
 }
-html[data-theme="light"] .text-slate-400 {
+html[data-theme="light"] [data-shell="staff"] .text-slate-400 {
   color: #475569 !important;
 }
-html[data-theme="light"] .text-slate-500 {
+html[data-theme="light"] [data-shell="staff"] .text-slate-500 {
   color: #64748b !important;
 }
-html[data-theme="light"] .text-slate-600 {
+html[data-theme="light"] [data-shell="staff"] .text-slate-600 {
   color: #94a3b8 !important;
 }
 
 /* Borders */
-html[data-theme="light"] .border-slate-800,
-html[data-theme="light"] .border-slate-800\/40,
-html[data-theme="light"] .border-slate-700 {
+html[data-theme="light"] [data-shell="staff"] .border-slate-800,
+html[data-theme="light"] [data-shell="staff"] .border-slate-800\/40,
+html[data-theme="light"] [data-shell="staff"] .border-slate-700 {
   border-color: #e2e8f0 !important;
 }
-html[data-theme="light"] .border-white\/5,
-html[data-theme="light"] .border-white\/10,
-html[data-theme="light"] .border-white\/20 {
+html[data-theme="light"] [data-shell="staff"] .border-white\/5,
+html[data-theme="light"] [data-shell="staff"] .border-white\/10,
+html[data-theme="light"] [data-shell="staff"] .border-white\/20 {
   border-color: #e5e7eb !important;
 }
-html[data-theme="light"] .lg\:border-white\/5 {
+html[data-theme="light"] [data-shell="staff"] .lg\:border-white\/5 {
   border-color: #e5e7eb !important;
 }
 
 /* Input / select (dashboard dark inputs) */
-html[data-theme="light"] input[type="text"].bg-slate-800,
-html[data-theme="light"] input[type="date"].bg-slate-800,
-html[data-theme="light"] input[type="number"].bg-slate-800,
-html[data-theme="light"] input[type="email"].bg-slate-800,
-html[data-theme="light"] input[type="tel"].bg-slate-800,
-html[data-theme="light"] input[type="password"].bg-slate-800,
-html[data-theme="light"] input[type="search"].bg-slate-800,
-html[data-theme="light"] textarea.bg-slate-800,
-html[data-theme="light"] select.bg-slate-800 {
+html[data-theme="light"] [data-shell="staff"] input[type="text"].bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] input[type="date"].bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] input[type="number"].bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] input[type="email"].bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] input[type="tel"].bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] input[type="password"].bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] input[type="search"].bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] textarea.bg-slate-800,
+html[data-theme="light"] [data-shell="staff"] select.bg-slate-800 {
   background: #ffffff !important;
   color: #0f172a !important;
 }
 
 /* Table hover/zebra */
-html[data-theme="light"] .hover\:bg-slate-800:hover,
-html[data-theme="light"] .hover\:bg-white\/5:hover {
+html[data-theme="light"] [data-shell="staff"] .hover\:bg-slate-800:hover,
+html[data-theme="light"] [data-shell="staff"] .hover\:bg-white\/5:hover {
   background: #f1f5f9 !important;
 }
 
 /* Sidebar active/hover states */
-html[data-theme="light"] .hover\:bg-white\/5:hover {
+html[data-theme="light"] [data-shell="staff"] .hover\:bg-white\/5:hover {
   background: #f1f5f9 !important;
 }
 
 /* Backdrop blur on topbar becomes solid white */
-html[data-theme="light"] .backdrop-blur-xl {
+html[data-theme="light"] [data-shell="staff"] .backdrop-blur-xl {
   backdrop-filter: none;
 }
 
 /* Scrollbars in light mode */
-html[data-theme="light"] * {
+html[data-theme="light"] [data-shell="staff"] * {
   scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
 }
-html[data-theme="light"] *::-webkit-scrollbar-thumb {
+html[data-theme="light"] [data-shell="staff"] *::-webkit-scrollbar-thumb {
   background-color: rgba(148, 163, 184, 0.6);
 }
 
