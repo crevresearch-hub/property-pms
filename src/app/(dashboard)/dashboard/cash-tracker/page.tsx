@@ -8,6 +8,7 @@ import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
 import { Banknote, Wallet, ArrowRight, CheckCircle, Plus, ExternalLink, Upload } from "lucide-react"
 import { TrackerTabs } from "@/components/ui/tracker-tabs"
+import { HelpPanel } from "@/components/ui/help-panel"
 
 interface Unit {
   id: string
@@ -246,6 +247,78 @@ export default function CashTrackerPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <HelpPanel
+            title="Cash Tracker — How it works"
+            sections={[
+              {
+                title: "What this page does",
+                body: (
+                  <p>Tracks every tenant who pays in cash or by direct bank transfer (no post-dated cheques on file). For each tenant, you can see how much has been collected, how much was verified by the owner, and what is still pending — all backed by deposit slips on record.</p>
+                ),
+              },
+              {
+                title: "The workflow (roles)",
+                body: (
+                  <ol className="list-decimal pl-5 space-y-1.5">
+                    <li><strong>Tenant</strong> hands cash to PMS staff (or wires it to the office account).</li>
+                    <li><strong>PMS staff / Accountant</strong> physically deposits the cash into the owner&rsquo;s bank account at the branch — they get a stamped slip.</li>
+                    <li>Click <strong>+ Record Cash</strong> on the tenant&rsquo;s card. Enter amount, source, owner, bank, deposit date, reference #, and <strong>upload the slip (mandatory)</strong>.</li>
+                    <li>Save → the system emails the <strong>owner</strong> with all details + a portal link.</li>
+                    <li>Owner checks their bank statement, confirms the credit, and the deposit can be marked <strong>Verified by Owner</strong> in <em>Cash Deposits</em>.</li>
+                  </ol>
+                ),
+              },
+              {
+                title: "KPI tiles at top",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Cash-Paying Tenants</strong> — how many tenants are paying without cheques</li>
+                    <li><strong>Collected / Deposited</strong> — total cash already deposited into owner accounts</li>
+                    <li><strong>Verified by Owner</strong> — slice of the above where the owner has confirmed receipt</li>
+                    <li><strong>Pending Balance</strong> — annual rent still outstanding across all cash tenants (and how many are fully paid)</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "What &rdquo;source&ldquo; means",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Rent</strong> — monthly / quarterly rent payment</li>
+                    <li><strong>Upfront</strong> — first installment paid alongside contract signing</li>
+                    <li><strong>Security Deposit</strong> — refundable deposit (kept separate)</li>
+                    <li><strong>Admin / Ejari Fees</strong> — Ejari + Admin / Commission fees</li>
+                    <li><strong>Other</strong> — anything else (top-up, late fee, etc.)</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Why the receipt is mandatory",
+                body: (
+                  <p>Every record is an accountability proof — the slip ties cash that left the tenant&rsquo;s hands to a deposit confirmation from the bank. Without it, neither the owner nor an auditor can trust the entry. The slip is shown to the owner in their portal so they can verify against their bank statement.</p>
+                ),
+              },
+              {
+                title: "Card colors",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>💵 Cash Paid</strong> (green pill) — tenant pays in cash, has at least one deposit logged</li>
+                    <li><strong>✓ Fully Paid</strong> (emerald pill) — total collected ≥ annual rent</li>
+                    <li>Tile colors: white = expected · green = collected · blue = verified · amber = pending</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Tips",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Use the search bar to jump to a unit number or tenant by name.</li>
+                    <li>Use <strong>With Pending</strong> filter at month-end to chase outstanding rent.</li>
+                    <li>Use <strong>All Deposits</strong> button (or the Cash Deposits sidebar tab) for the full chronological list across every tenant.</li>
+                  </ul>
+                ),
+              },
+            ]}
+          />
           <Link
             href="/dashboard/cash-deposits"
             className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700"

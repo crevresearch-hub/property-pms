@@ -9,6 +9,7 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
 import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle, FileText, Upload } from "lucide-react"
 import { TrackerTabs } from "@/components/ui/tracker-tabs"
+import { HelpPanel } from "@/components/ui/help-panel"
 
 interface CashDeposit {
   id: string
@@ -268,12 +269,86 @@ export default function CashDepositsPage() {
             Accounting team logs cash deposited into the owner&rsquo;s bank account. The owner is notified by email so they can verify on their statement.
           </p>
         </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
-        >
-          <Plus className="h-4 w-4" /> Record Deposit
-        </button>
+        <div className="flex items-center gap-2">
+          <HelpPanel
+            title="Cash Deposits — How it works"
+            sections={[
+              {
+                title: "What this page is for",
+                body: (
+                  <p>The accounting team logs every cash deposit they make from tenant payments into the property owner&rsquo;s bank account. Each row is a paper trail that the owner can verify against their bank statement, with the deposit slip attached as proof.</p>
+                ),
+              },
+              {
+                title: "End-to-end workflow",
+                body: (
+                  <ol className="list-decimal pl-5 space-y-1.5">
+                    <li>Tenant pays the office in cash (or wires to the office account).</li>
+                    <li>Accountant takes the cash to the bank and deposits it into the owner&rsquo;s account → gets a stamped slip.</li>
+                    <li>Click <strong>+ Record Deposit</strong>, fill in the form, <strong>upload the slip (mandatory)</strong>.</li>
+                    <li>Save → owner instantly receives:
+                      <ul className="list-disc pl-5 mt-1">
+                        <li>📧 An email with all deposit details + a portal link</li>
+                        <li>🔔 An in-app notification in their owner portal</li>
+                      </ul>
+                    </li>
+                    <li>Owner cross-checks their bank statement.</li>
+                    <li>Once confirmed, click the green ✓ icon to mark <strong>Verified by Owner</strong>.</li>
+                  </ol>
+                ),
+              },
+              {
+                title: "Required fields",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Amount</strong> — exact AED deposited at the bank</li>
+                    <li><strong>Deposit Date</strong> — when you physically deposited it</li>
+                    <li><strong>Deposit Slip</strong> — bank-stamped slip (PDF / JPG / PNG) — non-negotiable, the owner must be able to see it</li>
+                    <li>Owner, bank, account #, source tenant, and reference # are strongly recommended for traceability</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "KPI tiles",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Total Records</strong> — count of all deposits ever logged + total AED across all</li>
+                    <li><strong>Pending</strong> — records flagged Pending (rare; usually used when slip is being uploaded later)</li>
+                    <li><strong>Deposited</strong> — recorded but the owner hasn&rsquo;t confirmed yet</li>
+                    <li><strong>Verified by Owner</strong> — owner confirmed the bank credit ✓</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Status lifecycle",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Deposited</strong> (default) — accountant has recorded it; email out to owner</li>
+                    <li><strong>Verified</strong> — owner has confirmed the credit on their statement</li>
+                    <li><strong>Pending</strong> — uncommon; for cases where you saved a row but the slip wasn&rsquo;t uploaded yet (you should upload immediately)</li>
+                  </ul>
+                ),
+              },
+              {
+                title: "Tips & troubleshooting",
+                body: (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>The <strong>Slip</strong> column shows a blue &ldquo;View&rdquo; pill — click to open the deposit slip in a new tab.</li>
+                    <li>Old rows that say &ldquo;Missing&rdquo; in red lost their slip in a migration; re-record them and re-attach.</li>
+                    <li>If the owner says &ldquo;I don&rsquo;t see it&rdquo;: check your bank reference # against their statement, then resend by deleting + re-adding (will re-trigger the email).</li>
+                    <li>Email won&rsquo;t deliver to non-account-owner addresses until the Resend domain (cre-me.com) is verified.</li>
+                  </ul>
+                ),
+              },
+            ]}
+          />
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+          >
+            <Plus className="h-4 w-4" /> Record Deposit
+          </button>
+        </div>
       </div>
 
       {error && (
