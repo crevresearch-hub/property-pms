@@ -1912,11 +1912,16 @@ function PaymentPlan({
         const firstCheque = sorted[0]
         let statusLabel = ''
         let statusClass = ''
-        if (method === 'Cash' && upfront.cash > 0) {
-          statusLabel = '✓ Received (Cash)'
-          statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200'
-        } else if (method === 'Cheque' && upfront.chequeAmount > 0 && firstCheque) {
-          const s = firstCheque.status
+        if (method === 'Cash') {
+          if (upfront.cash > 0) {
+            statusLabel = '✓ Received (Cash)'
+            statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200'
+          } else {
+            statusLabel = '⌛ Awaiting Cash'
+            statusClass = 'bg-slate-100 text-slate-600 border-slate-200'
+          }
+        } else if (method === 'Cheque') {
+          const s = firstCheque?.status || 'Pending'
           if (s === 'Cleared') { statusLabel = '✓ Cleared'; statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200' }
           else if (s === 'Bounced') { statusLabel = '✕ Bounced'; statusClass = 'bg-red-100 text-red-700 border-red-200' }
           else if (s === 'Deposited') { statusLabel = '🏦 Deposited (waiting bank)'; statusClass = 'bg-blue-100 text-blue-700 border-blue-200' }
@@ -2897,10 +2902,15 @@ function ChequeStatusPill({
 }) {
   let label = ''
   let cls = ''
-  if (method === 'Cash' && cash > 0) {
-    label = '✓ Received (Cash)'
-    cls = 'bg-emerald-100 text-emerald-700 border-emerald-200'
-  } else if (method === 'Cheque' && chequeAmount > 0) {
+  if (method === 'Cash') {
+    if (cash > 0) {
+      label = '✓ Received (Cash)'
+      cls = 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    } else {
+      label = '⌛ Awaiting Cash'
+      cls = 'bg-slate-100 text-slate-600 border-slate-200'
+    }
+  } else if (method === 'Cheque') {
     const s: ChequeLifecycle = status || 'Pending'
     if (s === 'Cleared') { label = '✓ Cleared'; cls = 'bg-emerald-100 text-emerald-700 border-emerald-200' }
     else if (s === 'Bounced') { label = '✕ Bounced'; cls = 'bg-red-100 text-red-700 border-red-200' }
