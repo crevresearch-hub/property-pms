@@ -280,7 +280,7 @@ export default function CashTrackerPage() {
                 ),
               },
               {
-                title: "What &rdquo;source&ldquo; means",
+                title: "What “source” means",
                 body: (
                   <ul className="list-disc pl-5 space-y-1">
                     <li><strong>Rent</strong> — monthly / quarterly rent payment</li>
