@@ -6,6 +6,7 @@ import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
 import { HelpPanel } from "@/components/ui/help-panel"
+import { TrackerTabs } from "@/components/ui/tracker-tabs"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import {
   CreditCard,
@@ -242,6 +243,7 @@ export default function ChequesPage() {
 
   return (
     <div className="space-y-6">
+      <TrackerTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Cheque Tracker</h1>

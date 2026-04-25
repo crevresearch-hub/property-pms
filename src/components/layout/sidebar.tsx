@@ -62,9 +62,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Units", href: "/dashboard/units", icon: Building2 },
       { label: "Tenants & Agreements", href: "/dashboard/tenants", icon: Users },
-      { label: "Cheque Tracker", href: "/dashboard/cheques", icon: BookCheck },
-      { label: "Cash Tracker", href: "/dashboard/cash-tracker", icon: BadgeDollarSign },
-      { label: "Cash Deposits", href: "/dashboard/cash-deposits", icon: BadgeDollarSign },
+      { label: "Cheque & Cash Tracker", href: "/dashboard/cheques", icon: BookCheck },
       { label: "Bank Reconciliation", href: "/dashboard/reconciliation", icon: BookCheck },
       { label: "Renewals", href: "/dashboard/renewals", icon: RefreshCw },
       { label: "Invoices", href: "/dashboard/invoices", icon: FileText },
@@ -130,6 +128,14 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed, onCollapsedChang
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard"
+    // Combined "Cheque & Cash Tracker" entry highlights for all three sibling pages.
+    if (href === "/dashboard/cheques") {
+      return (
+        pathname.startsWith("/dashboard/cheques") ||
+        pathname.startsWith("/dashboard/cash-tracker") ||
+        pathname.startsWith("/dashboard/cash-deposits")
+      )
+    }
     return pathname.startsWith(href)
   }
 

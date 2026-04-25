@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
 import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { TrackerTabs } from "@/components/ui/tracker-tabs"
 
 interface CashDeposit {
   id: string
@@ -225,6 +226,7 @@ export default function CashDepositsPage() {
 
   return (
     <div className="space-y-6">
+      <TrackerTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Cash Deposits</h1>

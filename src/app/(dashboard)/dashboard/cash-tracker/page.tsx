@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/utils"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
 import { Banknote, Wallet, ArrowRight, CheckCircle, Plus, ExternalLink } from "lucide-react"
+import { TrackerTabs } from "@/components/ui/tracker-tabs"
 
 interface Unit {
   id: string
@@ -222,6 +223,7 @@ export default function CashTrackerPage() {
 
   return (
     <div className="space-y-6">
+      <TrackerTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Cash Tracker</h1>
