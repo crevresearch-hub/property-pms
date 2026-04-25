@@ -1142,17 +1142,27 @@ function ChequeUnitCards({
                   {g.cheques.map((c) => {
                     const isUpfront = c.paymentType === "Upfront"
                     const isOverdue = c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced"
+                    // Cash payments: bankName === "Cash" or no cheque number means it was settled in cash.
+                    // Show "Cash" channel and remap a Cleared status to "Received" (cash is in hand, no bank cycle).
+                    const isCashPayment = (c.bankName || "").toLowerCase() === "cash" || (isUpfront && !c.chequeNo)
+                    const displayStatus = isCashPayment && c.status === "Cleared" ? "Received" : c.status
                     return (
                       <tr key={c.id} className={`border-t border-slate-800 ${isOverdue ? "bg-red-500/5" : ""}`}>
                         <td className="px-2 py-1.5">
                           {fmtDateOnly(c.chequeDate)}
                           {isUpfront && <span className="ml-1 text-[9px] text-blue-400">UPFRONT</span>}
                         </td>
-                        <td className="px-2 py-1.5">{isUpfront && !c.chequeNo ? "Cash" : "Cheque"}</td>
+                        <td className="px-2 py-1.5">
+                          {isCashPayment ? (
+                            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">💵 Cash</span>
+                          ) : (
+                            <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">📝 Cheque</span>
+                          )}
+                        </td>
                         <td className="px-2 py-1.5 font-mono">{c.chequeNo || "—"}</td>
                         <td className="px-2 py-1.5">{c.bankName || "—"}</td>
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(c.amount)}</td>
-                        <td className="px-2 py-1.5"><StatusBadge status={c.status} /></td>
+                        <td className="px-2 py-1.5"><StatusBadge status={displayStatus} /></td>
                         <td className="px-2 py-1.5">
                           <div className="flex justify-end gap-1.5">
                             {c.status === "Bounced" && (
