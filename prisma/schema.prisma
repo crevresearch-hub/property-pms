@@ -365,7 +365,8 @@ model CashDeposit {
   depositedBy       String       @default("")   // staff name (from session)
   depositedAt       String       @default("")   // YYYY-MM-DD when physically deposited
   status            String       @default("Deposited") // Pending | Deposited | Verified
-  slipDocType       String       @default("")   // tenant-doc docType for slip image
+  slipPath          String       @default("")   // disk/blob path of the deposit slip
+  slipFilename      String       @default("")   // original filename for display
   notes             String       @default("")
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt

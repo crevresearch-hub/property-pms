@@ -32,7 +32,6 @@ export async function PUT(
     if (body.referenceNo !== undefined) data.referenceNo = body.referenceNo
     if (body.depositedAt !== undefined) data.depositedAt = body.depositedAt
     if (body.status !== undefined) data.status = body.status
-    if (body.slipDocType !== undefined) data.slipDocType = body.slipDocType
     if (body.notes !== undefined) data.notes = body.notes
 
     const updated = await prisma.cashDeposit.update({ where: { id }, data })

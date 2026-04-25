@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
         depositedBy: body.depositedBy || session.user.name || '',
         depositedAt: body.depositedAt,
         status: body.status || 'Deposited',
-        slipDocType: body.slipDocType || '',
         notes: body.notes || '',
       },
     })
@@ -68,8 +67,7 @@ export async function POST(request: NextRequest) {
       `AED ${amount.toLocaleString()} ${body.cashSource ? `(${body.cashSource})` : ''} → ${body.ownerName || 'owner'} · ref ${body.referenceNo || '—'}`
     )
 
-    // Notify the owner by email + in-app notification (only when explicitly
-    // opted-in by the accountant, default true).
+    // Notify the owner by email + in-app notification (default true).
     const notifyOwner = body.notifyOwner !== false
     if (notifyOwner && body.ownerId) {
       const owner = await prisma.propertyOwner.findFirst({

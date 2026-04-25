@@ -7,7 +7,7 @@ import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { UaeBankInput } from "@/components/ui/uae-bank-input"
-import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { Plus, Trash2, Banknote, CheckCircle, Clock, AlertCircle, FileText, Upload } from "lucide-react"
 import { TrackerTabs } from "@/components/ui/tracker-tabs"
 
 interface CashDeposit {
@@ -25,6 +25,8 @@ interface CashDeposit {
   depositedBy: string
   depositedAt: string
   status: string
+  slipPath?: string
+  slipFilename?: string
   notes: string
   createdAt: string
   [key: string]: unknown
@@ -69,6 +71,7 @@ export default function CashDepositsPage() {
   const [error, setError] = useState("")
   const [addOpen, setAddOpen] = useState(false)
   const [form, setForm] = useState(defaultForm)
+  const [slipFile, setSlipFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
 
   const loadAll = useCallback(async () => {
@@ -94,6 +97,7 @@ export default function CashDepositsPage() {
     setError("")
     if (!form.amount || parseFloat(form.amount) <= 0) { setError("Enter a valid amount"); return }
     if (!form.depositedAt) { setError("Deposit date is required"); return }
+    if (!slipFile) { setError("Deposit slip is required — please attach the bank slip image or PDF"); return }
     setSaving(true)
     try {
       const res = await fetch("/api/cash-deposits", {
@@ -105,8 +109,20 @@ export default function CashDepositsPage() {
         const e = await res.json().catch(() => ({}))
         throw new Error(e.error || "Failed")
       }
+      const created: CashDeposit = await res.json()
+
+      // Upload slip (mandatory)
+      const fd = new FormData()
+      fd.append('file', slipFile)
+      const slipRes = await fetch(`/api/cash-deposits/${created.id}/slip`, { method: 'POST', body: fd })
+      if (!slipRes.ok) {
+        const e = await slipRes.json().catch(() => ({}))
+        throw new Error(e.error || "Slip upload failed; deposit was saved but slip is missing.")
+      }
+
       setAddOpen(false)
       setForm(defaultForm)
+      setSlipFile(null)
       await loadAll()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed")
@@ -185,6 +201,23 @@ export default function CashDepositsPage() {
       ),
     },
     { key: "referenceNo", header: "Ref #", render: (r) => <span className="font-mono text-xs">{r.referenceNo || "—"}</span> },
+    {
+      key: "slip",
+      header: "Slip",
+      render: (r) => r.slipPath
+        ? (
+          <a
+            href={`/api/cash-deposits/${r.id}/slip`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded bg-blue-900/40 px-2 py-1 text-[10px] font-medium text-blue-300 hover:bg-blue-900/60"
+            title={r.slipFilename || "View slip"}
+          >
+            <FileText className="h-3 w-3" /> View
+          </a>
+        )
+        : <span className="text-[10px] text-red-400">Missing</span>,
+    },
     { key: "depositedBy", header: "Staff", render: (r) => r.depositedBy || "—" },
     {
       key: "status",
@@ -273,7 +306,7 @@ export default function CashDepositsPage() {
         footer={
           <>
             <ModalCancelButton />
-            <ModalSaveButton onClick={handleAdd} disabled={saving || !form.amount || !form.depositedAt}>
+            <ModalSaveButton onClick={handleAdd} disabled={saving || !form.amount || !form.depositedAt || !slipFile}>
               {saving ? "Saving..." : "Save"}
             </ModalSaveButton>
           </>
@@ -353,6 +386,31 @@ export default function CashDepositsPage() {
             <div>
               <label className={labelCls}>Bank Reference # <span className="text-slate-500">(deposit slip)</span></label>
               <input type="text" value={form.referenceNo} onChange={(e) => setForm({ ...form, referenceNo: e.target.value })} placeholder="e.g. DEP-2026-00123" className={inputCls} />
+            </div>
+            <div className="col-span-2">
+              <label className={labelCls}>Deposit Slip <span className="text-red-400">*</span> <span className="text-slate-500 font-normal normal-case">(PDF / JPG / PNG)</span></label>
+              <label className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed p-3 transition-colors ${slipFile ? 'border-emerald-600 bg-emerald-900/10' : 'border-slate-700 bg-slate-800 hover:border-amber-500/50'}`}>
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  onChange={(e) => setSlipFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                <Upload className={`h-5 w-5 ${slipFile ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <div className="flex-1">
+                  {slipFile ? (
+                    <>
+                      <p className="text-sm font-medium text-emerald-300 truncate">✓ {slipFile.name}</p>
+                      <p className="text-[11px] text-emerald-400/70">{(slipFile.size / 1024).toFixed(1)} KB · click to replace</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-300">Click to attach the bank deposit slip</p>
+                      <p className="text-[11px] text-slate-500">Required so the owner can verify the deposit</p>
+                    </>
+                  )}
+                </div>
+              </label>
             </div>
             <div className="col-span-2">
               <label className={labelCls}>Notes</label>
