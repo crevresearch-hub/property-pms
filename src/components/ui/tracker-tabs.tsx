@@ -2,12 +2,11 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookCheck, Banknote, Wallet } from "lucide-react"
+import { BookCheck, Wallet } from "lucide-react"
 
 const TABS = [
   { href: "/dashboard/cheques", label: "Cheque Tracker", icon: BookCheck },
   { href: "/dashboard/cash-tracker", label: "Cash Tracker", icon: Wallet },
-  { href: "/dashboard/cash-deposits", label: "Cash Deposits", icon: Banknote },
 ]
 
 export function TrackerTabs() {
