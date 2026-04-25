@@ -1032,6 +1032,7 @@ function serializeUpfront(notes: string | undefined | null, data: UpfrontData): 
   return [cleaned, UPFRONT_PREFIX + JSON.stringify(data)].filter(Boolean).join('\n')
 }
 
+type ChequeLifecycle = '' | 'Pending' | 'Deposited' | 'Cleared' | 'Bounced'
 interface DepositData {
   method: 'Cash' | 'Cheque' | ''
   cash: number
@@ -1040,6 +1041,11 @@ interface DepositData {
   bankName: string
   chequeDate: string
   receivedAt?: string
+  chequeStatus?: ChequeLifecycle
+  depositedDate?: string
+  clearedDate?: string
+  bouncedDate?: string
+  bouncedReason?: string
 }
 const DEPOSIT_PREFIX = 'DEPOSIT_JSON:'
 function parseDeposit(notes: string | undefined | null): DepositData {
@@ -1067,6 +1073,11 @@ interface FeesData {
   bankName: string
   chequeDate: string
   receivedAt?: string
+  chequeStatus?: ChequeLifecycle
+  depositedDate?: string
+  clearedDate?: string
+  bouncedDate?: string
+  bouncedReason?: string
 }
 const FEES_PREFIX = 'FEES_JSON:'
 function parseFees(notes: string | undefined | null): FeesData {
@@ -1520,26 +1531,22 @@ function PaymentPlan({
       {(contract.securityDeposit || 0) > 0 && (() => {
         const expected = contract.securityDeposit || 0
         const received = deposit.method === 'Cash' ? deposit.cash : deposit.method === 'Cheque' ? deposit.chequeAmount : 0
-        const ok = received > 0 && received === expected
         return (
           <div className="px-6 pt-5">
             <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold">🛡</span>
                     <h3 className="text-sm font-semibold text-purple-900">Security Deposit</h3>
                     <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
                       {(contract.contractType || '').toLowerCase() === 'commercial' ? '10% of rent' : '5% of rent'}
                     </span>
-                    {ok && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                        ✓ Received
-                      </span>
-                    )}
+                    <ChequeStatusPill method={deposit.method} cash={deposit.cash} chequeAmount={deposit.chequeAmount} status={deposit.chequeStatus} />
                   </div>
                   <p className="mt-1 text-[11px] text-purple-700">
                     Refundable at lease end. Held separately from rent.
+                    {deposit.method === 'Cheque' && ' Use the buttons below to track when the cheque is deposited / cleared / bounced.'}
                   </p>
                 </div>
                 <div className="text-right">
@@ -1678,6 +1685,27 @@ function PaymentPlan({
                   </button>
                 </div>
               )}
+
+              {/* Cheque lifecycle actions — only for Cheque method, after a deposit save */}
+              {deposit.method === 'Cheque' && deposit.chequeAmount > 0 && !depositDirty && (
+                <div className="mt-3 border-t border-purple-200 pt-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-purple-600">Cheque Lifecycle</p>
+                  <ChequeLifecycleButtons
+                    status={deposit.chequeStatus}
+                    onChange={async (next, extra) => {
+                      const updated = { ...deposit, chequeStatus: next, ...extra }
+                      setDeposit(updated)
+                      const newNotes = serializeDeposit(contract.notes, updated)
+                      await fetch(`/api/tenancy-contracts/${contract.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ notes: newNotes }),
+                      })
+                      onChange()
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )
@@ -1691,26 +1719,22 @@ function PaymentPlan({
         const commVat = Math.round(comm * 0.05)
         const expected = comm + commVat + ejari
         const received = fees.method === 'Cash' ? fees.cash : fees.method === 'Cheque' ? fees.chequeAmount : 0
-        const ok = received > 0 && received === expected
         return (
           <div className="px-6 pt-5">
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-white text-xs font-bold">💼</span>
                     <h3 className="text-sm font-semibold text-amber-900">Admin + Ejari Fees</h3>
-                    {ok && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                        ✓ Received
-                      </span>
-                    )}
+                    <ChequeStatusPill method={fees.method} cash={fees.cash} chequeAmount={fees.chequeAmount} status={fees.chequeStatus} />
                   </div>
                   <p className="mt-1 text-[11px] text-amber-800">
                     Admin / Commission {comm ? `AED ${comm.toLocaleString()}` : '—'}
                     {commVat ? ` (+ VAT ${commVat.toLocaleString()})` : isCommercial ? '' : ''}
                     {' · '}
                     Ejari {ejari ? `AED ${ejari.toLocaleString()}` : '—'}
+                    {fees.method === 'Cheque' && ' · use the buttons below to track Deposited / Cleared / Bounced.'}
                   </p>
                 </div>
                 <div className="text-right">
@@ -1846,6 +1870,27 @@ function PaymentPlan({
                   >
                     {savingFees ? 'Saving…' : feesDirty ? 'Save Fees' : 'Saved ✓'}
                   </button>
+                </div>
+              )}
+
+              {/* Cheque lifecycle actions — only for Cheque method, after a fees save */}
+              {fees.method === 'Cheque' && fees.chequeAmount > 0 && !feesDirty && (
+                <div className="mt-3 border-t border-amber-200 pt-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-700">Cheque Lifecycle</p>
+                  <ChequeLifecycleButtons
+                    status={fees.chequeStatus}
+                    onChange={async (next, extra) => {
+                      const updated = { ...fees, chequeStatus: next, ...extra }
+                      setFees(updated)
+                      const newNotes = serializeFees(contract.notes, updated)
+                      await fetch(`/api/tenancy-contracts/${contract.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ notes: newNotes }),
+                      })
+                      onChange()
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -2833,6 +2878,90 @@ function ContractRow({
           <Upload className="h-3 w-3" /> Upload Signed
         </button>
       </div>
+    </div>
+  )
+}
+
+// Reusable status pill for cheque-based payments (Security Deposit / Fees / Upfront).
+// Cash → ✓ Received. Cheque → Pending → 🏦 Deposited → ✓ Cleared / ✕ Bounced.
+function ChequeStatusPill({
+  method,
+  cash,
+  chequeAmount,
+  status,
+}: {
+  method: 'Cash' | 'Cheque' | ''
+  cash: number
+  chequeAmount: number
+  status?: ChequeLifecycle
+}) {
+  let label = ''
+  let cls = ''
+  if (method === 'Cash' && cash > 0) {
+    label = '✓ Received (Cash)'
+    cls = 'bg-emerald-100 text-emerald-700 border-emerald-200'
+  } else if (method === 'Cheque' && chequeAmount > 0) {
+    const s: ChequeLifecycle = status || 'Pending'
+    if (s === 'Cleared') { label = '✓ Cleared'; cls = 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+    else if (s === 'Bounced') { label = '✕ Bounced'; cls = 'bg-red-100 text-red-700 border-red-200' }
+    else if (s === 'Deposited') { label = '🏦 Deposited (waiting bank)'; cls = 'bg-blue-100 text-blue-700 border-blue-200' }
+    else { label = '⌛ Pending (waiting deposit)'; cls = 'bg-amber-100 text-amber-700 border-amber-200' }
+  }
+  if (!label) return null
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  )
+}
+
+// Three-button cheque-lifecycle actions: Deposit / Clear / Reject.
+// Mirrors the PDC tab buttons. The host card persists the new status into its notes JSON.
+function ChequeLifecycleButtons({
+  status,
+  onChange,
+}: {
+  status?: ChequeLifecycle
+  onChange: (next: ChequeLifecycle, extra: Partial<{ depositedDate: string; clearedDate: string; bouncedDate: string; bouncedReason: string }>) => void | Promise<void>
+}) {
+  const todayStr = () => new Date().toISOString().slice(0, 10)
+  const current: ChequeLifecycle = status || 'Pending'
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => onChange('Deposited', { depositedDate: todayStr() })}
+        disabled={current === 'Deposited' || current === 'Cleared' || current === 'Bounced'}
+        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+          current === 'Deposited'
+            ? 'border border-blue-300 bg-blue-600 text-white'
+            : 'border border-blue-300 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-40'
+        }`}
+      >🏦 Deposit</button>
+      <button
+        type="button"
+        onClick={() => onChange('Cleared', { clearedDate: todayStr() })}
+        disabled={current === 'Cleared'}
+        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+          current === 'Cleared'
+            ? 'border border-emerald-300 bg-emerald-600 text-white'
+            : 'border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-40'
+        }`}
+      >✓ Clear</button>
+      <button
+        type="button"
+        onClick={() => {
+          const reason = prompt('Reason for rejection / bounce:') || ''
+          if (!reason.trim()) return
+          onChange('Bounced', { bouncedDate: todayStr(), bouncedReason: reason })
+        }}
+        disabled={current === 'Bounced'}
+        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+          current === 'Bounced'
+            ? 'border border-red-300 bg-red-600 text-white'
+            : 'border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:opacity-40'
+        }`}
+      >✕ Reject</button>
     </div>
   )
 }
