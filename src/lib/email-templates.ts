@@ -540,7 +540,6 @@ export function tenancyContractGeneratedTemplate(
   const rent = contract.rentAmount || 0
   const sec = contract.securityDeposit || 0
   const ejari = contract.ejariFee || 0
-  const mun = contract.municipalityFee || 0
   const comm = contract.commissionFee || 0
   const isCommercial = (contract.contractType || '').toLowerCase() === 'commercial'
   const rentVat = isCommercial ? Math.round(rent * 0.05) : 0
@@ -551,7 +550,6 @@ export function tenancyContractGeneratedTemplate(
   ]
   if (comm) summaryRows.push({ label: 'Admin / Commission Fee', base: comm, vat: commVat })
   if (ejari) summaryRows.push({ label: 'Ejari Fee', base: ejari, vat: 0 })
-  if (mun) summaryRows.push({ label: 'Municipality Fee', base: mun, vat: 0 })
   const summary = paymentSummaryTable(summaryRows)
   const bodyHtml = `
     <p style="margin:0 0 14px 0;">Dear ${esc(tenant.name)},</p>

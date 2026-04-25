@@ -1472,6 +1472,23 @@ function PaymentPlan({
                   <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-slate-900">AED {grand.toLocaleString()}</td>
                 </tr>
                 {(() => {
+                  // First Total Amount = Security Deposit + Admin/Commission (+VAT) + Ejari + first cheque (+VAT for commercial)
+                  const firstChequeAmt = sorted[0]?.amount || (numCheq > 0 ? Math.round(rent / numCheq) : 0)
+                  const firstChequeVat = isCommercial ? Math.round(firstChequeAmt * 0.05) : 0
+                  const firstTotal = sec + comm + commVat + ejari + firstChequeAmt + firstChequeVat
+                  if (firstTotal <= 0) return null
+                  return (
+                    <tr className="bg-[#E30613]/10">
+                      <td colSpan={3} className="px-4 py-3 text-sm font-bold text-[#E30613]">
+                        First Total Amount <span className="text-[10px] font-normal opacity-80">(Security Deposit + Admin + Ejari + 1st Cheque{isCommercial ? " + VAT" : ""})</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-base font-bold text-[#E30613]">
+                        AED {firstTotal.toLocaleString()}
+                      </td>
+                    </tr>
+                  )
+                })()}
+                {(() => {
                   const depositReceived = deposit.method === 'Cash' ? deposit.cash : deposit.method === 'Cheque' ? deposit.chequeAmount : 0
                   const feesReceived = fees.method === 'Cash' ? fees.cash : fees.method === 'Cheque' ? fees.chequeAmount : 0
                   const totalReceived = depositReceived + feesReceived + upfrontTotal

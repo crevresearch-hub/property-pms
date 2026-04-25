@@ -791,7 +791,7 @@ export default function NewTenantPage() {
                   </tr>
                   <tr className="bg-[#E30613]/10">
                     <td colSpan={3} className="px-4 py-3 text-sm font-bold text-[#E30613]">
-                      UPFRONT (1st Cheque + Deposits + Fees + VAT{parkingFee > 0 ? " + Parking" : ""})
+                      First Total Amount <span className="text-[10px] font-normal opacity-80">(Security Deposit + Admin + Ejari + 1st Cheque{parkingFee > 0 ? " + Parking" : ""} + VAT)</span>
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-base font-bold text-[#E30613]">
                       AED {upfront.toLocaleString()}

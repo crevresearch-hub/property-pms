@@ -977,11 +977,7 @@ export default function TenantsPage() {
           <input type="number" value={contractForm.ejariFee} onChange={(e) => setContractForm({ ...contractForm, ejariFee: Number(e.target.value) })} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Municipality Fee</label>
-          <input type="number" value={contractForm.municipalityFee} onChange={(e) => setContractForm({ ...contractForm, municipalityFee: Number(e.target.value) })} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Commission Fee (AED)</label>
+          <label className={labelCls}>Admin / Commission Fee (AED)</label>
           <input type="number" value={contractForm.commissionFee} onChange={(e) => setContractForm({ ...contractForm, commissionFee: Number(e.target.value) })} className={inputCls} />
         </div>
         <div>
@@ -1519,9 +1515,12 @@ export default function TenantsPage() {
                     }
                     const securityDeposit = pick(/Security Deposit:\s*AED\s*([\d,.]+)/i)
                     const ejariFee = pick(/Ejari\s*Fee:?\s*AED\s*([\d,.]+)/i)
-                    const municipalityFee = pick(/Municipality\s*Fee:?\s*AED\s*([\d,.]+)/i)
                     const commissionFee = pick(/Commission:?\s*AED\s*([\d,.]+)/i)
                     const adminFee = pick(/Admin\s*Fee:?\s*AED\s*([\d,.]+)/i)
+                    const numCheq = u.currentRent && Number(u.currentRent) > 0 ? 4 : 0
+                    const firstCheque = numCheq > 0 ? Math.round(Number(u.currentRent) / numCheq) : 0
+                    const parseAed = (s: string) => Number(String(s).replace(/[^\d.]/g, '')) || 0
+                    const firstTotal = parseAed(securityDeposit || '') + parseAed(ejariFee || '') + parseAed(adminFee || '') + parseAed(commissionFee || '') + firstCheque
                     const dewaNo = pick(/DEWA\s*Premise\s*No:?\s*(\S+)/i)
                     const buildingName = pick(/Building:?\s*([^\n]+?)$/im)
                     const ejariContract = pick(/Ejari\s*Contract\s*No:?\s*(\S+)/i)
@@ -1554,7 +1553,7 @@ export default function TenantsPage() {
                         </div>
 
                         {/* Fees row (only shows filled fees) */}
-                        {(securityDeposit || ejariFee || municipalityFee || commissionFee || adminFee) && (
+                        {(securityDeposit || ejariFee || commissionFee || adminFee) && (
                           <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
                             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Fees &amp; Deposit</p>
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 text-xs">
@@ -1564,9 +1563,6 @@ export default function TenantsPage() {
                               {ejariFee && (
                                 <div><span className="text-slate-500">Ejari Fee:</span> <span className="ml-1 text-white">AED {ejariFee}</span></div>
                               )}
-                              {municipalityFee && (
-                                <div><span className="text-slate-500">Municipality Fee:</span> <span className="ml-1 text-white">AED {municipalityFee}</span></div>
-                              )}
                               {adminFee && (
                                 <div><span className="text-slate-500">Admin Fee:</span> <span className="ml-1 text-white">AED {adminFee}</span></div>
                               )}
@@ -1574,6 +1570,12 @@ export default function TenantsPage() {
                                 <div><span className="text-slate-500">Commission:</span> <span className="ml-1 text-white">AED {commissionFee}</span></div>
                               )}
                             </div>
+                            {firstTotal > 0 && (
+                              <div className="mt-3 rounded-lg border border-[#E30613]/30 bg-[#E30613]/10 px-3 py-2 flex items-center justify-between">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-[#E30613]">First Total Amount</span>
+                                <span className="text-base font-bold text-[#E30613]">AED {firstTotal.toLocaleString()}</span>
+                              </div>
+                            )}
                           </div>
                         )}
 
