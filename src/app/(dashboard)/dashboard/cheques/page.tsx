@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge"
 import { Modal, ModalCancelButton, ModalSaveButton } from "@/components/ui/modal"
 import { HelpPanel } from "@/components/ui/help-panel"
 import { TrackerTabs } from "@/components/ui/tracker-tabs"
+import { UaeBankInput } from "@/components/ui/uae-bank-input"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import {
   CreditCard,
@@ -726,10 +727,13 @@ function ChequeFilters({
   )
 }
 
+type ReverseSubtype = "" | "ReplacementCash" | "ReplacementCheque" | "Bounced" | "Partial"
 type ChequeAction =
   | { type: "deposit"; cheque: ChequeRow }
   | { type: "clear"; cheque: ChequeRow }
-  | { type: "reject"; cheque: ChequeRow }
+  | { type: "reverse"; cheque: ChequeRow }
+  // Bounce-collection: when a cheque is already Bounced, "Reverse" jumps straight to collecting full amount.
+  | { type: "bounce-collect"; cheque: ChequeRow }
 
 type ContractLite = {
   id: string
@@ -774,6 +778,16 @@ function ChequeUnitCards({
   const [depositSlipFile, setDepositSlipFile] = useState<File | null>(null)
   const [clearDate, setClearDate] = useState("")
   const [busyAction, setBusyAction] = useState(false)
+  // Reverse-modal extras
+  const [reverseSubtype, setReverseSubtype] = useState<ReverseSubtype>("")
+  const [reverseAmount, setReverseAmount] = useState("")
+  const [reverseDate, setReverseDate] = useState("")
+  const [reverseChequeNo, setReverseChequeNo] = useState("")
+  const [reverseChequeBank, setReverseChequeBank] = useState("")
+  const [reverseChequeDate, setReverseChequeDate] = useState("")
+  const [reverseSlipFile, setReverseSlipFile] = useState<File | null>(null)
+  // Bounce-collection (after a cheque already bounced)
+  const [collectMethod, setCollectMethod] = useState<"" | "Cash" | "Cheque">("")
 
   const todayStr = () => new Date().toISOString().slice(0, 10)
   const resetActionState = () => {
@@ -784,6 +798,14 @@ function ChequeUnitCards({
     setDepositRemarks("")
     setDepositSlipFile(null)
     setClearDate("")
+    setReverseSubtype("")
+    setReverseAmount("")
+    setReverseDate("")
+    setReverseChequeNo("")
+    setReverseChequeBank("")
+    setReverseChequeDate("")
+    setReverseSlipFile(null)
+    setCollectMethod("")
   }
 
   const runAction = async () => {
@@ -795,7 +817,6 @@ function ChequeUnitCards({
           depositedDate: depositDate || todayStr(),
           depositRemarks,
         })
-        // Upload deposit slip (optional) as a tenant document tagged to this cheque.
         if (depositSlipFile && pendingAction.cheque.tenant?.id) {
           const fd = new FormData()
           fd.append('file', depositSlipFile)
@@ -805,11 +826,92 @@ function ChequeUnitCards({
         }
       } else if (pendingAction.type === "clear") {
         await updateStatus(pendingAction.cheque.id, "Cleared", { clearedDate: clearDate || todayStr() })
-      } else {
-        await updateStatus(pendingAction.cheque.id, "Bounced", {
-          bouncedReason: rejectReason,
-          bouncedDate: bouncedDate || todayStr(),
-        })
+      } else if (pendingAction.type === "reverse") {
+        const c = pendingAction.cheque
+        const date = reverseDate || todayStr()
+        const amt = parseFloat(reverseAmount || String(c.amount)) || c.amount
+        if (reverseSubtype === "ReplacementCash") {
+          // Old cheque settled by cash → mark Cleared, record reason as Replacement
+          await updateStatus(c.id, "Cleared", {
+            clearedDate: date,
+            chequeNo: "",
+            bankName: "Cash",
+            amount: String(amt),
+            bouncedReason: "Replaced by Cash",
+            paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
+          })
+        } else if (reverseSubtype === "ReplacementCheque") {
+          // Replace with new cheque details, restart cycle as Pending
+          await updateStatus(c.id, "Pending", {
+            chequeNo: reverseChequeNo,
+            bankName: reverseChequeBank,
+            chequeDate: reverseChequeDate || date,
+            amount: String(amt),
+            bouncedReason: "Replaced by new Cheque",
+            clearedDate: "",
+            depositedDate: "",
+            paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
+          })
+        } else if (reverseSubtype === "Bounced") {
+          await updateStatus(c.id, "Bounced", {
+            bouncedDate: date,
+            bouncedReason: rejectReason,
+          })
+        } else if (reverseSubtype === "Partial") {
+          // Partial collection: store collected amount in clearedDate slot via notes,
+          // and mark cheque as Partial; user can continue collecting.
+          const collectedSoFar = (typeof c.notes === "string" && c.notes.match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)?.[1]) || "0"
+          const newCollected = parseFloat(collectedSoFar) + amt
+          const remaining = (c.amount || 0) - newCollected
+          const newNotes = `${(c.notes || "").replace(/PARTIAL_COLLECTED:[^\n]*/g, "").trim()}\nPARTIAL_COLLECTED:${newCollected}`.trim()
+          const isFullyCollected = remaining <= 0
+          await updateStatus(c.id, isFullyCollected ? "Cleared" : "Partial", {
+            notes: newNotes,
+            ...(isFullyCollected ? { clearedDate: date } : {}),
+            ...(collectMethod === "Cash" ? { bankName: collectMethod === "Cash" ? "Cash" : (c.bankName || "") } : {}),
+          })
+        }
+        // Slip upload for cheque-replacement / partial-cheque
+        if (reverseSlipFile && pendingAction.cheque.tenant?.id) {
+          const fd = new FormData()
+          fd.append('file', reverseSlipFile)
+          fd.append('tenantId', pendingAction.cheque.tenant.id)
+          fd.append('docType', `Reverse-${reverseSubtype}-Cheque-${pendingAction.cheque.id}`)
+          await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+        }
+      } else if (pendingAction.type === "bounce-collect") {
+        // After a bounce, collect the full amount (cash or cheque) → moves to Cleared
+        const c = pendingAction.cheque
+        const date = reverseDate || todayStr()
+        const amt = c.amount
+        if (collectMethod === "Cash") {
+          await updateStatus(c.id, "Cleared", {
+            clearedDate: date,
+            chequeNo: "",
+            bankName: "Cash",
+            amount: String(amt),
+            bouncedReason: `${c.bouncedReason || "Bounced"} — collected by Cash`,
+            paymentType: "Replacement",
+          })
+        } else if (collectMethod === "Cheque") {
+          await updateStatus(c.id, "Pending", {
+            chequeNo: reverseChequeNo,
+            bankName: reverseChequeBank,
+            chequeDate: reverseChequeDate || date,
+            amount: String(amt),
+            bouncedReason: `${c.bouncedReason || "Bounced"} — replaced by new Cheque`,
+            clearedDate: "",
+            depositedDate: "",
+            paymentType: "Replacement",
+          })
+        }
+        if (reverseSlipFile && pendingAction.cheque.tenant?.id) {
+          const fd = new FormData()
+          fd.append('file', reverseSlipFile)
+          fd.append('tenantId', pendingAction.cheque.tenant.id)
+          fd.append('docType', `BounceCollect-Cheque-${pendingAction.cheque.id}`)
+          await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+        }
       }
       resetActionState()
     } finally {
@@ -1053,6 +1155,14 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5"><StatusBadge status={c.status} /></td>
                         <td className="px-2 py-1.5">
                           <div className="flex justify-end gap-1.5">
+                            {c.status === "Bounced" && (
+                              <button
+                                onClick={() => { resetActionState(); setPendingAction({ type: "bounce-collect", cheque: c }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                              >
+                                💰 Collect
+                              </button>
+                            )}
                             {c.status !== "Cleared" && c.status !== "Bounced" && c.status !== "Replaced" && (
                               <>
                                 {c.status !== "Deposited" && (
@@ -1070,14 +1180,14 @@ function ChequeUnitCards({
                                   <CheckCircle className="h-3.5 w-3.5" /> Clear
                                 </button>
                                 <button
-                                  onClick={() => { setRejectReason(""); setPendingAction({ type: "reject", cheque: c }) }}
+                                  onClick={() => { resetActionState(); setPendingAction({ type: "reverse", cheque: c }) }}
                                   className="inline-flex items-center gap-1 rounded-md bg-red-600 hover:bg-red-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
                                 >
-                                  <XCircle className="h-3.5 w-3.5" /> Reject
+                                  <XCircle className="h-3.5 w-3.5" /> Reverse
                                 </button>
                               </>
                             )}
-                            {(c.status === "Cleared" || c.status === "Bounced") && (
+                            {c.status === "Cleared" && (
                               <span className="text-[10px] text-slate-500">— Final —</span>
                             )}
                           </div>
@@ -1102,7 +1212,9 @@ function ChequeUnitCards({
             ? "Confirm: Mark as Deposited"
             : pendingAction?.type === "clear"
             ? "Confirm: Mark as Cleared"
-            : "Confirm: Reject Cheque"
+            : pendingAction?.type === "bounce-collect"
+            ? "Collect Bounced Cheque"
+            : "Reverse Cheque"
         }
         size="md"
         footer={
@@ -1112,13 +1224,20 @@ function ChequeUnitCards({
               onClick={runAction}
               disabled={
                 busyAction ||
-                (pendingAction?.type === "reject" && (rejectReason.trim().length < 2 || !(bouncedDate || todayStr())))
+                (pendingAction?.type === "reverse" && !reverseSubtype) ||
+                (pendingAction?.type === "reverse" && reverseSubtype === "Bounced" && rejectReason.trim().length < 2) ||
+                (pendingAction?.type === "reverse" && reverseSubtype === "ReplacementCheque" && (!reverseChequeNo || !reverseChequeBank)) ||
+                (pendingAction?.type === "reverse" && reverseSubtype === "Partial" && (!collectMethod || !reverseAmount)) ||
+                (pendingAction?.type === "bounce-collect" && !collectMethod) ||
+                (pendingAction?.type === "bounce-collect" && collectMethod === "Cheque" && (!reverseChequeNo || !reverseChequeBank))
               }
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 ${
                 pendingAction?.type === "deposit"
                   ? "bg-blue-600 hover:bg-blue-500"
                   : pendingAction?.type === "clear"
                   ? "bg-emerald-600 hover:bg-emerald-500"
+                  : pendingAction?.type === "bounce-collect"
+                  ? "bg-amber-600 hover:bg-amber-500"
                   : "bg-red-600 hover:bg-red-500"
               }`}
             >
@@ -1128,7 +1247,9 @@ function ChequeUnitCards({
                 ? "🏦 Confirm Deposit"
                 : pendingAction?.type === "clear"
                 ? "✓ Confirm Clear"
-                : "✕ Confirm Reject"}
+                : pendingAction?.type === "bounce-collect"
+                ? "💰 Confirm Collection"
+                : "✓ Confirm Reverse"}
             </button>
           </>
         }
@@ -1140,17 +1261,22 @@ function ChequeUnitCards({
                 ? "border-blue-700/40 bg-blue-900/10"
                 : pendingAction.type === "clear"
                 ? "border-emerald-700/40 bg-emerald-900/10"
+                : pendingAction.type === "bounce-collect"
+                ? "border-amber-700/40 bg-amber-900/10"
                 : "border-red-700/40 bg-red-900/10"
             }`}>
               <div className="flex items-start gap-3">
                 <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
                   pendingAction.type === "deposit" ? "bg-blue-500/20 text-blue-300" :
-                  pendingAction.type === "clear" ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
+                  pendingAction.type === "clear" ? "bg-emerald-500/20 text-emerald-300" :
+                  pendingAction.type === "bounce-collect" ? "bg-amber-500/20 text-amber-300" : "bg-red-500/20 text-red-300"
                 }`}>
                   {pendingAction.type === "deposit"
                     ? <span className="text-lg">🏦</span>
                     : pendingAction.type === "clear"
                     ? <CheckCircle className="h-5 w-5" />
+                    : pendingAction.type === "bounce-collect"
+                    ? <span className="text-lg">💰</span>
                     : <XCircle className="h-5 w-5" />}
                 </div>
                 <div className="flex-1">
@@ -1159,7 +1285,9 @@ function ChequeUnitCards({
                       ? "Mark this cheque as Deposited (submitted to bank, awaiting clearance)?"
                       : pendingAction.type === "clear"
                       ? "Mark this cheque as Cleared?"
-                      : "Reject this cheque?"}
+                      : pendingAction.type === "bounce-collect"
+                      ? "Collect the bounced cheque amount in full"
+                      : "Reverse this cheque — what happened?"}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                     <div>
@@ -1184,9 +1312,7 @@ function ChequeUnitCards({
                     </div>
                     <div>
                       <span className="text-slate-500">Amount:</span>{" "}
-                      <span className={`font-semibold ${
-                        pendingAction.type === "clear" ? "text-emerald-300" : "text-red-300"
-                      }`}>{formatCurrency(pendingAction.cheque.amount)}</span>
+                      <span className="font-semibold text-amber-300">{formatCurrency(pendingAction.cheque.amount)}</span>
                     </div>
                   </div>
                 </div>
@@ -1251,31 +1377,162 @@ function ChequeUnitCards({
               </div>
             )}
 
-            {pendingAction.type === "reject" && (
+            {pendingAction.type === "reverse" && (
               <div className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Bounced Date <span className="text-red-400">*</span>
+                    Type of Reverse <span className="text-red-400">*</span>
                   </label>
-                  <input
-                    type="date"
-                    value={bouncedDate || todayStr()}
-                    onChange={(e) => setBouncedDate(e.target.value)}
+                  <select
+                    value={reverseSubtype}
+                    onChange={(e) => setReverseSubtype(e.target.value as ReverseSubtype)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
-                  />
+                  >
+                    <option value="">— Select —</option>
+                    <option value="ReplacementCash">Replacement By Cash</option>
+                    <option value="ReplacementCheque">Replacement By CHQ</option>
+                    <option value="Bounced">Bounced CHQ</option>
+                    <option value="Partial">Partial Payment</option>
+                  </select>
+                </div>
+
+                {/* Replacement By Cash */}
+                {reverseSubtype === "ReplacementCash" && (
+                  <div className="space-y-3 rounded-lg border border-emerald-700/40 bg-emerald-900/10 p-3">
+                    <p className="text-[11px] text-emerald-200">Cash collected to settle this cheque — old cheque will be marked Cleared.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Cash Amount (AED) *</label>
+                        <input type="number" value={reverseAmount || pendingAction.cheque.amount} onChange={(e) => setReverseAmount(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Collection Date *</label>
+                        <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Replacement By Cheque */}
+                {reverseSubtype === "ReplacementCheque" && (
+                  <div className="space-y-3 rounded-lg border border-blue-700/40 bg-blue-900/10 p-3">
+                    <p className="text-[11px] text-blue-200">New cheque replaces this one — bank lifecycle restarts at Pending.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Cheque No *</label>
+                        <input type="text" value={reverseChequeNo} onChange={(e) => setReverseChequeNo(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bank *</label>
+                        <UaeBankInput value={reverseChequeBank} onChange={setReverseChequeBank} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Cheque Date</label>
+                        <input type="date" value={reverseChequeDate || todayStr()} onChange={(e) => setReverseChequeDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Amount (AED)</label>
+                        <input type="number" value={reverseAmount || pendingAction.cheque.amount} onChange={(e) => setReverseAmount(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Cheque Image (optional)</label>
+                      <input type="file" accept=".pdf,image/*" onChange={(e) => setReverseSlipFile(e.target.files?.[0] || null)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-blue-600 file:px-3 file:py-1 file:text-white" />
+                      {reverseSlipFile && <p className="mt-1 text-[11px] text-emerald-400">✓ {reverseSlipFile.name}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bounced */}
+                {reverseSubtype === "Bounced" && (
+                  <div className="space-y-3 rounded-lg border border-red-700/40 bg-red-900/10 p-3">
+                    <p className="text-[11px] text-red-200">Mark cheque as Bounced. It stays Bounced until you collect the full amount via the 💰 Collect button.</p>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bounced Date *</label>
+                      <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Reason *</label>
+                      <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={2} placeholder="e.g. insufficient funds, signature mismatch" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Partial */}
+                {reverseSubtype === "Partial" && (
+                  <div className="space-y-3 rounded-lg border border-amber-700/40 bg-amber-900/10 p-3">
+                    <p className="text-[11px] text-amber-200">Partial collection — cheque becomes Partial; you can collect the remainder later. Original amount: {formatCurrency(pendingAction.cheque.amount)}.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Method *</label>
+                        <select value={collectMethod} onChange={(e) => setCollectMethod(e.target.value as "" | "Cash" | "Cheque")} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white">
+                          <option value="">—</option>
+                          <option value="Cash">💵 Cash</option>
+                          <option value="Cheque">📝 Cheque</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Amount Collected (AED) *</label>
+                        <input type="number" value={reverseAmount} onChange={(e) => setReverseAmount(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Date *</label>
+                        <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      </div>
+                      {collectMethod === "Cheque" && (
+                        <>
+                          <div>
+                            <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Cheque No</label>
+                            <input type="text" value={reverseChequeNo} onChange={(e) => setReverseChequeNo(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bank</label>
+                            <UaeBankInput value={reverseChequeBank} onChange={setReverseChequeBank} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {pendingAction.type === "bounce-collect" && (
+              <div className="space-y-3 rounded-lg border border-amber-700/40 bg-amber-900/10 p-3">
+                <p className="text-[11px] text-amber-200">Collect the full bounced amount of <strong>{formatCurrency(pendingAction.cheque.amount)}</strong>. Pick how it was settled.</p>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Method *</label>
+                  <select value={collectMethod} onChange={(e) => setCollectMethod(e.target.value as "" | "Cash" | "Cheque")} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white">
+                    <option value="">—</option>
+                    <option value="Cash">💵 Cash</option>
+                    <option value="Cheque">📝 Cheque (replacement)</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Reason for Bounce <span className="text-red-400">*</span>
-                  </label>
-                  <textarea
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    rows={3}
-                    placeholder="e.g. insufficient funds, signature mismatch, post-dated"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
-                  />
+                  <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Date *</label>
+                  <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
                 </div>
+                {collectMethod === "Cheque" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">New Cheque No *</label>
+                      <input type="text" value={reverseChequeNo} onChange={(e) => setReverseChequeNo(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bank *</label>
+                      <UaeBankInput value={reverseChequeBank} onChange={setReverseChequeBank} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Cheque Date</label>
+                      <input type="date" value={reverseChequeDate || todayStr()} onChange={(e) => setReverseChequeDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Image (optional)</label>
+                      <input type="file" accept=".pdf,image/*" onChange={(e) => setReverseSlipFile(e.target.files?.[0] || null)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-amber-600 file:px-3 file:py-1 file:text-white" />
+                      {reverseSlipFile && <p className="mt-1 text-[11px] text-emerald-400">✓ {reverseSlipFile.name}</p>}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
