@@ -770,8 +770,22 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
   if (c.depositedDate) entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦" })
   if (c.clearedDate) entries.push({ date: c.clearedDate, label: "Cleared", detail: "Funds credited", icon: "✓" })
   if (c.bouncedDate) entries.push({ date: c.bouncedDate, label: "Bounced", detail: c.bouncedReason || "—", icon: "✕" })
-  const partialMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
-  if (partialMatch) entries.push({ date: c.chequeDate || "", label: "Partial collected", detail: `AED ${parseFloat(partialMatch[1]).toLocaleString()} of AED ${(c.amount || 0).toLocaleString()}`, icon: "💰" })
+  // Each individual partial collection event (newest format)
+  const partialEvents = [...(c.notes || "").matchAll(/PARTIAL_EVENT:([^|]*)\|([^|]*)\|([^\s]*)/g)]
+  for (const m of partialEvents) {
+    const [, evDate, evAmt, evMethod] = m
+    entries.push({
+      date: evDate || "",
+      label: `Partial collected — ${evMethod || "Cash"}`,
+      detail: `AED ${parseFloat(evAmt || "0").toLocaleString()}`,
+      icon: "💰",
+    })
+  }
+  // Fallback: if only the cumulative marker exists (older data), show it as a single entry
+  if (partialEvents.length === 0) {
+    const partialMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
+    if (partialMatch) entries.push({ date: c.chequeDate || "", label: "Partial collected (cumulative)", detail: `AED ${parseFloat(partialMatch[1]).toLocaleString()} of AED ${(c.amount || 0).toLocaleString()}`, icon: "💰" })
+  }
   const ownerMatch = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
   if (ownerMatch) entries.push({ date: ownerMatch[1], label: "Banked to owner", detail: "Cash deposited into owner account", icon: "💼" })
   if (c.status === "Replaced") entries.push({ date: "", label: "Replaced", detail: c.bouncedReason || "Replaced with a new cheque/cash", icon: "↻" })
@@ -903,12 +917,14 @@ function ChequeUnitCards({
             bouncedReason: rejectReason,
           })
         } else if (reverseSubtype === "Partial") {
-          // Partial collection: store collected amount in clearedDate slot via notes,
-          // and mark cheque as Partial; user can continue collecting.
+          // Partial collection: keep cumulative PARTIAL_COLLECTED + append each
+          // event as a PARTIAL_EVENT:<date>|<amount>|<method> line so the
+          // history log can show every collection separately.
           const collectedSoFar = (typeof c.notes === "string" && c.notes.match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)?.[1]) || "0"
           const newCollected = parseFloat(collectedSoFar) + amt
           const remaining = (c.amount || 0) - newCollected
-          const newNotes = `${(c.notes || "").replace(/PARTIAL_COLLECTED:[^\n]*/g, "").trim()}\nPARTIAL_COLLECTED:${newCollected}`.trim()
+          const cleanedNotes = (c.notes || "").replace(/PARTIAL_COLLECTED:[^\n]*/g, "").trim()
+          const newNotes = `${cleanedNotes}\nPARTIAL_COLLECTED:${newCollected}\nPARTIAL_EVENT:${date}|${amt}|${collectMethod || "Cash"}`.trim()
           const isFullyCollected = remaining <= 0
           await updateStatus(c.id, isFullyCollected ? "Cleared" : "Partial", {
             notes: newNotes,
@@ -1301,7 +1317,7 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5 font-mono">
                           <span className="inline-flex items-center gap-1.5">
                             {c.chequeNo || "—"}
-                            {!isPartialHalf && buildChequeHistory(realCheque).length > 1 && (
+                            {buildChequeHistory(realCheque).length > 1 && (
                               <button
                                 onClick={() => setHistoryFor(realCheque)}
                                 title="Show lifecycle history"
