@@ -209,6 +209,16 @@ export default function InvoicesPage() {
         })()
         return (
           <div className="flex gap-1">
+            <a
+              href={`/api/invoices/${r.id}?format=html`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="View / Print Tax Invoice"
+              className="rounded p-1.5 text-slate-400 hover:bg-amber-900/40 hover:text-amber-400"
+            >
+              <Eye className="h-4 w-4" />
+            </a>
             {(r.status === "Draft" || r.status === "Sent") && (
               <button
                 onClick={async (e) => {

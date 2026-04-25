@@ -3,9 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
+import { buildVatInvoiceHTML } from '@/lib/vat-invoice-html'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -16,6 +17,8 @@ export async function GET(
 
     const organizationId = session.user.organizationId
     const { id } = await params
+    const url = new URL(request.url)
+    const format = url.searchParams.get('format')
 
     const invoice = await prisma.invoice.findFirst({
       where: { id, organizationId },
@@ -26,12 +29,14 @@ export async function GET(
             name: true,
             phone: true,
             email: true,
+            emiratesId: true,
           },
         },
         unit: {
           select: {
             id: true,
             unitNo: true,
+            unitType: true,
           },
         },
         payments: {
@@ -42,6 +47,51 @@ export async function GET(
 
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    }
+
+    if (format === 'html') {
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { name: true, address: true, logo: true, phone: true, email: true },
+      })
+      // Look up owner via the latest tenancy contract for this unit
+      const tc = invoice.unitId
+        ? await prisma.tenancyContract.findFirst({
+            where: { organizationId, unitId: invoice.unitId },
+            orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
+            select: { ownerId: true },
+          })
+        : null
+      const owner = tc?.ownerId
+        ? await prisma.propertyOwner.findUnique({
+            where: { id: tc.ownerId },
+            select: { ownerName: true, buildingName: true, address: true, iban: true, bankName: true, email: true, phone: true, tradeLicense: true },
+          })
+        : null
+      const html = buildVatInvoiceHTML({
+        invoice: { ...invoice, notes: invoice.notes || '' },
+        tenant: {
+          name: invoice.tenant?.name || '',
+          email: invoice.tenant?.email || undefined,
+          phone: invoice.tenant?.phone || undefined,
+          emiratesId: invoice.tenant?.emiratesId || undefined,
+        },
+        unit: {
+          unitNo: invoice.unit?.unitNo || '',
+          unitType: invoice.unit?.unitType || undefined,
+        },
+        owner: owner || null,
+        organization: {
+          name: org?.name || 'Alwaan',
+          address: org?.address,
+          logo: org?.logo,
+          phone: org?.phone,
+          email: org?.email,
+        },
+      })
+      return new NextResponse(html, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
     }
 
     return NextResponse.json(invoice)

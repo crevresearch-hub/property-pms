@@ -1352,6 +1352,42 @@ function PaymentPlan({
         alert(`Saving fees failed: ${e.error || res.status}`)
         return
       }
+      // Auto-generate VAT invoice for the Admin/Commission portion (VAT only applies on it)
+      const adminBase = (contract.commissionFee || 0)
+      const ejariBase = (contract.ejariFee || 0)
+      const paymentDate = new Date().toISOString().slice(0, 10)
+      if (adminBase > 0) {
+        await fetch('/api/invoices/auto-vat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenantId,
+            unitId: contract.unitId,
+            type: 'Admin / Commission Fee',
+            baseAmount: adminBase,
+            paymentDate,
+            notes: `Collected via ${fees.method} on ${paymentDate}`,
+            sendEmail: true,
+          }),
+        }).catch(() => {})
+      }
+      // Ejari fee has no VAT but we still record an invoice for the audit trail
+      if (ejariBase > 0) {
+        await fetch('/api/invoices/auto-vat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenantId,
+            unitId: contract.unitId,
+            type: 'Ejari Fee',
+            baseAmount: ejariBase,
+            vatRate: 0,
+            paymentDate,
+            notes: `Collected via ${fees.method} on ${paymentDate}`,
+            sendEmail: false,
+          }),
+        }).catch(() => {})
+      }
       setFeesDirty(false)
       onChange()
     } finally {
