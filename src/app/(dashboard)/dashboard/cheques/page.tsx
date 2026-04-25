@@ -760,6 +760,72 @@ function parseNotesBlock(notes: string | null | undefined, prefix: string): Reco
   return null
 }
 
+// Inline date display + click-to-edit. Used in the Cheque Tracker rows so staff
+// can correct any status date (chequeDate, depositedDate, clearedDate, bouncedDate,
+// or the OWNER_DEPOSITED marker for cash-banked-to-owner) without leaving the page.
+function StatusDateCell({
+  cheque,
+  field,
+  label,
+  value,
+  onSave,
+}: {
+  cheque: ChequeRow
+  field: string
+  label: string
+  value: string
+  onSave: (newDate: string) => Promise<void> | void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const [saving, setSaving] = useState(false)
+  // Re-sync draft if the row's value changes (e.g. after a save).
+  useEffect(() => { setDraft(value) }, [value])
+  void cheque
+  void field
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setDraft(value); setEditing(true) }}
+        className="group inline-flex flex-col items-start text-left"
+        title="Click to edit"
+      >
+        <span className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</span>
+        <span className="text-[12px] font-medium text-slate-200 group-hover:text-white group-hover:underline decoration-dotted">
+          {value || <span className="text-slate-600 italic">— click to set</span>}
+          <span className="ml-1 text-[9px] text-slate-500 opacity-0 group-hover:opacity-100">✏️</span>
+        </span>
+      </button>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="date"
+        value={draft}
+        autoFocus
+        onChange={(e) => setDraft(e.target.value)}
+        className="rounded border border-slate-600 bg-slate-900 px-1.5 py-0.5 text-[11px] text-white"
+      />
+      <button
+        onClick={async () => { setSaving(true); try { await onSave(draft) } finally { setSaving(false); setEditing(false) } }}
+        disabled={saving || draft === value}
+        className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-40"
+      >
+        {saving ? "…" : "✓"}
+      </button>
+      <button
+        onClick={() => { setDraft(value); setEditing(false) }}
+        disabled={saving}
+        className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-600"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
+
 function ChequeUnitCards({
   cheques,
   contracts,
@@ -1078,6 +1144,7 @@ function ChequeUnitCards({
                     <th className="px-2 py-1.5 text-left font-semibold uppercase">Bank</th>
                     <th className="px-2 py-1.5 text-right font-semibold uppercase">Amount</th>
                     <th className="px-2 py-1.5 text-left font-semibold uppercase">Status</th>
+                    <th className="px-2 py-1.5 text-left font-semibold uppercase">Status Date</th>
                     <th className="px-2 py-1.5 text-right font-semibold uppercase">Action</th>
                   </tr>
                 </thead>
@@ -1173,6 +1240,7 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5">{e.bank}</td>
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(e.amount)}</td>
                         <td className="px-2 py-1.5"><StatusBadge status={e.status} /></td>
+                        <td className="px-2 py-1.5 text-[10px] text-slate-500">—</td>
                         <td className="px-2 py-1.5 text-right">
                           <Link
                             href={`/dashboard/tenants/${tenantId}/edit#payment-plan`}
@@ -1189,13 +1257,21 @@ function ChequeUnitCards({
                     const isUpfront = c.paymentType === "Upfront"
                     const isOverdue = c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced"
                     const isCashPayment = (c.bankName || "").toLowerCase() === "cash" || (isUpfront && !c.chequeNo)
-                    // OWNER_DEPOSITED marker tracks whether cash collected from tenant has been
-                    // physically banked into the owner's account.
                     const ownerDepositMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
                     const ownerDepositedDate = ownerDepositMarker ? ownerDepositMarker[1] : ""
+                    // Display status — keep it clean (one word). Date moves to its own column.
                     const displayStatus = isCashPayment && c.status === "Cleared"
-                      ? (ownerDepositedDate ? "Deposit Done" : "Received")
+                      ? (ownerDepositedDate ? "Deposited" : "Received")
                       : c.status
+                    // Pick the relevant "status date" + the field name (used by inline edit)
+                    let statusDate = ""
+                    let statusDateField = ""
+                    let statusDateLabel = ""
+                    if (ownerDepositedDate) { statusDate = ownerDepositedDate; statusDateField = "ownerDeposit"; statusDateLabel = "to Owner" }
+                    else if (c.status === "Cleared") { statusDate = c.clearedDate || ""; statusDateField = "clearedDate"; statusDateLabel = "Cleared" }
+                    else if (c.status === "Bounced") { statusDate = c.bouncedDate || ""; statusDateField = "bouncedDate"; statusDateLabel = "Bounced" }
+                    else if (c.status === "Deposited") { statusDate = c.depositedDate || ""; statusDateField = "depositedDate"; statusDateLabel = "Deposited" }
+                    else { statusDate = c.chequeDate || ""; statusDateField = "chequeDate"; statusDateLabel = "Due" }
                     return (
                       <tr key={c.id} className={`border-t border-slate-800 ${isOverdue ? "bg-red-500/5" : ""}`}>
                         <td className="px-2 py-1.5">
@@ -1214,9 +1290,22 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(c.amount)}</td>
                         <td className="px-2 py-1.5">
                           <StatusBadge status={displayStatus} />
-                          {ownerDepositedDate && (
-                            <div className="text-[9px] text-emerald-400 mt-0.5">→ Owner {ownerDepositedDate}</div>
-                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <StatusDateCell
+                            cheque={c}
+                            field={statusDateField}
+                            label={statusDateLabel}
+                            value={statusDate}
+                            onSave={async (newDate) => {
+                              if (statusDateField === "ownerDeposit") {
+                                const newNotes = `${(c.notes || "").replace(/OWNER_DEPOSITED:[^\s]*/g, "").trim()}\nOWNER_DEPOSITED:${newDate}`.trim()
+                                await updateStatus(c.id, c.status, { notes: newNotes })
+                              } else {
+                                await updateStatus(c.id, c.status, { [statusDateField]: newDate })
+                              }
+                            }}
+                          />
                         </td>
                         <td className="px-2 py-1.5">
                           <div className="flex justify-end gap-1.5">
@@ -1261,9 +1350,6 @@ function ChequeUnitCards({
                               >
                                 💼 Deposit Cash
                               </button>
-                            )}
-                            {c.status === "Cleared" && isCashPayment && ownerDepositedDate && (
-                              <span className="text-[10px] text-emerald-400">✓ Banked to Owner</span>
                             )}
                             {c.status === "Cleared" && !isCashPayment && (
                               <span className="text-[10px] text-slate-500">— Final —</span>
