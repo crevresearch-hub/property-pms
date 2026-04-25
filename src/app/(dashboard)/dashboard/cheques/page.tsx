@@ -83,6 +83,7 @@ export default function ChequesPage() {
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([])
   const [units, setUnits] = useState<{ id: string; unitNo: string }[]>([])
   const [allUnits, setAllUnits] = useState<Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>>([])
+  const [contracts, setContracts] = useState<Array<{ id: string; tenantId: string; unitId: string | null; contractType: string; securityDeposit: number; ejariFee: number; commissionFee: number; notes: string | null }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [addOpen, setAddOpen] = useState(false)
@@ -101,12 +102,20 @@ export default function ChequesPage() {
       setCheques(await cheqRes.json())
       if (sumRes.ok) { const d = await sumRes.json(); setSummary(d.summary) }
 
-      const [tRes, uRes] = await Promise.all([fetch("/api/tenants"), fetch("/api/units")])
+      const [tRes, uRes, cRes] = await Promise.all([
+        fetch("/api/tenants"),
+        fetch("/api/units"),
+        fetch("/api/tenancy-contracts"),
+      ])
       if (tRes.ok) { const d = await tRes.json(); setTenants(d.map((t: { id: string; name: string }) => ({ id: t.id, name: t.name }))) }
       if (uRes.ok) {
         const d = await uRes.json()
         setUnits(d.map((u: { id: string; unitNo: string }) => ({ id: u.id, unitNo: u.unitNo })))
         setAllUnits(d)
+      }
+      if (cRes.ok) {
+        const d = await cRes.json()
+        setContracts(d.contracts || [])
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
@@ -371,6 +380,7 @@ export default function ChequesPage() {
 
       <ChequeFilters
         cheques={cheques}
+        contracts={contracts}
         columns={columns}
         updateStatus={updateChequeStatus}
         allUnits={allUnits}
@@ -489,11 +499,13 @@ export default function ChequesPage() {
 
 function ChequeFilters({
   cheques,
+  contracts,
   columns,
   updateStatus,
   allUnits,
 }: {
   cheques: ChequeRow[]
+  contracts: ContractLite[]
   columns: Column<ChequeRow>[]
   updateStatus: (id: string, status: string, extra?: Record<string, string>) => Promise<void> | void
   allUnits: Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>
@@ -694,6 +706,7 @@ function ChequeFilters({
       ) : (
         <ChequeUnitCards
           cheques={filtered}
+          contracts={contracts}
           updateStatus={updateStatus}
           allUnits={
             paymentMethod === "cheque"
@@ -717,13 +730,37 @@ type ChequeAction =
   | { type: "clear"; cheque: ChequeRow }
   | { type: "reject"; cheque: ChequeRow }
 
+type ContractLite = {
+  id: string
+  tenantId: string
+  unitId: string | null
+  contractType: string
+  securityDeposit: number
+  ejariFee: number
+  commissionFee: number
+  notes: string | null
+}
+
+// Parses a JSON-encoded payment block from contract.notes (UPFRONT_JSON, DEPOSIT_JSON, FEES_JSON).
+function parseNotesBlock(notes: string | null | undefined, prefix: string): Record<string, unknown> | null {
+  if (!notes) return null
+  for (const line of notes.split('\n')) {
+    if (line.startsWith(prefix)) {
+      try { return JSON.parse(line.slice(prefix.length)) } catch { return null }
+    }
+  }
+  return null
+}
+
 function ChequeUnitCards({
   cheques,
+  contracts,
   updateStatus,
   allUnits,
   showCashOnly = true,
 }: {
   cheques: ChequeRow[]
+  contracts: ContractLite[]
   updateStatus: (id: string, status: string, extra?: Record<string, string>) => Promise<void> | void
   allUnits: Array<{ id: string; unitNo: string; status: string; currentRent: number; tenantId: string | null; tenant: { id: string; name: string } | null }>
   showCashOnly?: boolean
@@ -896,6 +933,68 @@ function ChequeUnitCards({
                   </tr>
                 </thead>
                 <tbody>
+                  {(() => {
+                    // Find this unit's contract → parse Deposit & Fees JSON to render extra ledger rows
+                    const c0 = g.cheques[0]
+                    const tenantId = c0?.tenantId || ""
+                    const unitId = c0?.unitId || ""
+                    const contract = contracts.find((x) =>
+                      (tenantId && x.tenantId === tenantId) ||
+                      (unitId && x.unitId === unitId)
+                    )
+                    if (!contract) return null
+                    type Extra = { id: string; label: string; method: string; chequeNo: string; bank: string; amount: number; status: string }
+                    const extras: Extra[] = []
+
+                    const dep = parseNotesBlock(contract.notes, 'DEPOSIT_JSON:') as null | { method?: string; cash?: number; chequeAmount?: number; chequeNo?: string; bankName?: string; chequeStatus?: string }
+                    if (dep && (dep.cash || dep.chequeAmount)) {
+                      const isCheque = dep.method === 'Cheque' && (dep.chequeAmount || 0) > 0
+                      extras.push({
+                        id: `${contract.id}-dep`,
+                        label: 'Security Deposit',
+                        method: isCheque ? 'Cheque' : 'Cash',
+                        chequeNo: isCheque ? (dep.chequeNo || '—') : '—',
+                        bank: isCheque ? (dep.bankName || '—') : '—',
+                        amount: isCheque ? (dep.chequeAmount || 0) : (dep.cash || 0),
+                        status: isCheque ? (dep.chequeStatus || 'Pending') : 'Received',
+                      })
+                    }
+
+                    const fees = parseNotesBlock(contract.notes, 'FEES_JSON:') as null | { method?: string; cash?: number; chequeAmount?: number; chequeNo?: string; bankName?: string; chequeStatus?: string }
+                    if (fees && (fees.cash || fees.chequeAmount)) {
+                      const isCheque = fees.method === 'Cheque' && (fees.chequeAmount || 0) > 0
+                      extras.push({
+                        id: `${contract.id}-fees`,
+                        label: 'Admin + Ejari Fees',
+                        method: isCheque ? 'Cheque' : 'Cash',
+                        chequeNo: isCheque ? (fees.chequeNo || '—') : '—',
+                        bank: isCheque ? (fees.bankName || '—') : '—',
+                        amount: isCheque ? (fees.chequeAmount || 0) : (fees.cash || 0),
+                        status: isCheque ? (fees.chequeStatus || 'Pending') : 'Received',
+                      })
+                    }
+
+                    if (extras.length === 0) return null
+                    return extras.map((e) => (
+                      <tr key={e.id} className="border-t border-slate-800 bg-slate-800/30">
+                        <td className="px-2 py-1.5 text-slate-400">{e.label}</td>
+                        <td className="px-2 py-1.5">
+                          {e.method === 'Cash' ? (
+                            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">💵 Cash</span>
+                          ) : (
+                            <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">📝 Cheque</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 font-mono">{e.chequeNo}</td>
+                        <td className="px-2 py-1.5">{e.bank}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(e.amount)}</td>
+                        <td className="px-2 py-1.5"><StatusBadge status={e.status} /></td>
+                        <td className="px-2 py-1.5 text-right">
+                          <span className="text-[10px] text-slate-500">— Tenant Edit —</span>
+                        </td>
+                      </tr>
+                    ))
+                  })()}
                   {g.cheques.map((c) => {
                     const isUpfront = c.paymentType === "Upfront"
                     const isOverdue = c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced"
