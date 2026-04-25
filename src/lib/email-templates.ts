@@ -654,6 +654,75 @@ export function tenancyContractSignedTemplate(
   }
 }
 
+// Cash deposit notification — accountant deposited tenant cash into owner's bank
+// account; the owner gets an email so they can verify on their statement.
+export function cashDepositNotificationTemplate(
+  owner: { ownerName: string; buildingName?: string },
+  deposit: {
+    amount: number
+    cashSource?: string
+    tenantName?: string
+    unitNo?: string
+    bankName?: string
+    accountNo?: string
+    referenceNo?: string
+    depositedBy?: string
+    depositedAt: string
+    notes?: string
+  },
+  baseUrl: string
+) {
+  const subject = `Cash Deposit Received — AED ${deposit.amount.toLocaleString()} on ${fmtDate(deposit.depositedAt)}`
+  const tableRow = (k: string, v: string | undefined) => v
+    ? `<tr><td style="padding:6px 10px;color:#6b7280;font-size:12px;border-bottom:1px solid ${BORDER};">${esc(k)}</td><td style="padding:6px 10px;font-size:13px;color:${TEXT_DARK};border-bottom:1px solid ${BORDER};">${esc(v)}</td></tr>`
+    : ''
+  const details = `
+    <div style="margin:16px 0;border:1px solid ${BORDER};border-radius:8px;overflow:hidden;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#fff;">
+        <tbody>
+          <tr><td style="padding:10px;background:#f1f5f9;border-bottom:1px solid ${BORDER};font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#334155;" colspan="2">Deposit Details</td></tr>
+          <tr><td style="padding:6px 10px;color:#6b7280;font-size:12px;border-bottom:1px solid ${BORDER};">Amount</td><td style="padding:6px 10px;font-size:14px;font-weight:700;color:${BRAND_RED};border-bottom:1px solid ${BORDER};">AED ${deposit.amount.toLocaleString()}</td></tr>
+          ${tableRow('Source', deposit.cashSource)}
+          ${tableRow('From Tenant', deposit.tenantName ? `${deposit.tenantName}${deposit.unitNo ? ` (Unit ${deposit.unitNo})` : ''}` : undefined)}
+          ${tableRow('Bank', deposit.bankName)}
+          ${tableRow('Account', deposit.accountNo)}
+          ${tableRow('Bank Reference #', deposit.referenceNo)}
+          ${tableRow('Deposit Date', fmtDate(deposit.depositedAt))}
+          ${tableRow('Deposited By', deposit.depositedBy)}
+          ${tableRow('Notes', deposit.notes)}
+        </tbody>
+      </table>
+    </div>
+  `
+  const bodyHtml = `
+    <p style="margin:0 0 14px 0;">Dear ${esc(owner.ownerName)},</p>
+    <p style="margin:0 0 14px 0;">
+      The accounting team has just deposited cash collected from your
+      ${owner.buildingName ? `tenant at <strong>${esc(owner.buildingName)}</strong>` : 'property'} into your bank account.
+    </p>
+    ${details}
+    <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 16px;margin:16px 0;border-radius:4px;color:${TEXT_DARK};font-size:13px;">
+      <strong style="color:#15803d;">✓ Action Required:</strong> Please confirm this credit on your bank statement.
+      Once verified, no further action is needed — the deposit will be marked
+      <strong>Verified by Owner</strong> in your portal.
+    </div>
+    <p style="margin:14px 0 0 0;">
+      You can review all cash deposits and verify them in your owner portal.
+    </p>
+  `
+  return {
+    subject,
+    html: layout({
+      baseUrl,
+      preheader: `AED ${deposit.amount.toLocaleString()} cash deposited to your account on ${fmtDate(deposit.depositedAt)}.`,
+      heading: 'Cash Deposit Confirmation',
+      bodyHtml,
+      ctaLabel: 'Open Owner Portal',
+      ctaHref: `${baseUrl.replace(/\/$/, '')}/owner/dashboard`,
+    }),
+  }
+}
+
 export function documentExpiringTemplate(
   owner: OwnerLike,
   doc: DocumentLike,

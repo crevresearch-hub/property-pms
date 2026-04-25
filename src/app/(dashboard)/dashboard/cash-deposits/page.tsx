@@ -58,6 +58,7 @@ const defaultForm = {
   depositedAt: new Date().toISOString().slice(0, 10),
   status: "Deposited",
   notes: "",
+  notifyOwner: true,
 }
 
 export default function CashDepositsPage() {
@@ -231,7 +232,7 @@ export default function CashDepositsPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Cash Deposits</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Track cash PMS staff deposit into owner bank accounts — tenants → staff → bank.
+            Accounting team logs cash deposited into the owner&rsquo;s bank account. The owner is notified by email so they can verify on their statement.
           </p>
         </div>
         <button
@@ -257,7 +258,7 @@ export default function CashDepositsPage() {
 
       <div className="rounded-lg border border-blue-800 bg-blue-900/10 p-3 text-xs text-blue-200">
         <AlertCircle className="mr-1 inline h-3.5 w-3.5" />
-        Each row is an accountability record: staff deposited tenant cash into the owner&apos;s bank account on that date. Use the ✓ icon to mark a deposit &ldquo;Verified by Owner&rdquo; once the owner confirms receipt.
+        Workflow: <strong>Accounting team</strong> records each cash deposit they make into the owner&apos;s bank account. The owner receives an email notification + portal alert. Once the owner confirms receipt on their bank statement, click the ✓ icon to mark the deposit <strong>Verified by Owner</strong>.
       </div>
 
       <DataTable<CashDeposit> data={deposits} columns={columns} searchKeys={["tenantName", "ownerName", "referenceNo", "depositedBy", "unitNo"]} />
@@ -356,6 +357,22 @@ export default function CashDepositsPage() {
             <div className="col-span-2">
               <label className={labelCls}>Notes</label>
               <textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Deposited at Emirates NBD Bur Dubai branch, slip # 4432" className={inputCls} />
+            </div>
+            <div className="col-span-2 rounded-lg border border-emerald-700/40 bg-emerald-900/10 p-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.notifyOwner}
+                  onChange={(e) => setForm({ ...form, notifyOwner: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 rounded border-emerald-600 bg-slate-800 text-emerald-500"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-emerald-200">📧 Email owner about this deposit</p>
+                  <p className="mt-0.5 text-[11px] text-emerald-300/70">
+                    The owner will receive an email with the amount, source tenant, bank reference, and a link to verify on their portal.
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         </div>

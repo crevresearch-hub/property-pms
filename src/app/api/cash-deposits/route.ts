@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
+import { sendEmail } from '@/lib/email'
+import { cashDepositNotificationTemplate } from '@/lib/email-templates'
+import { createNotification } from '@/lib/notifications'
 
 export async function GET() {
   try {
@@ -64,6 +67,54 @@ export async function POST(request: NextRequest) {
       'Recorded Cash Deposit',
       `AED ${amount.toLocaleString()} ${body.cashSource ? `(${body.cashSource})` : ''} → ${body.ownerName || 'owner'} · ref ${body.referenceNo || '—'}`
     )
+
+    // Notify the owner by email + in-app notification (only when explicitly
+    // opted-in by the accountant, default true).
+    const notifyOwner = body.notifyOwner !== false
+    if (notifyOwner && body.ownerId) {
+      const owner = await prisma.propertyOwner.findFirst({
+        where: { id: body.ownerId, organizationId },
+        select: { id: true, ownerName: true, email: true, buildingName: true },
+      })
+      if (owner?.email) {
+        const baseUrl = process.env.NEXTAUTH_URL || ''
+        const tpl = cashDepositNotificationTemplate(
+          { ownerName: owner.ownerName, buildingName: owner.buildingName },
+          {
+            amount,
+            cashSource: body.cashSource,
+            tenantName: body.tenantName,
+            unitNo: body.unitNo,
+            bankName: body.bankName,
+            accountNo: body.accountNo,
+            referenceNo: body.referenceNo,
+            depositedBy: deposit.depositedBy,
+            depositedAt: deposit.depositedAt,
+            notes: body.notes,
+          },
+          baseUrl
+        )
+        await sendEmail({
+          organizationId,
+          to: owner.email,
+          toName: owner.ownerName,
+          subject: tpl.subject,
+          html: tpl.html,
+          template: 'cash_deposit_notification',
+          triggeredBy: session.user.name,
+          refType: 'cash_deposit',
+          refId: deposit.id,
+        }).catch((e) => console.warn('Cash deposit email failed:', e))
+      }
+      await createNotification(
+        organizationId,
+        'owner',
+        body.ownerId,
+        'Cash Deposit Received',
+        `AED ${amount.toLocaleString()} deposited to your account on ${deposit.depositedAt}`,
+        'payment'
+      ).catch(() => {})
+    }
 
     return NextResponse.json(deposit, { status: 201 })
   } catch (error) {
