@@ -1488,56 +1488,6 @@ function PaymentPlan({
                     </tr>
                   )
                 })()}
-                {(() => {
-                  const depositReceived = deposit.method === 'Cash' ? deposit.cash : deposit.method === 'Cheque' ? deposit.chequeAmount : 0
-                  const feesReceived = fees.method === 'Cash' ? fees.cash : fees.method === 'Cheque' ? fees.chequeAmount : 0
-                  const totalReceived = depositReceived + feesReceived + upfrontTotal
-                  if (totalReceived <= 0) return null
-                  return (
-                    <>
-                      <tr className="border-t-2 border-slate-300 bg-emerald-50">
-                        <td colSpan={4} className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-                          Received
-                        </td>
-                      </tr>
-                      {depositReceived > 0 && (
-                        <tr className="bg-purple-50">
-                          <td className="px-4 py-2 text-sm text-purple-900">
-                            Security Deposit <span className="text-[10px] text-purple-700">({deposit.method})</span>
-                          </td>
-                          <td colSpan={2} className="px-4 py-2"></td>
-                          <td className="px-4 py-2 text-right font-mono text-sm font-bold text-purple-700">− AED {depositReceived.toLocaleString()}</td>
-                        </tr>
-                      )}
-                      {feesReceived > 0 && (
-                        <tr className="bg-amber-50">
-                          <td className="px-4 py-2 text-sm text-amber-900">
-                            Admin + Ejari Fees <span className="text-[10px] text-amber-700">({fees.method})</span>
-                          </td>
-                          <td colSpan={2} className="px-4 py-2"></td>
-                          <td className="px-4 py-2 text-right font-mono text-sm font-bold text-amber-700">− AED {feesReceived.toLocaleString()}</td>
-                        </tr>
-                      )}
-                      {upfrontTotal > 0 && (
-                        <tr className="bg-blue-50">
-                          <td className="px-4 py-2 text-sm text-blue-900">
-                            Upfront Payment <span className="text-[10px] text-blue-700">(cash {upfront.cash.toLocaleString()} + cheque {upfront.chequeAmount.toLocaleString()})</span>
-                          </td>
-                          <td colSpan={2} className="px-4 py-2"></td>
-                          <td className="px-4 py-2 text-right font-mono text-sm font-bold text-blue-700">− AED {upfrontTotal.toLocaleString()}</td>
-                        </tr>
-                      )}
-                      <tr className="border-t-2 border-slate-300 bg-emerald-100/70">
-                        <td colSpan={3} className="px-4 py-2.5 text-sm font-bold text-emerald-900">Total Received</td>
-                        <td className="px-4 py-2.5 text-right font-mono text-base font-bold text-emerald-800">− AED {totalReceived.toLocaleString()}</td>
-                      </tr>
-                      <tr className="border-t-2 border-slate-300 bg-[#E30613]/5">
-                        <td colSpan={3} className="px-4 py-3 text-sm font-bold text-[#E30613]">Balance Outstanding</td>
-                        <td className="px-4 py-3 text-right font-mono text-base font-bold text-[#E30613]">AED {Math.max(0, grand - totalReceived).toLocaleString()}</td>
-                      </tr>
-                    </>
-                  )
-                })()}
               </tfoot>
             </table>
           </div>
