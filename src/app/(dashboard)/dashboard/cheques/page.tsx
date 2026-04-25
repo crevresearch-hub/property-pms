@@ -934,44 +934,77 @@ function ChequeUnitCards({
                 </thead>
                 <tbody>
                   {(() => {
-                    // Find this unit's contract → parse Deposit & Fees JSON to render extra ledger rows
+                    // Find this unit's contract — prefer one that has saved Deposit/Fees JSON.
                     const c0 = g.cheques[0]
                     const tenantId = c0?.tenantId || ""
                     const unitId = c0?.unitId || ""
-                    const contract = contracts.find((x) =>
+                    const matching = contracts.filter((x) =>
                       (tenantId && x.tenantId === tenantId) ||
                       (unitId && x.unitId === unitId)
                     )
+                    const contract =
+                      matching.find((c) => parseNotesBlock(c.notes, 'DEPOSIT_JSON:') || parseNotesBlock(c.notes, 'FEES_JSON:')) ||
+                      matching[0]
                     if (!contract) return null
                     type Extra = { id: string; label: string; method: string; chequeNo: string; bank: string; amount: number; status: string }
                     const extras: Extra[] = []
 
-                    const dep = parseNotesBlock(contract.notes, 'DEPOSIT_JSON:') as null | { method?: string; cash?: number; chequeAmount?: number; chequeNo?: string; bankName?: string; chequeStatus?: string }
-                    if (dep && (dep.cash || dep.chequeAmount)) {
-                      const isCheque = dep.method === 'Cheque' && (dep.chequeAmount || 0) > 0
-                      extras.push({
-                        id: `${contract.id}-dep`,
-                        label: 'Security Deposit',
-                        method: isCheque ? 'Cheque' : 'Cash',
-                        chequeNo: isCheque ? (dep.chequeNo || '—') : '—',
-                        bank: isCheque ? (dep.bankName || '—') : '—',
-                        amount: isCheque ? (dep.chequeAmount || 0) : (dep.cash || 0),
-                        status: isCheque ? (dep.chequeStatus || 'Pending') : 'Received',
-                      })
+                    // Security Deposit — always show if contract has one, even if unpaid.
+                    if ((contract.securityDeposit || 0) > 0) {
+                      const dep = parseNotesBlock(contract.notes, 'DEPOSIT_JSON:') as null | { method?: string; cash?: number; chequeAmount?: number; chequeNo?: string; bankName?: string; chequeStatus?: string }
+                      if (dep && (dep.cash || dep.chequeAmount)) {
+                        const isCheque = dep.method === 'Cheque' && (dep.chequeAmount || 0) > 0
+                        extras.push({
+                          id: `${contract.id}-dep`,
+                          label: 'Security Deposit',
+                          method: isCheque ? 'Cheque' : 'Cash',
+                          chequeNo: isCheque ? (dep.chequeNo || '—') : '—',
+                          bank: isCheque ? (dep.bankName || '—') : '—',
+                          amount: isCheque ? (dep.chequeAmount || 0) : (dep.cash || 0),
+                          status: isCheque ? (dep.chequeStatus || 'Pending') : 'Received',
+                        })
+                      } else {
+                        // Not paid yet — show as Pending with expected amount
+                        extras.push({
+                          id: `${contract.id}-dep-pending`,
+                          label: 'Security Deposit',
+                          method: '—',
+                          chequeNo: '—',
+                          bank: '—',
+                          amount: contract.securityDeposit || 0,
+                          status: 'Pending',
+                        })
+                      }
                     }
 
-                    const fees = parseNotesBlock(contract.notes, 'FEES_JSON:') as null | { method?: string; cash?: number; chequeAmount?: number; chequeNo?: string; bankName?: string; chequeStatus?: string }
-                    if (fees && (fees.cash || fees.chequeAmount)) {
-                      const isCheque = fees.method === 'Cheque' && (fees.chequeAmount || 0) > 0
-                      extras.push({
-                        id: `${contract.id}-fees`,
-                        label: 'Admin + Ejari Fees',
-                        method: isCheque ? 'Cheque' : 'Cash',
-                        chequeNo: isCheque ? (fees.chequeNo || '—') : '—',
-                        bank: isCheque ? (fees.bankName || '—') : '—',
-                        amount: isCheque ? (fees.chequeAmount || 0) : (fees.cash || 0),
-                        status: isCheque ? (fees.chequeStatus || 'Pending') : 'Received',
-                      })
+                    // Admin + Ejari Fees — always show if contract has either.
+                    const isCommercial = (contract.contractType || '').toLowerCase() === 'commercial'
+                    const commVat = Math.round((contract.commissionFee || 0) * 0.05)
+                    const feesExpected = (contract.commissionFee || 0) + commVat + (contract.ejariFee || 0)
+                    if (feesExpected > 0) {
+                      const fees = parseNotesBlock(contract.notes, 'FEES_JSON:') as null | { method?: string; cash?: number; chequeAmount?: number; chequeNo?: string; bankName?: string; chequeStatus?: string }
+                      if (fees && (fees.cash || fees.chequeAmount)) {
+                        const isCheque = fees.method === 'Cheque' && (fees.chequeAmount || 0) > 0
+                        extras.push({
+                          id: `${contract.id}-fees`,
+                          label: `Admin + Ejari Fees${isCommercial ? ' (incl. VAT)' : ''}`,
+                          method: isCheque ? 'Cheque' : 'Cash',
+                          chequeNo: isCheque ? (fees.chequeNo || '—') : '—',
+                          bank: isCheque ? (fees.bankName || '—') : '—',
+                          amount: isCheque ? (fees.chequeAmount || 0) : (fees.cash || 0),
+                          status: isCheque ? (fees.chequeStatus || 'Pending') : 'Received',
+                        })
+                      } else {
+                        extras.push({
+                          id: `${contract.id}-fees-pending`,
+                          label: `Admin + Ejari Fees${isCommercial ? ' (incl. VAT)' : ''}`,
+                          method: '—',
+                          chequeNo: '—',
+                          bank: '—',
+                          amount: feesExpected,
+                          status: 'Pending',
+                        })
+                      }
                     }
 
                     if (extras.length === 0) return null
@@ -981,8 +1014,10 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5">
                           {e.method === 'Cash' ? (
                             <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">💵 Cash</span>
-                          ) : (
+                          ) : e.method === 'Cheque' ? (
                             <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">📝 Cheque</span>
+                          ) : (
+                            <span className="text-slate-500">—</span>
                           )}
                         </td>
                         <td className="px-2 py-1.5 font-mono">{e.chequeNo}</td>
