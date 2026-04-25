@@ -760,68 +760,39 @@ function parseNotesBlock(notes: string | null | undefined, prefix: string): Reco
   return null
 }
 
-// Inline date display + click-to-edit. Used in the Cheque Tracker rows so staff
-// can correct any status date (chequeDate, depositedDate, clearedDate, bouncedDate,
-// or the OWNER_DEPOSITED marker for cash-banked-to-owner) without leaving the page.
+// Builds a chronological lifecycle log for a cheque from the data we have.
+// Used by the history popover so staff can see what happened over time
+// (issued → deposited → bounced → replaced → partially collected, etc.).
+function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail: string; icon: string }[] {
+  type Entry = { date: string; label: string; detail: string; icon: string }
+  const entries: Entry[] = []
+  if (c.chequeDate) entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅" })
+  if (c.depositedDate) entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦" })
+  if (c.clearedDate) entries.push({ date: c.clearedDate, label: "Cleared", detail: "Funds credited", icon: "✓" })
+  if (c.bouncedDate) entries.push({ date: c.bouncedDate, label: "Bounced", detail: c.bouncedReason || "—", icon: "✕" })
+  const partialMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
+  if (partialMatch) entries.push({ date: c.chequeDate || "", label: "Partial collected", detail: `AED ${parseFloat(partialMatch[1]).toLocaleString()} of AED ${(c.amount || 0).toLocaleString()}`, icon: "💰" })
+  const ownerMatch = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
+  if (ownerMatch) entries.push({ date: ownerMatch[1], label: "Banked to owner", detail: "Cash deposited into owner account", icon: "💼" })
+  if (c.status === "Replaced") entries.push({ date: "", label: "Replaced", detail: c.bouncedReason || "Replaced with a new cheque/cash", icon: "↻" })
+  return entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+}
+
+// Read-only status date display (label + date). Edits happen via the action
+// modals so the lifecycle stays linear and auditable.
 function StatusDateCell({
-  cheque,
-  field,
   label,
   value,
-  onSave,
 }: {
-  cheque: ChequeRow
-  field: string
   label: string
   value: string
-  onSave: (newDate: string) => Promise<void> | void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const [saving, setSaving] = useState(false)
-  // Re-sync draft if the row's value changes (e.g. after a save).
-  useEffect(() => { setDraft(value) }, [value])
-  void cheque
-  void field
-
-  if (!editing) {
-    return (
-      <button
-        onClick={() => { setDraft(value); setEditing(true) }}
-        className="group inline-flex flex-col items-start text-left"
-        title="Click to edit"
-      >
-        <span className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</span>
-        <span className="text-[12px] font-medium text-slate-200 group-hover:text-white group-hover:underline decoration-dotted">
-          {value || <span className="text-slate-600 italic">— click to set</span>}
-          <span className="ml-1 text-[9px] text-slate-500 opacity-0 group-hover:opacity-100">✏️</span>
-        </span>
-      </button>
-    )
-  }
   return (
-    <div className="flex items-center gap-1">
-      <input
-        type="date"
-        value={draft}
-        autoFocus
-        onChange={(e) => setDraft(e.target.value)}
-        className="rounded border border-slate-600 bg-slate-900 px-1.5 py-0.5 text-[11px] text-white"
-      />
-      <button
-        onClick={async () => { setSaving(true); try { await onSave(draft) } finally { setSaving(false); setEditing(false) } }}
-        disabled={saving || draft === value}
-        className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-40"
-      >
-        {saving ? "…" : "✓"}
-      </button>
-      <button
-        onClick={() => { setDraft(value); setEditing(false) }}
-        disabled={saving}
-        className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-600"
-      >
-        ✕
-      </button>
+    <div className="flex flex-col items-start text-left">
+      <span className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</span>
+      <span className="text-[12px] font-medium text-slate-200">
+        {value || <span className="text-slate-600 italic">—</span>}
+      </span>
     </div>
   )
 }
@@ -857,6 +828,10 @@ function ChequeUnitCards({
   const [reverseSlipFile, setReverseSlipFile] = useState<File | null>(null)
   // Bounce-collection (after a cheque already bounced)
   const [collectMethod, setCollectMethod] = useState<"" | "Cash" | "Cheque">("")
+  // Force-partial flow: when user clicks "Collect More" on a partial-pending row,
+  // lock the subtype dropdown to Partial AND lock the amount to the remaining balance.
+  const [forcePartial, setForcePartial] = useState(false)
+  const [historyFor, setHistoryFor] = useState<ChequeRow | null>(null)
 
   const todayStr = () => new Date().toISOString().slice(0, 10)
   const resetActionState = () => {
@@ -875,6 +850,7 @@ function ChequeUnitCards({
     setReverseChequeDate("")
     setReverseSlipFile(null)
     setCollectMethod("")
+    setForcePartial(false)
   }
 
   const runAction = async () => {
@@ -1322,7 +1298,20 @@ function ChequeUnitCards({
                             <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">📝 Cheque</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 font-mono">{c.chequeNo || "—"}</td>
+                        <td className="px-2 py-1.5 font-mono">
+                          <span className="inline-flex items-center gap-1.5">
+                            {c.chequeNo || "—"}
+                            {!isPartialHalf && buildChequeHistory(realCheque).length > 1 && (
+                              <button
+                                onClick={() => setHistoryFor(realCheque)}
+                                title="Show lifecycle history"
+                                className="rounded text-slate-500 hover:bg-slate-700 hover:text-slate-200 p-0.5"
+                              >
+                                <span className="text-[11px]">📜</span>
+                              </button>
+                            )}
+                          </span>
+                        </td>
                         <td className="px-2 py-1.5">{c.bankName || "—"}</td>
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(c.amount)}</td>
                         <td className="px-2 py-1.5">
@@ -1332,21 +1321,7 @@ function ChequeUnitCards({
                           {isPartialHalf === "remaining" ? (
                             <span className="text-[11px] text-slate-500">Awaiting collection</span>
                           ) : (
-                            <StatusDateCell
-                              cheque={realCheque}
-                              field={statusDateField}
-                              label={statusDateLabel}
-                              value={statusDate}
-                              onSave={async (newDate) => {
-                                const targetId = realCheque.id
-                                if (statusDateField === "ownerDeposit") {
-                                  const newNotes = `${(realCheque.notes || "").replace(/OWNER_DEPOSITED:[^\s]*/g, "").trim()}\nOWNER_DEPOSITED:${newDate}`.trim()
-                                  await updateStatus(targetId, realCheque.status, { notes: newNotes })
-                                } else {
-                                  await updateStatus(targetId, realCheque.status, { [statusDateField]: newDate })
-                                }
-                              }}
-                            />
+                            <StatusDateCell label={statusDateLabel} value={statusDate} />
                           )}
                         </td>
                         <td className="px-2 py-1.5">
@@ -1354,7 +1329,13 @@ function ChequeUnitCards({
                             {/* Partial — Remaining half: continue collecting */}
                             {isPartialHalf === "remaining" && (
                               <button
-                                onClick={() => { resetActionState(); setReverseSubtype("Partial"); setPendingAction({ type: "reverse", cheque: realCheque }) }}
+                                onClick={() => {
+                                  resetActionState()
+                                  setReverseSubtype("Partial")
+                                  setForcePartial(true)
+                                  setReverseAmount(String(c.amount)) // remaining balance, locked
+                                  setPendingAction({ type: "reverse", cheque: realCheque })
+                                }}
                                 className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
                               >
                                 💰 Collect More
@@ -1427,6 +1408,41 @@ function ChequeUnitCards({
           </div>
         )
       })}
+
+      {/* History modal — chronological log of cheque lifecycle events */}
+      <Modal
+        open={!!historyFor}
+        onOpenChange={(o) => { if (!o) setHistoryFor(null) }}
+        title={historyFor ? `History — ${historyFor.chequeNo ? `Cheque #${historyFor.chequeNo}` : `Sequence ${historyFor.sequenceNo}`}` : "History"}
+        size="md"
+        footer={<ModalCancelButton onClick={() => setHistoryFor(null)} />}
+      >
+        {historyFor && (() => {
+          const h = buildChequeHistory(historyFor)
+          if (h.length === 0) return <p className="text-sm text-slate-400">No history events yet.</p>
+          return (
+            <div className="relative">
+              <div className="absolute left-[19px] top-2 bottom-2 w-px bg-slate-700" />
+              <ul className="space-y-3">
+                {h.map((e, i) => (
+                  <li key={i} className="relative flex gap-3">
+                    <div className="z-10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-base">
+                      {e.icon}
+                    </div>
+                    <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-sm font-semibold text-white">{e.label}</p>
+                        <p className="text-[11px] text-slate-400">{e.date || "—"}</p>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-300">{e.detail}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        })()}
+      </Modal>
 
       {/* Confirmation modal — replaces native browser confirm() */}
       <Modal
@@ -1614,11 +1630,13 @@ function ChequeUnitCards({
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Type of Reverse <span className="text-red-400">*</span>
+                    {forcePartial && <span className="ml-2 text-[10px] font-normal text-amber-400">(locked — continuing partial collection)</span>}
                   </label>
                   <select
                     value={reverseSubtype}
                     onChange={(e) => setReverseSubtype(e.target.value as ReverseSubtype)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+                    disabled={forcePartial}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">— Select —</option>
                     <option value="ReplacementCash">Replacement By Cash</option>
@@ -1704,8 +1722,17 @@ function ChequeUnitCards({
                         </select>
                       </div>
                       <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Amount Collected (AED) *</label>
-                        <input type="number" value={reverseAmount} onChange={(e) => setReverseAmount(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">
+                          Amount Collected (AED) *
+                          {forcePartial && <span className="ml-1 text-[9px] text-amber-400">(remaining balance — locked)</span>}
+                        </label>
+                        <input
+                          type="number"
+                          value={reverseAmount}
+                          onChange={(e) => setReverseAmount(e.target.value)}
+                          readOnly={forcePartial}
+                          className={`w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white ${forcePartial ? "opacity-70 cursor-not-allowed" : ""}`}
+                        />
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Date *</label>
@@ -1781,8 +1808,16 @@ function ChequeUnitCards({
                     <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Amount (AED)</label>
-                    <input type="number" value={reverseAmount || pendingAction.cheque.amount} onChange={(e) => setReverseAmount(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">
+                      Amount (AED)
+                      <span className="ml-1 text-[9px] text-purple-400">(fixed — collected amount)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={pendingAction.cheque.amount}
+                      readOnly
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white opacity-70 cursor-not-allowed"
+                    />
                   </div>
                 </div>
                 <div>
