@@ -769,6 +769,43 @@ function appendEvent(notes: string | null | undefined, type: string, detail: str
   return `${(notes || "").trim()}\n${line}`.trim()
 }
 
+// Per-partial event tracking — each partial collection has its own status flow.
+//   PE:<id>|<date>|<amount>|<method>|<chequeNo>|<bank>|<status>|<bankedDate>
+type PartialEvent = {
+  id: string
+  date: string
+  amount: number
+  method: "Cash" | "Cheque"
+  chequeNo: string
+  bank: string
+  status: "Received" | "Pending" | "Deposited" | "Cleared" | "Bounced"
+  bankedDate: string
+}
+function parsePartialEvents(notes: string | null | undefined): PartialEvent[] {
+  if (!notes) return []
+  const out: PartialEvent[] = []
+  for (const m of notes.matchAll(/PE:([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^\n]*)/g)) {
+    out.push({
+      id: m[1],
+      date: m[2],
+      amount: parseFloat(m[3]) || 0,
+      method: (m[4] as PartialEvent["method"]) || "Cash",
+      chequeNo: m[5] || "",
+      bank: m[6] || "",
+      status: (m[7] as PartialEvent["status"]) || "Received",
+      bankedDate: m[8] || "",
+    })
+  }
+  return out
+}
+function serializePartialEvent(e: PartialEvent): string {
+  return `PE:${e.id}|${e.date}|${e.amount}|${e.method}|${e.chequeNo}|${e.bank}|${e.status}|${e.bankedDate}`
+}
+function replacePartialEvent(notes: string, e: PartialEvent): string {
+  const without = notes.split("\n").filter((l) => !new RegExp(`^PE:${e.id}\\|`).test(l)).join("\n").trim()
+  return `${without}\n${serializePartialEvent(e)}`.trim()
+}
+
 // Ensures the cheque's ORIGINAL details are recorded as an ISSUED event before
 // any replacement / bounce / partial mutates the chequeNo / amount fields.
 // Without this, replacements would erase the audit of "this used to be cheque #X".
@@ -1009,7 +1046,10 @@ function ChequeUnitCards({
           const eventDetail = collectMethod === "Cheque"
             ? `${oldRef} · AED ${amt.toLocaleString()} via #${reverseChequeNo} ${reverseChequeBank}`
             : `${oldRef} · AED ${amt.toLocaleString()} cash`
-          let withEvent = `${cleanedNotes}\nPARTIAL_COLLECTED:${newCollected}\nPARTIAL_EVENT:${date}|${amt}|${collectMethod || "Cash"}`.trim()
+          // Append a PE: line to track this partial's own status flow.
+          const peId = `pe${Date.now()}`
+          const peLine = `PE:${peId}|${date}|${amt}|${collectMethod || "Cash"}|${reverseChequeNo || ""}|${reverseChequeBank || ""}|${collectMethod === "Cheque" ? "Pending" : "Received"}|`
+          let withEvent = `${cleanedNotes}\nPARTIAL_COLLECTED:${newCollected}\n${peLine}`.trim()
           withEvent = appendEvent(withEvent, eventType, eventDetail, date)
           const isFullyCollected = remaining <= 0
           if (isFullyCollected) withEvent = appendEvent(withEvent, "CLEARED", `${oldRef} fully collected (AED ${(c.amount || 0).toLocaleString()})`, date)
@@ -1340,32 +1380,53 @@ function ChequeUnitCards({
                     ))
                   })()}
                   {g.cheques.flatMap((c) => {
-                    // PARTIAL SPLIT — when a cheque has a partial collection,
-                    // render TWO rows: the collected portion + the remaining balance.
-                    const partialMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
-                    if (c.status === "Partial" && partialMatch) {
-                      const collectedAmt = parseFloat(partialMatch[1]) || 0
-                      const remainingAmt = Math.max(0, (c.amount || 0) - collectedAmt)
-                      const partialOwnerMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
-                      const partialOwnerDate = partialOwnerMarker ? partialOwnerMarker[1] : ""
-                      // realId stays as c.id so actions still target the DB row
-                      const collectedRow = {
-                        ...c,
-                        id: `${c.id}-collected`,
-                        amount: collectedAmt,
-                        status: partialOwnerDate ? "Cleared" : "Received",
-                        notes: `${c.notes || ""}\n__PARTIAL_HALF__:collected:${c.id}`,
-                      } as ChequeRow
-                      const remainingRow = {
-                        ...c,
-                        id: `${c.id}-remaining`,
-                        amount: remainingAmt,
-                        status: "Partial Pending",
-                        chequeNo: "",
-                        bankName: "",
-                        notes: `${c.notes || ""}\n__PARTIAL_HALF__:remaining:${c.id}`,
-                      } as ChequeRow
-                      return [collectedRow, remainingRow]
+                    // PARTIAL SPLIT — for each PE: line, render its own row with its own status.
+                    // Then add a "Partial Pending" row if any balance remains.
+                    const peEvents = parsePartialEvents(c.notes)
+                    const cumulativeMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
+                    if (c.status === "Partial" && (peEvents.length > 0 || cumulativeMatch)) {
+                      const collectedTotal = peEvents.reduce((s, e) => s + e.amount, 0) || (cumulativeMatch ? parseFloat(cumulativeMatch[1]) || 0 : 0)
+                      const remainingAmt = Math.max(0, (c.amount || 0) - collectedTotal)
+                      const rows: ChequeRow[] = []
+                      // One row per partial event
+                      for (const e of peEvents) {
+                        rows.push({
+                          ...c,
+                          id: `${c.id}-pe-${e.id}`,
+                          amount: e.amount,
+                          status: e.status,
+                          chequeNo: e.chequeNo || (e.method === "Cash" ? "" : c.chequeNo),
+                          bankName: e.method === "Cash" ? "Cash" : (e.bank || ""),
+                          chequeDate: e.date,
+                          clearedDate: e.status === "Cleared" ? (e.bankedDate || e.date) : "",
+                          depositedDate: e.status === "Deposited" ? e.date : "",
+                          notes: `${c.notes || ""}\n__PE_ROW__:${e.id}:${c.id}`,
+                        } as ChequeRow)
+                      }
+                      // Legacy fallback — old data without PE lines, just render one collected row
+                      if (peEvents.length === 0 && cumulativeMatch) {
+                        const partialOwnerMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
+                        rows.push({
+                          ...c,
+                          id: `${c.id}-collected`,
+                          amount: collectedTotal,
+                          status: partialOwnerMarker ? "Cleared" : "Received",
+                          notes: `${c.notes || ""}\n__PARTIAL_HALF__:collected:${c.id}`,
+                        } as ChequeRow)
+                      }
+                      // Remaining balance row
+                      if (remainingAmt > 0) {
+                        rows.push({
+                          ...c,
+                          id: `${c.id}-remaining`,
+                          amount: remainingAmt,
+                          status: "Partial Pending",
+                          chequeNo: "",
+                          bankName: "",
+                          notes: `${c.notes || ""}\n__PARTIAL_HALF__:remaining:${c.id}`,
+                        } as ChequeRow)
+                      }
+                      return rows
                     }
                     return [c]
                   }).map((c) => {
@@ -1373,10 +1434,21 @@ function ChequeUnitCards({
                     const isOverdue = c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced" && c.status !== "Partial Pending"
                     const isCashPayment = (c.bankName || "").toLowerCase() === "cash" || (isUpfront && !c.chequeNo)
                     const partialHalfMatch = (c.notes || "").match(/__PARTIAL_HALF__:(\w+):([\w-]+)/)
-                    const isPartialHalf = partialHalfMatch?.[1] || ""
-                    const realChequeId = partialHalfMatch?.[2] || c.id
-                    // Locate the original cheque from the parent list when in a split-row context
+                    const peRowMatch = (c.notes || "").match(/__PE_ROW__:([\w]+):([\w-]+)/)
+                    const peEventId = peRowMatch?.[1] || ""
+                    const isPartialHalf = partialHalfMatch?.[1] || (peEventId ? "pe-row" : "")
+                    const realChequeId = partialHalfMatch?.[2] || peRowMatch?.[2] || c.id
                     const realCheque = isPartialHalf ? g.cheques.find(x => x.id === realChequeId) || c : c
+                    // Helper: update a specific PE event's status on the parent's notes
+                    const updatePartialEvent = async (patch: Partial<PartialEvent>) => {
+                      if (!peEventId) return
+                      const events = parsePartialEvents(realCheque.notes)
+                      const ev = events.find(e => e.id === peEventId)
+                      if (!ev) return
+                      const updated = { ...ev, ...patch }
+                      const newNotes = replacePartialEvent(realCheque.notes || "", updated)
+                      await updateStatus(realCheque.id, realCheque.status, { notes: newNotes })
+                    }
                     const ownerDepositMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
                     const ownerDepositedDate = ownerDepositMarker ? ownerDepositMarker[1] : ""
                     // Cash flow: Received (in hand) → Cleared (banked to owner)
@@ -1443,7 +1515,7 @@ function ChequeUnitCards({
                                   resetActionState()
                                   setReverseSubtype("Partial")
                                   setForcePartial(true)
-                                  setReverseAmount(String(c.amount)) // remaining balance, locked
+                                  setReverseAmount(String(c.amount))
                                   setPendingAction({ type: "reverse", cheque: realCheque })
                                 }}
                                 className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
@@ -1451,7 +1523,37 @@ function ChequeUnitCards({
                                 💰 Collect More
                               </button>
                             )}
-                            {/* Partial — Collected half: same flow as cash (Deposit to Owner → Cleared) */}
+                            {/* Partial — Cash event: Received → 💼 Deposit Cash → Cleared */}
+                            {isPartialHalf === "pe-row" && isCashPayment && c.status === "Received" && (
+                              <button
+                                onClick={async () => { await updatePartialEvent({ status: "Cleared", bankedDate: today }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                title="Bank this cash into the owner's account"
+                              >
+                                💼 Deposit Cash
+                              </button>
+                            )}
+                            {/* Partial — Cheque event: Pending → 🏦 Deposit; Deposited → ✓ Clear */}
+                            {isPartialHalf === "pe-row" && !isCashPayment && c.status === "Pending" && (
+                              <button
+                                onClick={async () => { await updatePartialEvent({ status: "Deposited" }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-blue-600 hover:bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                              >
+                                🏦 Deposit
+                              </button>
+                            )}
+                            {isPartialHalf === "pe-row" && !isCashPayment && c.status === "Deposited" && (
+                              <button
+                                onClick={async () => { await updatePartialEvent({ status: "Cleared", bankedDate: today }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                              >
+                                <CheckCircle className="h-3.5 w-3.5" /> Clear
+                              </button>
+                            )}
+                            {isPartialHalf === "pe-row" && c.status === "Cleared" && (
+                              <span className="text-[10px] text-emerald-400">✓ Done</span>
+                            )}
+                            {/* Legacy collected-half fallback (old data without PE lines) */}
                             {isPartialHalf === "collected" && c.status !== "Cleared" && (
                               <button
                                 onClick={() => { resetActionState(); setPendingAction({ type: "deposit-to-owner", cheque: realCheque }) }}
