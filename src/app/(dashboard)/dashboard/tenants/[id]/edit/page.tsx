@@ -1134,15 +1134,9 @@ function PaymentPlan({
     }
   }
 
-  // Suggested upfront = fees + first installment (security deposit is tracked separately above)
-  const suggestedUpfront = useMemo(() => {
-    const fees =
-      (contract.ejariFee || 0) +
-      (contract.municipalityFee || 0) +
-      (contract.commissionFee || 0)
-    const firstCheque = sorted[0]?.amount || 0
-    return fees + firstCheque
-  }, [contract.ejariFee, contract.municipalityFee, contract.commissionFee, sorted])
+  // Suggested upfront = first cheque only (Security Deposit + Admin/Ejari are tracked
+  // in their own cards above).
+  const suggestedUpfront = useMemo(() => sorted[0]?.amount || 0, [sorted])
 
   // Auto-fill upfront with the suggested amount ONLY the first time this
   // component mounts or when the saved upfront changes on the server. We
@@ -1867,23 +1861,39 @@ function PaymentPlan({
         const method = derivedMethod
         const received = upfrontTotal
         const expected = suggestedUpfront
-        const ok = received > 0 && received === expected
+        // Status comes from Cheque #1 in the DB (set by saveUpfront).
+        // Cash payments are immediately Received (money in hand);
+        // cheques follow the bank lifecycle: Pending → Deposited → Cleared / Bounced.
+        const firstCheque = sorted[0]
+        let statusLabel = ''
+        let statusClass = ''
+        if (method === 'Cash' && upfront.cash > 0) {
+          statusLabel = '✓ Received (Cash)'
+          statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200'
+        } else if (method === 'Cheque' && upfront.chequeAmount > 0 && firstCheque) {
+          const s = firstCheque.status
+          if (s === 'Cleared') { statusLabel = '✓ Cleared'; statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+          else if (s === 'Bounced') { statusLabel = '✕ Bounced'; statusClass = 'bg-red-100 text-red-700 border-red-200' }
+          else if (s === 'Deposited') { statusLabel = '🏦 Deposited (waiting bank)'; statusClass = 'bg-blue-100 text-blue-700 border-blue-200' }
+          else { statusLabel = '⌛ Pending (waiting deposit)'; statusClass = 'bg-amber-100 text-amber-700 border-amber-200' }
+        }
         return (
           <div className="px-6 pt-5">
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold">💳</span>
                     <h3 className="text-sm font-semibold text-blue-900">Upfront Payment</h3>
-                    {ok && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                        ✓ Received
+                    {statusLabel && (
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>
+                        {statusLabel}
                       </span>
                     )}
                   </div>
                   <p className="mt-1 text-[11px] text-blue-700">
-                    Fees + 1st cheque. Security Deposit is tracked separately above.
+                    1st cheque only. Security Deposit + Admin/Ejari Fees are tracked separately above.
+                    {method === 'Cheque' && ' Cheque status updates automatically when you mark Deposited / Cleared / Bounced in the cheque tabs below.'}
                   </p>
                 </div>
                 <div className="text-right">
@@ -1891,6 +1901,8 @@ function PaymentPlan({
                   <p className="text-lg font-bold text-blue-900">AED {expected.toLocaleString()}</p>
                 </div>
               </div>
+              {/* Suppress lint for unused 'received' var — kept for clarity in calc */}
+              {received < 0 && null}
 
               {/* Method toggle */}
               <div className="mb-3 flex gap-2">
