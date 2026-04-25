@@ -1253,15 +1253,52 @@ function ChequeUnitCards({
                       </tr>
                     ))
                   })()}
-                  {g.cheques.map((c) => {
+                  {g.cheques.flatMap((c) => {
+                    // PARTIAL SPLIT — when a cheque has a partial collection,
+                    // render TWO rows: the collected portion + the remaining balance.
+                    const partialMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
+                    if (c.status === "Partial" && partialMatch) {
+                      const collectedAmt = parseFloat(partialMatch[1]) || 0
+                      const remainingAmt = Math.max(0, (c.amount || 0) - collectedAmt)
+                      const partialOwnerMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
+                      const partialOwnerDate = partialOwnerMarker ? partialOwnerMarker[1] : ""
+                      // realId stays as c.id so actions still target the DB row
+                      const collectedRow = {
+                        ...c,
+                        id: `${c.id}-collected`,
+                        amount: collectedAmt,
+                        status: partialOwnerDate ? "Cleared" : "Received",
+                        notes: `${c.notes || ""}\n__PARTIAL_HALF__:collected:${c.id}`,
+                      } as ChequeRow
+                      const remainingRow = {
+                        ...c,
+                        id: `${c.id}-remaining`,
+                        amount: remainingAmt,
+                        status: "Partial Pending",
+                        chequeNo: "",
+                        bankName: "",
+                        notes: `${c.notes || ""}\n__PARTIAL_HALF__:remaining:${c.id}`,
+                      } as ChequeRow
+                      return [collectedRow, remainingRow]
+                    }
+                    return [c]
+                  }).map((c) => {
                     const isUpfront = c.paymentType === "Upfront"
-                    const isOverdue = c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced"
+                    const isOverdue = c.chequeDate && c.chequeDate < today && c.status !== "Cleared" && c.status !== "Replaced" && c.status !== "Partial Pending"
                     const isCashPayment = (c.bankName || "").toLowerCase() === "cash" || (isUpfront && !c.chequeNo)
+                    const partialHalfMatch = (c.notes || "").match(/__PARTIAL_HALF__:(\w+):([\w-]+)/)
+                    const isPartialHalf = partialHalfMatch?.[1] || ""
+                    const realChequeId = partialHalfMatch?.[2] || c.id
+                    // Locate the original cheque from the parent list when in a split-row context
+                    const realCheque = isPartialHalf ? g.cheques.find(x => x.id === realChequeId) || c : c
                     const ownerDepositMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
                     const ownerDepositedDate = ownerDepositMarker ? ownerDepositMarker[1] : ""
-                    // Display status — keep it clean (one word). Date moves to its own column.
+                    // Cash flow: Received (in hand) → Cleared (banked to owner)
+                    // Cheque flow: Pending → Deposited → Cleared
                     const displayStatus = isCashPayment && c.status === "Cleared"
-                      ? (ownerDepositedDate ? "Deposited" : "Received")
+                      ? (ownerDepositedDate ? "Cleared" : "Received")
+                      : isPartialHalf === "remaining" ? "Partial Pending"
+                      : isPartialHalf === "collected" ? (c.status === "Cleared" ? "Partial Cleared" : "Partial Received")
                       : c.status
                     // Pick the relevant "status date" + the field name (used by inline edit)
                     let statusDate = ""
@@ -1292,24 +1329,48 @@ function ChequeUnitCards({
                           <StatusBadge status={displayStatus} />
                         </td>
                         <td className="px-2 py-1.5">
-                          <StatusDateCell
-                            cheque={c}
-                            field={statusDateField}
-                            label={statusDateLabel}
-                            value={statusDate}
-                            onSave={async (newDate) => {
-                              if (statusDateField === "ownerDeposit") {
-                                const newNotes = `${(c.notes || "").replace(/OWNER_DEPOSITED:[^\s]*/g, "").trim()}\nOWNER_DEPOSITED:${newDate}`.trim()
-                                await updateStatus(c.id, c.status, { notes: newNotes })
-                              } else {
-                                await updateStatus(c.id, c.status, { [statusDateField]: newDate })
-                              }
-                            }}
-                          />
+                          {isPartialHalf === "remaining" ? (
+                            <span className="text-[11px] text-slate-500">Awaiting collection</span>
+                          ) : (
+                            <StatusDateCell
+                              cheque={realCheque}
+                              field={statusDateField}
+                              label={statusDateLabel}
+                              value={statusDate}
+                              onSave={async (newDate) => {
+                                const targetId = realCheque.id
+                                if (statusDateField === "ownerDeposit") {
+                                  const newNotes = `${(realCheque.notes || "").replace(/OWNER_DEPOSITED:[^\s]*/g, "").trim()}\nOWNER_DEPOSITED:${newDate}`.trim()
+                                  await updateStatus(targetId, realCheque.status, { notes: newNotes })
+                                } else {
+                                  await updateStatus(targetId, realCheque.status, { [statusDateField]: newDate })
+                                }
+                              }}
+                            />
+                          )}
                         </td>
                         <td className="px-2 py-1.5">
                           <div className="flex justify-end gap-1.5">
-                            {c.status === "Bounced" && (
+                            {/* Partial — Remaining half: continue collecting */}
+                            {isPartialHalf === "remaining" && (
+                              <button
+                                onClick={() => { resetActionState(); setReverseSubtype("Partial"); setPendingAction({ type: "reverse", cheque: realCheque }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                              >
+                                💰 Collect More
+                              </button>
+                            )}
+                            {/* Partial — Collected half: same flow as cash (Deposit to Owner → Cleared) */}
+                            {isPartialHalf === "collected" && c.status !== "Cleared" && (
+                              <button
+                                onClick={() => { resetActionState(); setPendingAction({ type: "deposit-to-owner", cheque: realCheque }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                title="Bank this collected portion into the owner's account"
+                              >
+                                💼 Deposit Cash
+                              </button>
+                            )}
+                            {c.status === "Bounced" && !isPartialHalf && (
                               <button
                                 onClick={() => { resetActionState(); setPendingAction({ type: "bounce-collect", cheque: c }) }}
                                 className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
@@ -1317,7 +1378,7 @@ function ChequeUnitCards({
                                 💰 Collect
                               </button>
                             )}
-                            {c.status !== "Cleared" && c.status !== "Bounced" && c.status !== "Replaced" && (
+                            {!isPartialHalf && c.status !== "Cleared" && c.status !== "Bounced" && c.status !== "Replaced" && (
                               <>
                                 {c.status !== "Deposited" && (
                                   <button
@@ -1342,7 +1403,7 @@ function ChequeUnitCards({
                               </>
                             )}
                             {/* Cash collected → staff still needs to bank it into owner's account */}
-                            {c.status === "Cleared" && isCashPayment && !ownerDepositedDate && (
+                            {!isPartialHalf && c.status === "Cleared" && isCashPayment && !ownerDepositedDate && (
                               <button
                                 onClick={() => { resetActionState(); setPendingAction({ type: "deposit-to-owner", cheque: c }) }}
                                 className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
@@ -1351,7 +1412,7 @@ function ChequeUnitCards({
                                 💼 Deposit Cash
                               </button>
                             )}
-                            {c.status === "Cleared" && !isCashPayment && (
+                            {!isPartialHalf && c.status === "Cleared" && !isCashPayment && (
                               <span className="text-[10px] text-slate-500">— Final —</span>
                             )}
                           </div>
