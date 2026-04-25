@@ -16,6 +16,9 @@ interface Body {
   paymentDate: string
   notes?: string
   sendEmail?: boolean
+  // Idempotency key — we tag the resulting invoice's notes with SOURCE:<ref>
+  // and skip creating a duplicate if one already exists.
+  sourceRef?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -35,6 +38,16 @@ export async function POST(request: NextRequest) {
     })
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
+    // Idempotency — skip if an invoice with this sourceRef already exists
+    if (body.sourceRef) {
+      const existing = await prisma.invoice.findFirst({
+        where: { organizationId, notes: { contains: `SOURCE:${body.sourceRef}` } },
+      })
+      if (existing) {
+        return NextResponse.json({ invoice: existing, deduped: true }, { status: 200 })
+      }
+    }
+
     let unit = null as null | { id: string; unitNo: string; unitType: string }
     if (body.unitId) {
       unit = await prisma.unit.findFirst({
@@ -46,6 +59,9 @@ export async function POST(request: NextRequest) {
       unit = tenant.units[0]
     }
 
+    const noteParts: string[] = []
+    if (body.notes) noteParts.push(body.notes)
+    if (body.sourceRef) noteParts.push(`SOURCE:${body.sourceRef}`)
     const invoice = await createVatInvoice({
       organizationId,
       tenantId: tenant.id,
@@ -55,7 +71,7 @@ export async function POST(request: NextRequest) {
       baseAmount: body.baseAmount,
       vatRate: body.vatRate,
       paymentDate: body.paymentDate,
-      notes: body.notes,
+      notes: noteParts.join('\n'),
       createdBy: session.user.name,
     })
 

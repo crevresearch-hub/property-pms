@@ -1304,6 +1304,28 @@ function PaymentPlan({
         }
       }
 
+      // Auto-generate Rent invoice for the upfront installment (1st cheque amount)
+      const upfrontAmt = upfront.cash + upfront.chequeAmount
+      if (upfrontAmt > 0) {
+        const isCommercial = (contract.contractType || '').toLowerCase() === 'commercial'
+        const paymentDate = new Date().toISOString().slice(0, 10)
+        await fetch('/api/invoices/auto-vat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenantId,
+            unitId: contract.unitId,
+            type: 'Rent (Upfront / Installment 1)',
+            baseAmount: upfrontAmt,
+            vatRate: isCommercial ? 0.05 : 0,
+            paymentDate,
+            notes: `Upfront — cash ${upfront.cash.toLocaleString()} + cheque ${upfront.chequeAmount.toLocaleString()}`,
+            sourceRef: `upfront-${contract.id}`,
+            sendEmail: true,
+          }),
+        }).catch(() => {})
+      }
+
       setUpfrontDirty(false)
       onChange()
     } finally {
@@ -1327,6 +1349,25 @@ function PaymentPlan({
         const e = await res.json().catch(() => ({}))
         alert(`Saving security deposit failed: ${e.error || res.status}`)
         return
+      }
+      // Auto-generate Receipt invoice (no VAT on security deposit)
+      const depAmount = deposit.method === 'Cash' ? deposit.cash : deposit.method === 'Cheque' ? deposit.chequeAmount : 0
+      if (depAmount > 0) {
+        await fetch('/api/invoices/auto-vat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenantId,
+            unitId: contract.unitId,
+            type: 'Security Deposit',
+            baseAmount: depAmount,
+            vatRate: 0,
+            paymentDate: new Date().toISOString().slice(0, 10),
+            notes: `Collected via ${deposit.method}`,
+            sourceRef: `deposit-${contract.id}`,
+            sendEmail: true,
+          }),
+        }).catch(() => {})
       }
       setDepositDirty(false)
       onChange()
@@ -1367,6 +1408,7 @@ function PaymentPlan({
             baseAmount: adminBase,
             paymentDate,
             notes: `Collected via ${fees.method} on ${paymentDate}`,
+            sourceRef: `fees-admin-${contract.id}`,
             sendEmail: true,
           }),
         }).catch(() => {})
@@ -1384,6 +1426,7 @@ function PaymentPlan({
             vatRate: 0,
             paymentDate,
             notes: `Collected via ${fees.method} on ${paymentDate}`,
+            sourceRef: `fees-ejari-${contract.id}`,
             sendEmail: false,
           }),
         }).catch(() => {})

@@ -954,6 +954,39 @@ function ChequeUnitCards({
   const [historyFor, setHistoryFor] = useState<ChequeRow | null>(null)
 
   const todayStr = () => new Date().toISOString().slice(0, 10)
+  // Centralised invoice generator for any installment-style payment cleared via cash/cheque.
+  // Called from runAction whenever a payment reaches a Cleared state.
+  const generateInstallmentInvoice = async (
+    c: ChequeRow,
+    amount: number,
+    date: string,
+    eventTag: string
+  ) => {
+    if (!c.tenantId || !amount || amount <= 0) return
+    try {
+      const ctr = contracts.find((x) => (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId))
+      const isCommercial = (ctr?.contractType || "").toLowerCase() === "commercial"
+      const refLabel = c.chequeNo ? `Cheque #${c.chequeNo}` : `Sequence ${c.sequenceNo}`
+      const installLabel = c.paymentType === "Upfront"
+        ? "Rent (Upfront)"
+        : `Rent (Installment ${c.sequenceNo} of ${c.totalCheques})`
+      await fetch("/api/invoices/auto-vat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: c.tenantId,
+          unitId: c.unitId,
+          type: installLabel,
+          baseAmount: amount,
+          vatRate: isCommercial ? 0.05 : 0,
+          paymentDate: date,
+          notes: `${refLabel} · ${eventTag}`,
+          sourceRef: `cheque-${c.id}-${eventTag}`,
+          sendEmail: true,
+        }),
+      }).catch(() => {})
+    } catch { /* non-blocking */ }
+  }
   const resetActionState = () => {
     setPendingAction(null)
     setRejectReason("")
@@ -996,10 +1029,32 @@ function ChequeUnitCards({
         }
       } else if (pendingAction.type === "clear") {
         const date = clearDate || todayStr()
-        const refLabel = `Cheque ${pendingAction.cheque.chequeNo ? `#${pendingAction.cheque.chequeNo}` : `seq ${pendingAction.cheque.sequenceNo}`}`
-        const baseNotes = ensureIssuedEvent(pendingAction.cheque.notes, pendingAction.cheque)
-        const newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(pendingAction.cheque.amount || 0).toLocaleString()} via ${pendingAction.cheque.bankName || "bank"}`, date)
-        await updateStatus(pendingAction.cheque.id, "Cleared", { clearedDate: date, notes: newNotes })
+        const c = pendingAction.cheque
+        const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
+        const baseNotes = ensureIssuedEvent(c.notes, c)
+        const newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} via ${c.bankName || "bank"}`, date)
+        await updateStatus(c.id, "Cleared", { clearedDate: date, notes: newNotes })
+        // Auto-generate Rent invoice for this cleared installment
+        try {
+          const ctr = contracts.find((x) => (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId))
+          const isCommercial = (ctr?.contractType || "").toLowerCase() === "commercial"
+          const installLabel = c.paymentType === "Upfront" ? "Rent (Upfront)" : `Rent (Installment ${c.sequenceNo} of ${c.totalCheques})`
+          await fetch("/api/invoices/auto-vat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenantId: c.tenantId,
+              unitId: c.unitId,
+              type: installLabel,
+              baseAmount: c.amount,
+              vatRate: isCommercial ? 0.05 : 0,
+              paymentDate: date,
+              notes: `${refLabel} cleared via ${c.bankName || "bank"}`,
+              sourceRef: `cheque-${c.id}-cleared`,
+              sendEmail: true,
+            }),
+          }).catch(() => {})
+        } catch { /* non-blocking */ }
       } else if (pendingAction.type === "reverse") {
         const c = pendingAction.cheque
         const date = reverseDate || todayStr()
@@ -1017,6 +1072,7 @@ function ChequeUnitCards({
             paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
             notes: newNotes,
           })
+          await generateInstallmentInvoice(c, amt, date, "ReplacedByCash")
         } else if (reverseSubtype === "ReplacementCheque") {
           const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
@@ -1058,6 +1114,8 @@ function ChequeUnitCards({
             ...(isFullyCollected ? { clearedDate: date } : {}),
             ...(collectMethod === "Cash" ? { bankName: collectMethod === "Cash" ? "Cash" : (c.bankName || "") } : {}),
           })
+          // One invoice per partial collection event (collected = real money in)
+          await generateInstallmentInvoice(c, amt, date, `Partial-${peId}`)
         }
         // Slip upload for cheque-replacement / partial-cheque
         if (reverseSlipFile && pendingAction.cheque.tenant?.id) {
@@ -1129,6 +1187,7 @@ function ChequeUnitCards({
             paymentType: "Replacement",
             notes: newNotes,
           })
+          await generateInstallmentInvoice(c, amt, date, "BounceCollectCash")
         } else if (collectMethod === "Cheque") {
           const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
@@ -1448,6 +1507,11 @@ function ChequeUnitCards({
                       const updated = { ...ev, ...patch }
                       const newNotes = replacePartialEvent(realCheque.notes || "", updated)
                       await updateStatus(realCheque.id, realCheque.status, { notes: newNotes })
+                      // When this partial event reaches Cleared, generate an invoice for it
+                      if (patch.status === "Cleared") {
+                        const date = patch.bankedDate || updated.bankedDate || updated.date || today
+                        await generateInstallmentInvoice(realCheque, ev.amount, date, `PE-${ev.id}`)
+                      }
                     }
                     const ownerDepositMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
                     const ownerDepositedDate = ownerDepositMarker ? ownerDepositMarker[1] : ""
