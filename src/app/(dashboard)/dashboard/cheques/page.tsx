@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import Link from "next/link"
 import { KpiCard } from "@/components/ui/kpi-card"
 import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
@@ -1025,7 +1026,13 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(e.amount)}</td>
                         <td className="px-2 py-1.5"><StatusBadge status={e.status} /></td>
                         <td className="px-2 py-1.5 text-right">
-                          <span className="text-[10px] text-slate-500">— Tenant Edit —</span>
+                          <Link
+                            href={`/dashboard/tenants/${tenantId}/edit#payment-plan`}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                            title="Open the tenant's Payment Plan to record / update this payment"
+                          >
+                            ↗ Manage
+                          </Link>
                         </td>
                       </tr>
                     ))
