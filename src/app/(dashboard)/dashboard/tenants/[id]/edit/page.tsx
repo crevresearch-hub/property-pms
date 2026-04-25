@@ -1247,9 +1247,8 @@ function PaymentPlan({
       // below) should flip it to 'Cleared'.
       const firstCheque = sorted.find((c) => c.sequenceNo === 1)
       if (firstCheque && upfront.chequeAmount > 0) {
-        // If this cheque was previously auto-cleared by the old flow (paymentType=Upfront
-        // and Cleared) but no manual clearedDate marker, reset to Pending. Otherwise
-        // preserve Cleared/Bounced statuses set by the user in PDC tabs.
+        // Cheque payment for the upfront — write into Cheque #1 with bank lifecycle
+        // (Pending → Deposited → Cleared/Bounced via PDC tabs).
         const wasManuallyCleared = firstCheque.status === 'Cleared' && !!firstCheque.clearedDate && firstCheque.paymentType !== 'Upfront'
         const keepStatus = wasManuallyCleared || firstCheque.status === 'Bounced'
         const r = await fetch(`/api/cheques/${firstCheque.id}`, {
@@ -1269,7 +1268,28 @@ function PaymentPlan({
           const e = await r.json().catch(() => ({}))
           alert(`Updating Cheque #1 (upfront) failed: ${e.error || r.status}`)
         }
-      } else if (firstCheque && upfront.chequeAmount === 0 && firstCheque.paymentType === 'Upfront') {
+      } else if (firstCheque && upfront.cash > 0 && upfront.chequeAmount === 0) {
+        // Cash payment for the upfront — mark Cheque #1 as Cleared (paid in cash) and
+        // set paymentType=Upfront so the Cheque Tracker shows it correctly.
+        const r = await fetch(`/api/cheques/${firstCheque.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chequeNo: '',
+            bankName: 'Cash',
+            chequeDate: new Date().toISOString().slice(0, 10),
+            amount: upfront.cash,
+            status: 'Cleared',
+            clearedDate: new Date().toISOString().slice(0, 10),
+            paymentType: 'Upfront',
+          }),
+        })
+        if (!r.ok) {
+          const e = await r.json().catch(() => ({}))
+          alert(`Updating Cheque #1 (upfront cash) failed: ${e.error || r.status}`)
+        }
+      } else if (firstCheque && upfront.chequeAmount === 0 && upfront.cash === 0 && firstCheque.paymentType === 'Upfront') {
+        // User cleared their upfront — revert Cheque #1 back to a normal pending PDC.
         const r = await fetch(`/api/cheques/${firstCheque.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1373,8 +1393,12 @@ function PaymentPlan({
   const updateStatus = (id: string, status: string, extra: Record<string, string> = {}) =>
     saveCheque(id, { ...extra, status } as Partial<Cheque>)
 
+  // Cheque #1 is consumed by the Upfront Payment card (cash or cheque). Always
+  // hide it from the PDC list once an upfront amount is recorded — otherwise
+  // staff sees a duplicate "Cheque 1" they don't need to track.
+  const upfrontPaid = upfront.cash > 0 || upfront.chequeAmount > 0
   const upfrontHasCheque = upfront.chequeAmount > 0
-  const visiblePdcs = sorted.filter((c) => !(c.sequenceNo === 1 && upfrontHasCheque))
+  const visiblePdcs = sorted.filter((c) => !(c.sequenceNo === 1 && upfrontPaid))
   const active = visiblePdcs[activeIdx]
   const edits = (active && localEdits[active.id]) || {}
   const edited = {
@@ -2122,11 +2146,11 @@ function PaymentPlan({
         )
       })()}
 
-      {/* Cheque tabs — when an upfront cheque is paid, cheque #1 is consumed
-          by the upfront card above and hidden here. PDC tabs = N − 1. */}
+      {/* Cheque tabs — when the upfront amount is recorded (cash or cheque),
+          Cheque #1 is consumed by the Upfront Payment card above and hidden here. */}
       {(() => {
-        const upfrontHasCheque = upfront.chequeAmount > 0
-        const pdcs = sorted.filter((c) => !(c.sequenceNo === 1 && upfrontHasCheque))
+        const upfrontIsPaid = upfront.cash > 0 || upfront.chequeAmount > 0
+        const pdcs = sorted.filter((c) => !(c.sequenceNo === 1 && upfrontIsPaid))
         // Clamp activeIdx so it points at a visible PDC after the list shrinks.
         if (activeIdx >= pdcs.length && pdcs.length > 0) {
           setActiveIdx(0)
@@ -2139,7 +2163,9 @@ function PaymentPlan({
               </h4>
               <span className="text-[11px] text-slate-500">
                 {pdcs.length} cheque{pdcs.length === 1 ? '' : 's'} to track
-                {upfrontHasCheque && " · Cheque 1 was paid upfront ↑"}
+                {upfrontIsPaid && (upfront.cash > 0
+                  ? " · Cheque 1 was paid upfront in cash ↑"
+                  : " · Cheque 1 was paid upfront ↑")}
               </span>
             </div>
             {pdcs.length === 0 ? (
