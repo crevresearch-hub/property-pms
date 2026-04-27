@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, TrendingUp, Wallet, Building2, Banknote, FileText } from "lucide-react"
+import { LayoutDashboard, TrendingUp, Wallet, Building2, Banknote, FileText, Receipt } from "lucide-react"
 
 const tabs = [
   { href: "/owner/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const tabs = [
   { href: "/owner/cashflow", label: "Cashflow", icon: Wallet },
   { href: "/owner/units", label: "Units", icon: Building2 },
   { href: "/owner/cheques", label: "Cheques", icon: Banknote },
+  { href: "/owner/bills", label: "Bills", icon: Receipt },
   { href: "/owner/reports", label: "Reports", icon: FileText },
 ]
 

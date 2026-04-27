@@ -51,6 +51,7 @@ model Organization {
   tenancyContracts   TenancyContract[]
   cashDeposits       CashDeposit[]
   updateRequests     UpdateRequest[]
+  vendorBills        VendorBill[]
 }
 
 // ════════════════════════════════════════════
@@ -103,6 +104,7 @@ model Unit {
   dewaReadings       DewaReading[]
   contractHistory    ContractHistory[]
   feeLedger          FeeLedger[]
+  vendorBills        VendorBill[]
 
   @@unique([organizationId, unitNo])
   @@index([organizationId])
@@ -149,6 +151,7 @@ model Tenant {
   contractHistory    ContractHistory[]
   feeLedger          FeeLedger[]
   tenancyContracts   TenancyContract[]
+  vendorBills        VendorBill[]
 
   // Extra fields for tenancy contract generator
   visaNo             String       @default("")
@@ -459,6 +462,7 @@ model Vendor {
 
   maintenanceTickets MaintenanceTicket[]
   workOrders         WorkOrder[]
+  vendorBills        VendorBill[]
 
   @@index([organizationId])
 }
@@ -854,8 +858,9 @@ model PropertyOwner {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  contracts OwnerContract[]
-  images    BuildingImage[]
+  contracts   OwnerContract[]
+  images      BuildingImage[]
+  vendorBills VendorBill[]
 
   @@index([organizationId])
   @@index([stage])
@@ -1009,4 +1014,69 @@ model UpdateRequest {
   @@index([organizationId])
   @@index([status])
   @@index([type, refId])
+}
+
+// ════════════════════════════════════════════
+// VENDOR BILLS / EXPENSES — staff records a vendor invoice + payment
+// details and files. Stays in PendingApproval until the property owner
+// approves via the owner portal. Then can be marked Paid.
+// ════════════════════════════════════════════
+model VendorBill {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  vendorId       String
+  vendor         Vendor       @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  tenantId       String?
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  ownerId        String?
+  owner          PropertyOwner? @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  // Invoice details
+  billNo         String       @default("")          // vendor's invoice number
+  billDate       String       @default("")          // YYYY-MM-DD
+  serviceType    String       @default("")          // e.g. "Plumbing repair", "AC service"
+  description    String       @default("")
+
+  baseAmount     Float        @default(0)
+  vatAmount      Float        @default(0)           // typically 5% of base
+  totalAmount    Float        @default(0)
+
+  // Payment details (filled when bill is paid; some fields stay empty per method)
+  paymentMethod  String       @default("")          // "" | Cash | Cheque | BankTransfer
+  paymentDate    String       @default("")          // YYYY-MM-DD
+  chequeNo       String       @default("")
+  chequeBank     String       @default("")
+  chequeDate     String       @default("")
+  bankRef        String       @default("")          // ref / txn no
+  bankName       String       @default("")
+
+  // Document refs (stored under /uploads/<orgId>/vendor-bills/<id>/...)
+  invoiceFileName String      @default("")          // vendor's invoice PDF / image
+  paymentFileName String      @default("")          // cheque image OR transfer receipt
+
+  // Approval state machine
+  status         String       @default("PendingApproval")
+  approvedBy     String       @default("")
+  approvedAt     DateTime?
+  approverNote   String       @default("")
+  rejectReason   String       @default("")
+  paidAt         DateTime?
+
+  createdBy      String       @default("")
+  notes          String       @default("")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([vendorId])
+  @@index([unitId])
+  @@index([ownerId])
+  @@index([status])
 }

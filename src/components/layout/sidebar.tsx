@@ -31,6 +31,7 @@ import {
   Handshake,
   Mail,
   Upload,
+  Receipt,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
@@ -66,6 +67,7 @@ const navGroups: NavGroup[] = [
       { label: "Bank Reconciliation", href: "/dashboard/reconciliation", icon: BookCheck },
       { label: "Renewals", href: "/dashboard/renewals", icon: RefreshCw },
       { label: "Invoices", href: "/dashboard/invoices", icon: FileText },
+      { label: "Expenses & Bills", href: "/dashboard/expenses", icon: Receipt },
       { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
     ],
   },
