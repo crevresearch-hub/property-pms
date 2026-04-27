@@ -2789,14 +2789,26 @@ function ChequeUnitCards({
                   >
                     <option value="">— Select —</option>
                     <option value="ReplacementCash">Replacement By Cash</option>
-                    <option value="ReplacementCheque">Replacement By CHQ</option>
+                    {/* If this cheque is itself a replacement (parentId set), the only
+                        further allowed reverse is Cash + (when Deposited) Bounced. We
+                        don't allow another cheque-replacement or partial-collection on
+                        a row that's already been swapped once — keeps the chain finite
+                        and avoids endless replace-cheque loops. */}
+                    {!pendingAction.cheque.parentId && (
+                      <option value="ReplacementCheque">Replacement By CHQ</option>
+                    )}
                     {/* Bounce only makes sense after the cheque has been deposited —
                         you only learn it bounced once the bank rejects it. */}
                     {pendingAction.cheque.status === "Deposited" && (
                       <option value="Bounced">Bounced CHQ</option>
                     )}
-                    <option value="Partial">Partial Payment</option>
+                    {!pendingAction.cheque.parentId && (
+                      <option value="Partial">Partial Payment</option>
+                    )}
                   </select>
+                  {pendingAction.cheque.parentId && (
+                    <p className="mt-1 text-[10px] text-amber-400">⚠ This cheque is already a replacement — only Replacement By Cash is allowed (no recursive cheque swap or partial split).</p>
+                  )}
                 </div>
 
                 {/* Replacement By Cash */}
