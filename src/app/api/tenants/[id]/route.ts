@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { cookies } from 'next/headers'
 import prisma from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 
@@ -168,10 +169,14 @@ export async function DELETE(
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    // Hard-delete is reserved for the developer (dev-login synthetic user).
-    // Org admins / staff use the Terminate workflow instead. Defense-in-depth
-    // mirroring the UI gate on the Tenants list page.
-    const isDeveloper = session.user.id === 'admin-dev' || session.user.email === 'admin@cre.ae'
+    // Hard-delete is reserved for the developer. Three paths grant it:
+    // dev-login id, dev-login email, OR the dev_unlocked cookie set by the
+    // /dashboard/developer password unlock. Mirrors the client-side gate.
+    const c = await cookies()
+    const isDeveloper =
+      session.user.id === 'admin-dev' ||
+      session.user.email === 'admin@cre.ae' ||
+      c.get('dev_unlocked')?.value === '1'
     if (!isDeveloper) {
       return NextResponse.json({ error: 'Only the developer can delete tenants' }, { status: 403 })
     }

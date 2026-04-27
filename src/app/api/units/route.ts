@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { cookies } from 'next/headers'
 import prisma from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 
@@ -52,11 +53,13 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    // Only the developer/superuser identity can create units. Mirrors the UI
-    // gate on the Unit Management page — id "admin-dev" is the dev-login
-    // synthetic user, "admin@cre.ae" its email. Defense-in-depth so an org
-    // admin can't bypass the hidden button by hitting the API directly.
-    const isDeveloper = session.user.id === 'admin-dev' || session.user.email === 'admin@cre.ae'
+    // Developer status — three paths: dev-login id, dev-login email, OR the
+    // dev_unlocked cookie set by /dashboard/developer's password unlock.
+    const c = await cookies()
+    const isDeveloper =
+      session.user.id === 'admin-dev' ||
+      session.user.email === 'admin@cre.ae' ||
+      c.get('dev_unlocked')?.value === '1'
     if (!isDeveloper) {
       return NextResponse.json({ error: 'Only the developer can create units' }, { status: 403 })
     }

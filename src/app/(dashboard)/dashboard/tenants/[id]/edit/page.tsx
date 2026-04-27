@@ -167,16 +167,19 @@ export default function TenantEditPage() {
   const tenantId = params.id
   const toast = useToast()
   const { data: session } = useSession()
-  // Permission flags (per spec):
-  //   isDeveloper — only the dev-login user (id="admin-dev") can change
-  //     identity fields like name, Emirates ID number, etc, and can hard-
-  //     delete tenants.
-  //   isContractLocked — once the active contract is "Active", security
-  //     deposit / admin fees / rent are frozen for EVERYONE (including
-  //     the developer). Changes after this point require a renewal flow.
+  // Developer status — dev-login identity OR the dev_unlocked cookie set by
+  // /dashboard/developer's password unlock. Either grants the developer-only
+  // identity fields (name, Emirates ID, etc.) plus hard-delete.
+  const [devUnlocked, setDevUnlocked] = useState(false)
+  useEffect(() => {
+    const v = typeof document !== "undefined" && document.cookie
+      .split(";").some((c) => c.trim().startsWith("dev_unlocked=1"))
+    setDevUnlocked(v)
+  }, [])
   const isDeveloper =
     session?.user?.id === "admin-dev" ||
-    session?.user?.email === "admin@cre.ae"
+    session?.user?.email === "admin@cre.ae" ||
+    devUnlocked
 
   const [tenant, setTenant] = useState<TenantFull | null>(null)
   const [contracts, setContracts] = useState<TenancyContract[]>([])

@@ -57,14 +57,23 @@ const defaultForm = {
 export default function UnitsPage() {
   const { data: session } = useSession()
   const searchParams = useSearchParams()
-  // Only the developer/superuser can create new units. We identify them by a
-  // dedicated identity (id="admin-dev" from /api/auth/dev-login, or the
-  // synthetic email "admin@cre.ae"), NOT by the broad "admin" role — every
-  // organization has its own CRE Admin who shouldn't be able to add units.
-  // CEO / Staff / Org Admin can still view, edit, and delete existing units.
+  // Developer status — three paths grant it:
+  //   1) NextAuth dev-login synthetic id "admin-dev"
+  //   2) NextAuth login as the synthetic email "admin@cre.ae"
+  //   3) /dashboard/developer page unlocked via password (sets dev_unlocked=1
+  //      cookie, readable by client JS — httpOnly:false on the route)
+  // Path 3 is the primary one: org admins who know the developer password
+  // unlock the developer mode without switching login identities.
+  const [devUnlocked, setDevUnlocked] = useState(false)
+  useEffect(() => {
+    const v = typeof document !== "undefined" && document.cookie
+      .split(";").some((c) => c.trim().startsWith("dev_unlocked=1"))
+    setDevUnlocked(v)
+  }, [])
   const isDeveloper =
     session?.user?.id === "admin-dev" ||
-    session?.user?.email === "admin@cre.ae"
+    session?.user?.email === "admin@cre.ae" ||
+    devUnlocked
   const [units, setUnits] = useState<UnitRow[]>([])
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)

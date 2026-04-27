@@ -137,12 +137,18 @@ const defaultContractForm = {
 
 export default function TenantsPage() {
   const { data: session } = useSession()
-  // Only the developer (dev-login synthetic user) can hard-delete tenants.
-  // Org admins / staff still see the Terminate button (which goes through
-  // the proper notice + handover workflow).
+  // Developer status — dev-login identity OR the dev_unlocked cookie set by
+  // /dashboard/developer's password unlock. Either grants delete + bypass.
+  const [devUnlocked, setDevUnlocked] = useState(false)
+  useEffect(() => {
+    const v = typeof document !== "undefined" && document.cookie
+      .split(";").some((c) => c.trim().startsWith("dev_unlocked=1"))
+    setDevUnlocked(v)
+  }, [])
   const isDeveloper =
     session?.user?.id === "admin-dev" ||
-    session?.user?.email === "admin@cre.ae"
+    session?.user?.email === "admin@cre.ae" ||
+    devUnlocked
   const [tenants, setTenants] = useState<TenantRow[]>([])
   const [units, setUnits] = useState<UnitOption[]>([])
   const [vacantUnits, setVacantUnits] = useState<UnitOption[]>([])
