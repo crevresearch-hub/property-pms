@@ -1178,10 +1178,9 @@ function ChequeUnitCards({
             depositRemarks,
             notes: newNotes,
           })
-          // Cash hitting the bank IS the clearance — fire the auto-VAT invoice
-          // using the same sourceRef as the cheque-clear path so the two
-          // pathways de-dupe at the auto-vat endpoint.
-          await generateInstallmentInvoice(c, c.amount || 0, date, "cleared")
+          // Note: the auto-VAT invoice for cash payments is fired at the
+          // RECEIVE step (Bounce-Collect-Cash / Replacement-By-Cash) — that's
+          // when the tenant actually paid. Banking the cash is internal.
         } else {
           const newNotes = appendEvent(baseNotes, "DEPOSITED", `${refLabel} → ${c.bankName || "bank"} · ${depositRemarks || "awaiting clearance"}`, date)
           await updateStatus(c.id, "Deposited", {
@@ -1233,9 +1232,10 @@ function ChequeUnitCards({
         const baseNotesR = ensureIssuedEvent(c.notes, c)
         if (reverseSubtype === "ReplacementCash") {
           // Per spec 6B: replacement collected in cash → status "Received",
-          // then user follows the cash flow (Deposit → Cleared, invoice fires
-          // on deposit). Do NOT auto-clear and do NOT fire the invoice yet —
-          // that happens when the cash actually hits the bank.
+          // then user follows the cash flow (Deposit → Cleared). The auto-VAT
+          // invoice fires NOW because the cash is physically in our hands
+          // ("cash received" event in the spec); the later Deposit step is
+          // just admin/banking and does not re-fire the invoice.
           const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash collected`, date)
           await updateStatus(c.id, "Pending", {
             clearedDate: "",
@@ -1247,6 +1247,7 @@ function ChequeUnitCards({
             paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
             notes: newNotes,
           })
+          await generateInstallmentInvoice(c, amt, date, "ReplacedByCash")
         } else if (reverseSubtype === "ReplacementCheque") {
           const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
@@ -1288,8 +1289,15 @@ function ChequeUnitCards({
             ...(isFullyCollected ? { clearedDate: date } : {}),
             ...(collectMethod === "Cash" ? { bankName: collectMethod === "Cash" ? "Cash" : (c.bankName || "") } : {}),
           })
-          // One invoice per partial collection event (collected = real money in)
-          await generateInstallmentInvoice(c, amt, date, `Partial-${peId}`)
+          // Auto-VAT invoice rules per partial event:
+          //   - Partial Cash    → fire NOW (cash physically in hand)
+          //   - Partial Cheque  → defer; fire when the PE event hits Cleared
+          //     (real money only arrives after the partial cheque clears)
+          // We use the PE-${peId} sourceRef shape that updatePartialEvent also
+          // uses, so the two pathways de-dupe at the auto-vat endpoint.
+          if (collectMethod === "Cash") {
+            await generateInstallmentInvoice(c, amt, date, `PE-${peId}`)
+          }
         }
         // Slip upload for cheque-replacement / partial-cheque
         if (reverseSlipFile && pendingAction.cheque.tenant?.id) {
@@ -1352,8 +1360,8 @@ function ChequeUnitCards({
         const baseNotes = ensureIssuedEvent(c.notes, c)
         if (collectMethod === "Cash") {
           // Per spec 6A: bounce collected in cash → status "Received", then
-          // user follows the cash flow (Deposit → Cleared, invoice fires on
-          // deposit). Do not auto-clear here.
+          // user follows the cash flow (Deposit → Cleared). Invoice fires NOW
+          // ("cash received" event); the later Deposit step is admin-only.
           const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash settled the bounce`, date)
           await updateStatus(c.id, "Pending", {
             clearedDate: "",
@@ -1365,6 +1373,7 @@ function ChequeUnitCards({
             paymentType: "Replacement",
             notes: newNotes,
           })
+          await generateInstallmentInvoice(c, amt, date, "BounceCollectCash")
         } else if (collectMethod === "Cheque") {
           const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
