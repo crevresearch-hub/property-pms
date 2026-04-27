@@ -19,6 +19,13 @@ import {
   ArrowRightCircle,
 } from "lucide-react"
 
+// Display alias — the spec calls the initial state "Received". We keep the
+// stored status "Pending" for backward compatibility with rows seeded before
+// the rename, but every user-facing badge / filter label reads "Received".
+function displayStatusLabel(status: string): string {
+  return status === "Pending" ? "Received" : status
+}
+
 interface ChequeRow {
   id: string
   tenantId: string
@@ -212,7 +219,7 @@ export default function ChequesPage() {
     { key: "chequeDate", header: "Cheque Date", sortable: true, render: (r) => r.chequeDate ? formatDate(r.chequeDate) : "--" },
     { key: "amount", header: "Amount", sortable: true, render: (r) => formatCurrency(r.amount) },
     { key: "bankName", header: "Bank" },
-    { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
+    { key: "status", header: "Status", render: (r) => <StatusBadge status={displayStatusLabel(r.status)} /> },
     { key: "clearedDate", header: "Cleared On", render: (r) => r.clearedDate ? formatDate(r.clearedDate) : "--" },
     { key: "seq", header: "Seq", render: (r) => `${r.sequenceNo}/${r.totalCheques}` },
     {
@@ -627,8 +634,10 @@ function ChequeFilters({
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Status</p>
           <div className="flex flex-wrap gap-1.5">
             <StatusButton value="all" label={`All (${cheques.length})`} />
-            <StatusButton value="Pending" label="Pending" />
-            <StatusButton value="Received" label="Received" />
+            {/* "Pending" is the stored value for newly-seeded cheques (legacy
+                + still emitted by the seed path); the spec calls this state
+                "Received". One filter button covers both. */}
+            <StatusButton value="Pending" label="Received" />
             <StatusButton value="Deposited" label="Deposited" />
             <StatusButton value="Cleared" label="Cleared" />
             <StatusButton value="Bounced" label="Bounced" />
@@ -1152,20 +1161,40 @@ function ChequeUnitCards({
     setBusyAction(true)
     try {
       if (pendingAction.type === "deposit") {
+        const c = pendingAction.cheque
         const date = depositDate || todayStr()
-        const refLabel = `Cheque ${pendingAction.cheque.chequeNo ? `#${pendingAction.cheque.chequeNo}` : `seq ${pendingAction.cheque.sequenceNo}`}`
-        const baseNotes = ensureIssuedEvent(pendingAction.cheque.notes, pendingAction.cheque)
-        const newNotes = appendEvent(baseNotes, "DEPOSITED", `${refLabel} → ${pendingAction.cheque.bankName || "bank"} · ${depositRemarks || "awaiting clearance"}`, date)
-        await updateStatus(pendingAction.cheque.id, "Deposited", {
-          depositedDate: date,
-          depositRemarks,
-          notes: newNotes,
-        })
-        if (depositSlipFile && pendingAction.cheque.tenant?.id) {
+        const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
+        const baseNotes = ensureIssuedEvent(c.notes, c)
+        // Cash flow is one step (Received → Deposit clicked → Cleared); cheque
+        // flow is two (Received → Deposit → Deposited → Clear → Cleared). We
+        // detect cash payments by the synthetic "Cash" bank set during
+        // Bounce-Collect-Cash / Replacement-By-Cash.
+        const isCashPayment = (c.bankName || "").toLowerCase() === "cash"
+        if (isCashPayment) {
+          const newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} cash banked`, date)
+          await updateStatus(c.id, "Cleared", {
+            clearedDate: date,
+            depositedDate: date,
+            depositRemarks,
+            notes: newNotes,
+          })
+          // Cash hitting the bank IS the clearance — fire the auto-VAT invoice
+          // using the same sourceRef as the cheque-clear path so the two
+          // pathways de-dupe at the auto-vat endpoint.
+          await generateInstallmentInvoice(c, c.amount || 0, date, "cleared")
+        } else {
+          const newNotes = appendEvent(baseNotes, "DEPOSITED", `${refLabel} → ${c.bankName || "bank"} · ${depositRemarks || "awaiting clearance"}`, date)
+          await updateStatus(c.id, "Deposited", {
+            depositedDate: date,
+            depositRemarks,
+            notes: newNotes,
+          })
+        }
+        if (depositSlipFile && c.tenant?.id) {
           const fd = new FormData()
           fd.append('file', depositSlipFile)
-          fd.append('tenantId', pendingAction.cheque.tenant.id)
-          fd.append('docType', `Deposit-Slip-Cheque-${pendingAction.cheque.id}`)
+          fd.append('tenantId', c.tenant.id)
+          fd.append('docType', `Deposit-Slip-Cheque-${c.id}`)
           await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
         }
       } else if (pendingAction.type === "clear") {
@@ -1203,9 +1232,14 @@ function ChequeUnitCards({
         const oldRef = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotesR = ensureIssuedEvent(c.notes, c)
         if (reverseSubtype === "ReplacementCash") {
+          // Per spec 6B: replacement collected in cash → status "Received",
+          // then user follows the cash flow (Deposit → Cleared, invoice fires
+          // on deposit). Do NOT auto-clear and do NOT fire the invoice yet —
+          // that happens when the cash actually hits the bank.
           const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash collected`, date)
-          await updateStatus(c.id, "Cleared", {
-            clearedDate: date,
+          await updateStatus(c.id, "Pending", {
+            clearedDate: "",
+            depositedDate: "",
             chequeNo: "",
             bankName: "Cash",
             amount: String(amt),
@@ -1213,7 +1247,6 @@ function ChequeUnitCards({
             paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
             notes: newNotes,
           })
-          await generateInstallmentInvoice(c, amt, date, "ReplacedByCash")
         } else if (reverseSubtype === "ReplacementCheque") {
           const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
@@ -1318,9 +1351,13 @@ function ChequeUnitCards({
         const oldRef = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotes = ensureIssuedEvent(c.notes, c)
         if (collectMethod === "Cash") {
+          // Per spec 6A: bounce collected in cash → status "Received", then
+          // user follows the cash flow (Deposit → Cleared, invoice fires on
+          // deposit). Do not auto-clear here.
           const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash settled the bounce`, date)
-          await updateStatus(c.id, "Cleared", {
-            clearedDate: date,
+          await updateStatus(c.id, "Pending", {
+            clearedDate: "",
+            depositedDate: "",
             chequeNo: "",
             bankName: "Cash",
             amount: String(amt),
@@ -1328,7 +1365,6 @@ function ChequeUnitCards({
             paymentType: "Replacement",
             notes: newNotes,
           })
-          await generateInstallmentInvoice(c, amt, date, "BounceCollectCash")
         } else if (collectMethod === "Cheque") {
           const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
           await updateStatus(c.id, "Pending", {
@@ -1574,7 +1610,7 @@ function ChequeUnitCards({
                           <td className="px-2 py-1.5 font-mono">{e.chequeNo}</td>
                           <td className="px-2 py-1.5">{e.bank}</td>
                           <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(e.amount)}</td>
-                          <td className="px-2 py-1.5"><StatusBadge status={showStatus} /></td>
+                          <td className="px-2 py-1.5"><StatusBadge status={displayStatusLabel(showStatus)} /></td>
                           <td className="px-2 py-1.5">
                             {banked ? (
                               <div className="flex flex-col items-start text-left">
@@ -1757,7 +1793,7 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5">{c.bankName || "—"}</td>
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(c.amount)}</td>
                         <td className="px-2 py-1.5">
-                          <StatusBadge status={displayStatus} />
+                          <StatusBadge status={displayStatusLabel(displayStatus)} />
                         </td>
                         <td className="px-2 py-1.5">
                           {isPartialHalf === "remaining" ? (
