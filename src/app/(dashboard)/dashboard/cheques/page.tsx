@@ -1906,7 +1906,10 @@ function ChequeUnitCards({
                     </div>
                     <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2">
                       <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-semibold text-white">{e.label}</p>
+                        <p className="text-sm font-semibold text-white">
+                          <span className="mr-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{i + 1}</span>
+                          {e.label}
+                        </p>
                         <p className="text-[11px] text-slate-400">{e.date || "—"}</p>
                       </div>
                       <p className="mt-0.5 text-xs text-slate-300">{e.detail}</p>
