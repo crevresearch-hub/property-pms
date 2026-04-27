@@ -55,6 +55,29 @@ interface OwnerOpt {
   buildingBankAccountNo?: string
 }
 
+type LedgerRow = {
+  id: string
+  date: string
+  kind: "in" | "out"
+  type: string
+  description: string
+  unitNo: string
+  tenantName: string
+  counterparty: string
+  amountIn: number
+  amountOut: number
+  runningBalance: number
+  ref: string
+}
+type LedgerTotals = {
+  received: number
+  bankedToOwner: number
+  vendorExpenses: number
+  totalOut: number
+  onHand: number
+  transactions: number
+}
+
 export default function CashTrackerPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [deposits, setDeposits] = useState<CashDeposit[]>([])
@@ -63,6 +86,10 @@ export default function CashTrackerPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<"all" | "pending" | "fully-paid">("all")
+  const [ledger, setLedger] = useState<LedgerRow[]>([])
+  const [ledgerTotals, setLedgerTotals] = useState<LedgerTotals | null>(null)
+  const [ledgerFilter, setLedgerFilter] = useState<"all" | "in" | "out">("all")
+  const [ledgerUnitFilter, setLedgerUnitFilter] = useState<string>("all")
 
   // "Record Cash" modal state — records a collection from a tenant +
   // (optionally) logs the bank deposit to the owner in one shot.
@@ -85,11 +112,12 @@ export default function CashTrackerPage() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [uRes, dRes, cRes, oRes] = await Promise.all([
+      const [uRes, dRes, cRes, oRes, lRes] = await Promise.all([
         fetch("/api/units"),
         fetch("/api/cash-deposits"),
         fetch("/api/cheques"),
         fetch("/api/owners"),
+        fetch("/api/cash-ledger"),
       ])
       if (uRes.ok) setUnits(await uRes.json())
       if (dRes.ok) setDeposits(await dRes.json())
@@ -99,6 +127,11 @@ export default function CashTrackerPage() {
         setCheques(list)
       }
       if (oRes.ok) setOwners(await oRes.json())
+      if (lRes.ok) {
+        const lj = await lRes.json()
+        setLedger(lj.ledger || [])
+        setLedgerTotals(lj.totals || null)
+      }
     } finally {
       setLoading(false)
     }
@@ -468,6 +501,111 @@ export default function CashTrackerPage() {
           ))}
         </div>
       )}
+
+      {/* ═══════════ CASH LEDGER ═══════════
+          Chronological view of every cash transaction in the org —
+          tenant-cash received (in), banking to owner (out), vendor
+          bills paid in cash (out) — with a running balance. */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-white">Cash Ledger</h2>
+            <p className="text-xs text-slate-400">
+              Every cash transaction with a running balance — tenant cash in, owner banking + vendor expenses out.
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <select
+              value={ledgerUnitFilter}
+              onChange={(e) => setLedgerUnitFilter(e.target.value)}
+              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white"
+            >
+              <option value="all">All units</option>
+              {Array.from(new Set(ledger.map((r) => r.unitNo).filter(Boolean))).sort().map((u) => (
+                <option key={u} value={u}>Unit {u}</option>
+              ))}
+            </select>
+            {(["all", "in", "out"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setLedgerFilter(k)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  ledgerFilter === k ? "bg-amber-500 text-slate-900" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                {k === "all" ? "All" : k === "in" ? "Cash In" : "Cash Out"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {ledgerTotals && (
+          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-emerald-300/70">Cash Received</p>
+              <p className="text-sm font-bold text-emerald-300">{formatCurrency(ledgerTotals.received)}</p>
+            </div>
+            <div className="rounded-lg border border-blue-700/40 bg-blue-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-blue-300/70">Banked to Owner</p>
+              <p className="text-sm font-bold text-blue-300">{formatCurrency(ledgerTotals.bankedToOwner)}</p>
+            </div>
+            <div className="rounded-lg border border-purple-700/40 bg-purple-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-purple-300/70">Vendor Expenses</p>
+              <p className="text-sm font-bold text-purple-300">{formatCurrency(ledgerTotals.vendorExpenses)}</p>
+            </div>
+            <div className="rounded-lg border border-red-700/40 bg-red-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-red-300/70">Total Out</p>
+              <p className="text-sm font-bold text-red-300">{formatCurrency(ledgerTotals.totalOut)}</p>
+            </div>
+            <div className={`rounded-lg border p-2 ${ledgerTotals.onHand >= 0 ? "border-amber-700/40 bg-amber-950/20" : "border-red-700/40 bg-red-950/20"}`}>
+              <p className="text-[10px] uppercase tracking-wide text-amber-300/70">Cash on Hand</p>
+              <p className={`text-sm font-bold ${ledgerTotals.onHand >= 0 ? "text-amber-300" : "text-red-300"}`}>{formatCurrency(ledgerTotals.onHand)}</p>
+            </div>
+          </div>
+        )}
+        {ledger.length === 0 ? (
+          <p className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">No cash transactions yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-slate-800">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-900/80 text-[10px] uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="px-2 py-2">Date</th>
+                  <th className="px-2 py-2">Type</th>
+                  <th className="px-2 py-2">Unit</th>
+                  <th className="px-2 py-2">Counterparty</th>
+                  <th className="px-2 py-2">Description</th>
+                  <th className="px-2 py-2 text-right">Cash In</th>
+                  <th className="px-2 py-2 text-right">Cash Out</th>
+                  <th className="px-2 py-2 text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {ledger
+                  .filter((r) => ledgerFilter === "all" || r.kind === ledgerFilter)
+                  .filter((r) => ledgerUnitFilter === "all" || r.unitNo === ledgerUnitFilter)
+                  .map((r) => (
+                    <tr key={r.id} className="text-slate-300 hover:bg-slate-800/40">
+                      <td className="px-2 py-1.5 whitespace-nowrap">{r.date}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                          r.type === "Cash Received" ? "bg-emerald-500/20 text-emerald-300"
+                          : r.type === "Banked to Owner" ? "bg-blue-500/20 text-blue-300"
+                          : "bg-purple-500/20 text-purple-300"
+                        }`}>{r.type}</span>
+                      </td>
+                      <td className="px-2 py-1.5">{r.unitNo || "—"}</td>
+                      <td className="px-2 py-1.5">{r.counterparty || "—"}</td>
+                      <td className="px-2 py-1.5 text-slate-400">{r.description}</td>
+                      <td className="px-2 py-1.5 text-right font-mono text-emerald-300">{r.amountIn > 0 ? formatCurrency(r.amountIn) : "—"}</td>
+                      <td className="px-2 py-1.5 text-right font-mono text-red-300">{r.amountOut > 0 ? formatCurrency(r.amountOut) : "—"}</td>
+                      <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.runningBalance >= 0 ? "text-amber-300" : "text-red-400"}`}>{formatCurrency(r.runningBalance)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Record cash modal */}
       <Modal
