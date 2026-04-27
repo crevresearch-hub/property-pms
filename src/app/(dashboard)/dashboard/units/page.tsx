@@ -55,11 +55,14 @@ const defaultForm = {
 
 export default function UnitsPage() {
   const { data: session } = useSession()
-  // Only the developer/superuser (role="admin") can create new units. CEO /
-  // Staff can view, edit, and delete existing units, but the Bulk Add and
-  // Add Single Unit buttons are hidden — the building inventory shouldn't
-  // grow accidentally from non-developer hands.
-  const isDeveloper = session?.user?.role === "admin"
+  // Only the developer/superuser can create new units. We identify them by a
+  // dedicated identity (id="admin-dev" from /api/auth/dev-login, or the
+  // synthetic email "admin@cre.ae"), NOT by the broad "admin" role — every
+  // organization has its own CRE Admin who shouldn't be able to add units.
+  // CEO / Staff / Org Admin can still view, edit, and delete existing units.
+  const isDeveloper =
+    session?.user?.id === "admin-dev" ||
+    session?.user?.email === "admin@cre.ae"
   const [units, setUnits] = useState<UnitRow[]>([])
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)

@@ -52,10 +52,12 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    // Only the developer/superuser (role="admin") can create units. Mirrors
-    // the UI gate on the Unit Management page — defense-in-depth so a non-admin
-    // can't bypass the hidden button by hitting the API directly.
-    if (session.user.role !== 'admin') {
+    // Only the developer/superuser identity can create units. Mirrors the UI
+    // gate on the Unit Management page — id "admin-dev" is the dev-login
+    // synthetic user, "admin@cre.ae" its email. Defense-in-depth so an org
+    // admin can't bypass the hidden button by hitting the API directly.
+    const isDeveloper = session.user.id === 'admin-dev' || session.user.email === 'admin@cre.ae'
+    if (!isDeveloper) {
       return NextResponse.json({ error: 'Only the developer can create units' }, { status: 403 })
     }
 

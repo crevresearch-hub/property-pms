@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (session.user.role !== 'admin') {
+    const isDeveloper = session.user.id === 'admin-dev' || session.user.email === 'admin@cre.ae'
+    if (!isDeveloper) {
       return NextResponse.json({ error: 'Only the developer can bulk-create units' }, { status: 403 })
     }
 
