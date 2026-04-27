@@ -952,6 +952,20 @@ function ChequeUnitCards({
   // lock the subtype dropdown to Partial AND lock the amount to the remaining balance.
   const [forcePartial, setForcePartial] = useState(false)
   const [historyFor, setHistoryFor] = useState<ChequeRow | null>(null)
+  // Action: bank Security Deposit / Admin+Ejari Fees cash to owner account.
+  const [extraDepositAction, setExtraDepositAction] = useState<null | {
+    contractId: string
+    kind: "deposit" | "fees"
+    amount: number
+    label: string
+    tenantId: string
+    unitId: string
+    ownerId: string | null
+  }>(null)
+  const [extraDepDate, setExtraDepDate] = useState("")
+  const [extraDepSlip, setExtraDepSlip] = useState<File | null>(null)
+  const [extraDepNotes, setExtraDepNotes] = useState("")
+  const [extraDepBusy, setExtraDepBusy] = useState(false)
 
   const todayStr = () => new Date().toISOString().slice(0, 10)
   // Centralised invoice generator for any installment-style payment cleared via cash/cheque.
@@ -1409,34 +1423,89 @@ function ChequeUnitCards({
                     }
 
                     if (extras.length === 0) return null
-                    return extras.map((e) => (
-                      <tr key={e.id} className="border-t border-slate-800 bg-slate-800/30">
-                        <td className="px-2 py-1.5 text-slate-400">{e.label}</td>
-                        <td className="px-2 py-1.5">
-                          {e.method === 'Cash' ? (
-                            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">💵 Cash</span>
-                          ) : e.method === 'Cheque' ? (
-                            <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">📝 Cheque</span>
-                          ) : (
-                            <span className="text-slate-500">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5 font-mono">{e.chequeNo}</td>
-                        <td className="px-2 py-1.5">{e.bank}</td>
-                        <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(e.amount)}</td>
-                        <td className="px-2 py-1.5"><StatusBadge status={e.status} /></td>
-                        <td className="px-2 py-1.5 text-[10px] text-slate-500">—</td>
-                        <td className="px-2 py-1.5 text-right">
-                          <Link
-                            href={`/dashboard/tenants/${tenantId}/edit#payment-plan`}
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
-                            title="Open the tenant's Payment Plan to record / update this payment"
-                          >
-                            ↗ Manage
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
+                    // Detect "banked to owner" markers per extras row
+                    const depBanked = (contract.notes || "").match(/DEPOSIT_BANKED:([^\s]+)/)?.[1] || ""
+                    const feesBanked = (contract.notes || "").match(/FEES_BANKED:([^\s]+)/)?.[1] || ""
+                    return extras.map((e) => {
+                      const isDeposit = e.id.endsWith("-dep") || e.id.endsWith("-dep-pending")
+                      const isFees = e.id.endsWith("-fees") || e.id.endsWith("-fees-pending")
+                      const banked = isDeposit ? depBanked : isFees ? feesBanked : ""
+                      const isCashReceived = e.method === "Cash" && e.status === "Received"
+                      const showStatus = banked ? "Cleared" : e.status
+                      return (
+                        <tr key={e.id} className="border-t border-slate-800 bg-slate-800/30">
+                          <td className="px-2 py-1.5 text-slate-400">{e.label}</td>
+                          <td className="px-2 py-1.5">
+                            {e.method === 'Cash' ? (
+                              <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">💵 Cash</span>
+                            ) : e.method === 'Cheque' ? (
+                              <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">📝 Cheque</span>
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 font-mono">{e.chequeNo}</td>
+                          <td className="px-2 py-1.5">{e.bank}</td>
+                          <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(e.amount)}</td>
+                          <td className="px-2 py-1.5"><StatusBadge status={showStatus} /></td>
+                          <td className="px-2 py-1.5">
+                            {banked ? (
+                              <div className="flex flex-col items-start text-left">
+                                <span className="text-[10px] text-slate-500 uppercase tracking-wide">to Owner</span>
+                                <span className="text-[12px] font-medium text-slate-200">{banked}</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-500">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 text-right">
+                            {/* Cash received but not yet banked → Deposit Cash button */}
+                            {isCashReceived && !banked && (
+                              <button
+                                onClick={() => {
+                                  resetActionState()
+                                  setExtraDepositAction({
+                                    contractId: contract.id,
+                                    kind: isDeposit ? "deposit" : "fees",
+                                    amount: e.amount,
+                                    label: e.label,
+                                    tenantId,
+                                    unitId: contract.unitId || "",
+                                    ownerId: contract.ownerId || null,
+                                  })
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                              >
+                                💼 Deposit Cash
+                              </button>
+                            )}
+                            {/* Banked → final */}
+                            {banked && (
+                              <span className="text-[10px] text-emerald-400">✓ Banked to Owner</span>
+                            )}
+                            {/* Pending payment from tenant — staff records it via tenant edit */}
+                            {!isCashReceived && !banked && e.status === "Pending" && (
+                              <Link
+                                href={`/dashboard/tenants/${tenantId}/edit#payment-plan`}
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                                title="Awaiting collection — record in Tenant Edit"
+                              >
+                                ↗ Record Payment
+                              </Link>
+                            )}
+                            {/* Cheque method → handled in tenant edit's PE flow */}
+                            {!isCashReceived && !banked && e.method === "Cheque" && (
+                              <Link
+                                href={`/dashboard/tenants/${tenantId}/edit#payment-plan`}
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                              >
+                                ↗ Cheque flow
+                              </Link>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
                   })()}
                   {g.cheques.flatMap((c) => {
                     // PARTIAL SPLIT — for each PE: line, render its own row with its own status.
@@ -1684,6 +1753,106 @@ function ChequeUnitCards({
           </div>
         )
       })}
+
+      {/* Extra-row Deposit-to-Owner modal (Security Deposit / Admin+Ejari Fees cash banking) */}
+      <Modal
+        open={!!extraDepositAction}
+        onOpenChange={(o) => { if (!o && !extraDepBusy) { setExtraDepositAction(null); setExtraDepDate(""); setExtraDepSlip(null); setExtraDepNotes("") } }}
+        title={extraDepositAction ? `Deposit to Owner — ${extraDepositAction.label}` : "Deposit to Owner"}
+        size="md"
+        footer={
+          <>
+            <ModalCancelButton onClick={() => { setExtraDepositAction(null); setExtraDepDate(""); setExtraDepSlip(null); setExtraDepNotes("") }} />
+            <button
+              disabled={extraDepBusy || !extraDepSlip}
+              onClick={async () => {
+                if (!extraDepositAction) return
+                setExtraDepBusy(true)
+                try {
+                  const date = extraDepDate || todayStr()
+                  // 1) Create CashDeposit row
+                  const depRes = await fetch("/api/cash-deposits", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      amount: extraDepositAction.amount,
+                      cashSource: extraDepositAction.kind === "deposit" ? "Security Deposit" : "Admin / Ejari Fees",
+                      tenantId: extraDepositAction.tenantId,
+                      tenantName: "",
+                      unitNo: "",
+                      ownerId: extraDepositAction.ownerId || null,
+                      ownerName: "",
+                      bankName: "",
+                      accountNo: "",
+                      referenceNo: "",
+                      depositedAt: date,
+                      status: "Deposited",
+                      notes: extraDepNotes,
+                      notifyOwner: true,
+                    }),
+                  })
+                  if (depRes.ok && extraDepSlip) {
+                    const created = await depRes.json()
+                    const fd = new FormData()
+                    fd.append("file", extraDepSlip)
+                    await fetch(`/api/cash-deposits/${created.id}/slip`, { method: "POST", body: fd }).catch(() => {})
+                  }
+                  // 2) Mark contract notes with DEPOSIT_BANKED or FEES_BANKED
+                  const ctr = contracts.find((x) => x.id === extraDepositAction.contractId)
+                  if (ctr) {
+                    const marker = extraDepositAction.kind === "deposit" ? "DEPOSIT_BANKED" : "FEES_BANKED"
+                    const cleaned = (ctr.notes || "").replace(new RegExp(`${marker}:[^\\s]*`, "g"), "").trim()
+                    const newNotes = `${cleaned}\n${marker}:${date}`.trim()
+                    await fetch(`/api/tenancy-contracts/${ctr.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ notes: newNotes }),
+                    }).catch(() => {})
+                  }
+                  setExtraDepositAction(null)
+                  setExtraDepDate("")
+                  setExtraDepSlip(null)
+                  setExtraDepNotes("")
+                  // Reload to refresh contracts + notes (markers)
+                  window.location.reload()
+                } finally {
+                  setExtraDepBusy(false)
+                }
+              }}
+              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 hover:bg-purple-500"
+            >
+              {extraDepBusy ? "Saving…" : "💼 Confirm Bank Deposit"}
+            </button>
+          </>
+        }
+      >
+        {extraDepositAction && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-purple-700/40 bg-purple-900/10 p-3 text-xs text-purple-200">
+              Bank <strong>AED {extraDepositAction.amount.toLocaleString()}</strong> cash collected for <strong>{extraDepositAction.label}</strong> into the owner&rsquo;s account. Internal accounting only — tenant won&rsquo;t see this.
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Deposit Date *</label>
+                <input type="date" value={extraDepDate || todayStr()} onChange={(e) => setExtraDepDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Amount (AED) <span className="text-[9px] text-purple-400">(fixed)</span></label>
+                <input type="number" value={extraDepositAction.amount} readOnly className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white opacity-70 cursor-not-allowed" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bank Slip * <span className="text-slate-500 normal-case font-normal">(PDF/JPG/PNG)</span></label>
+              <input type="file" accept=".pdf,image/*" onChange={(e) => setExtraDepSlip(e.target.files?.[0] || null)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-purple-600 file:px-3 file:py-1 file:text-white" />
+              {extraDepSlip && <p className="mt-1 text-[11px] text-emerald-400">✓ {extraDepSlip.name}</p>}
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Notes (optional)</label>
+              <textarea value={extraDepNotes} onChange={(e) => setExtraDepNotes(e.target.value)} rows={2} placeholder="e.g. Deposited at Emirates NBD Bur Dubai, slip #4432" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* History modal — chronological log of cheque lifecycle events */}
       <Modal
