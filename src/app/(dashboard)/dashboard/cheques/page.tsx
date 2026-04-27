@@ -2576,45 +2576,65 @@ function ChequeUnitCards({
                     : <XCircle className="h-5 w-5" />}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">
-                    {pendingAction.type === "deposit"
-                      ? ((pendingAction.cheque.bankName || "").toLowerCase() === "cash"
-                          ? "Deposit this cash directly into the owner's account?"
-                          : "Mark this cheque as Deposited (submitted to bank, awaiting clearance)?")
-                      : pendingAction.type === "clear"
-                      ? "Mark this cheque as Cleared?"
-                      : pendingAction.type === "bounce-collect"
-                      ? (pendingAction.peId ? "Collect this bounced partial in full" : "Collect the bounced cheque amount in full")
-                      : pendingAction.type === "undo-last"
-                      ? "Undo the most recent action on this cheque"
-                      : "Reverse this cheque — what happened?"}
-                  </p>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                    <div>
-                      <span className="text-slate-500">Tenant:</span>{" "}
-                      <span className="text-white">{pendingAction.cheque.tenant?.name || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Unit:</span>{" "}
-                      <span className="text-white">{pendingAction.cheque.unit?.unitNo || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Cheque #:</span>{" "}
-                      <span className="font-mono text-white">{pendingAction.cheque.chequeNo || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Bank:</span>{" "}
-                      <span className="text-white">{pendingAction.cheque.bankName || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Date:</span>{" "}
-                      <span className="text-white">{pendingAction.cheque.chequeDate || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Amount:</span>{" "}
-                      <span className="font-semibold text-amber-300">{formatCurrency(pendingAction.cheque.amount)}</span>
-                    </div>
-                  </div>
+                  {/* When the action is scoped to a specific Partial event (peId set),
+                      look up the PE: line and surface ITS cheque #/bank/amount/method
+                      on the modal — otherwise the user sees the parent's stale data
+                      (and the heading mis-classifies cheque vs cash). */}
+                  {(() => {
+                    const peId = (pendingAction as { peId?: string }).peId
+                    const peEv = peId ? parsePartialEvents(pendingAction.cheque.notes).find((e) => e.id === peId) : null
+                    const dispChequeNo = peEv ? peEv.chequeNo : pendingAction.cheque.chequeNo
+                    const dispBank = peEv ? (peEv.method === "Cash" ? "Cash" : peEv.bank) : pendingAction.cheque.bankName
+                    const dispDate = peEv ? peEv.date : pendingAction.cheque.chequeDate
+                    const dispAmount = peEv ? peEv.amount : pendingAction.cheque.amount
+                    const isCashContext = (dispBank || "").toLowerCase() === "cash"
+                    return (
+                      <>
+                        <p className="text-sm font-semibold text-white">
+                          {pendingAction.type === "deposit"
+                            ? (isCashContext
+                                ? "Deposit this cash directly into the owner's account?"
+                                : "Mark this cheque as Deposited (submitted to bank, awaiting clearance)?")
+                            : pendingAction.type === "clear"
+                            ? "Mark this cheque as Cleared?"
+                            : pendingAction.type === "bounce-collect"
+                            ? (pendingAction.peId ? "Collect this bounced partial in full" : "Collect the bounced cheque amount in full")
+                            : pendingAction.type === "undo-last"
+                            ? "Undo the most recent action on this cheque"
+                            : "Reverse this cheque — what happened?"}
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                          <div>
+                            <span className="text-slate-500">Tenant:</span>{" "}
+                            <span className="text-white">{pendingAction.cheque.tenant?.name || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Unit:</span>{" "}
+                            <span className="text-white">{pendingAction.cheque.unit?.unitNo || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Cheque #:</span>{" "}
+                            <span className="font-mono text-white">{dispChequeNo || (isCashContext ? "Cash" : "—")}</span>
+                            {peId && (
+                              <span className="ml-1 rounded bg-slate-700 px-1 py-0.5 text-[9px] font-semibold text-slate-300">PARTIAL</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Bank:</span>{" "}
+                            <span className="text-white">{dispBank || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Date:</span>{" "}
+                            <span className="text-white">{dispDate || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Amount:</span>{" "}
+                            <span className="font-semibold text-amber-300">{formatCurrency(dispAmount)}</span>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
             </div>
