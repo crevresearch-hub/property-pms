@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { KpiCard } from "@/components/ui/kpi-card"
 import { DataTable, Column } from "@/components/ui/data-table"
@@ -55,6 +56,7 @@ const defaultForm = {
 
 export default function UnitsPage() {
   const { data: session } = useSession()
+  const searchParams = useSearchParams()
   // Only the developer/superuser can create new units. We identify them by a
   // dedicated identity (id="admin-dev" from /api/auth/dev-login, or the
   // synthetic email "admin@cre.ae"), NOT by the broad "admin" role — every
@@ -199,6 +201,19 @@ export default function UnitsPage() {
     fetchUnits()
     fetchTenants()
   }, [fetchUnits, fetchTenants])
+
+  // Deep-link: when /dashboard/units?edit=<id> is opened (typically from the
+  // Developer Tools Requests inbox), auto-open the matching unit's edit
+  // modal so the developer can act on the request without extra clicks.
+  // Only the developer should land here with this param — staff don't have
+  // access to edit anyway.
+  const editParam = searchParams.get("edit")
+  useEffect(() => {
+    if (!editParam || units.length === 0 || !isDeveloper) return
+    const target = units.find((u) => u.id === editParam)
+    if (target) openEdit(target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParam, units, isDeveloper])
 
   const handleAdd = async () => {
     setSaving(true)

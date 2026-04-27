@@ -263,10 +263,11 @@ export default function DeveloperPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {r.type === "unit" && (
                       <Link
-                        href={`/dashboard/units?focus=${r.refId}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700"
+                        href={`/dashboard/units?edit=${r.refId}`}
+                        className="inline-flex items-center gap-1 rounded-md bg-blue-600 hover:bg-blue-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow"
+                        title="Open the unit's edit modal directly"
                       >
-                        ↗ Open {r.refLabel}
+                        ✏ Edit {r.refLabel}
                       </Link>
                     )}
                     {r.status === "pending" ? (
