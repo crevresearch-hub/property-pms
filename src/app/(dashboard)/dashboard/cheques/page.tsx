@@ -960,8 +960,13 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
   // Final sort happens via each entry's sortKey at the end of this function,
   // so we don't need to pre-sort here.
   const eventLines = [...(c.notes || "").matchAll(/(?:^|\n)EVENT:([^|]*)\|([^|]+)\|([^\n]*)/g)]
+  // When this cheque was spawned by a Replacement / Bounce-Collect (parentId
+  // set), its own ISSUED event is redundant — the parent's ISSUED is already
+  // surfaced via the chain walk-up in the history modal. Skip it.
+  const isChild = !!c.parentId
   for (const m of eventLines) {
     const [, ts, type, detail] = m
+    if (isChild && type === "ISSUED") continue
     const meta = EVENT_META[type] || { icon: "•", label: type }
     // Display only the date portion (YYYY-MM-DD) — the time is just for ordering.
     const displayDate = (ts || "").slice(0, 10)
@@ -976,10 +981,13 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
 
   // 2) Legacy fallbacks — only add if the corresponding canonical event isn't already in seen
   const seenTypes = new Set([...eventLines].map((m) => m[2]))
-  if (c.chequeDate && !seenTypes.has("ISSUED")) {
+  if (c.chequeDate && !seenTypes.has("ISSUED") && !isChild) {
     entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅", sortKey: "0" })
   }
-  if (c.depositedDate && !seenTypes.has("DEPOSITED")) {
+  // Skip the legacy "Deposited at bank" fallback when BANKED_TO_OWNER already
+  // covers the same date — for cash the deposit IS the owner-banking, so
+  // showing both reads as one redundant pair.
+  if (c.depositedDate && !seenTypes.has("DEPOSITED") && !seenTypes.has("BANKED_TO_OWNER")) {
     entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦", sortKey: c.depositedDate })
   }
   // Bounce-collect resolution markers — when a cheque was bounced and then
@@ -992,14 +1000,15 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
   const isBounceCollectedCheque = /—\s*replaced by new Cheque\b/i.test(reasonRaw)
   const cleanedBounceReason = reasonRaw.replace(/\s*—\s*(collected by Cash|collected by Cheque|replaced by Cash|replaced by new Cheque).*$/i, "").trim() || "—"
 
-  // Skip Cleared legacy fallback if a REPLACED_BY_CASH or BOUNCE-COLLECT event
-  // is already in the log — those imply clearance, so a separate Cleared entry
-  // would just duplicate the same fact.
+  // Skip Cleared legacy fallback if a REPLACED_BY_CASH / BOUNCE-COLLECT /
+  // BANKED_TO_OWNER event is already in the log — those imply clearance, so
+  // a separate Cleared entry would just duplicate the same fact.
   const clearedAlreadyImplied =
     seenTypes.has("CLEARED") ||
     seenTypes.has("REPLACED_BY_CASH") ||
     seenTypes.has("COLLECTED_AFTER_BOUNCE_CASH") ||
-    seenTypes.has("COLLECTED_AFTER_BOUNCE_CHEQUE")
+    seenTypes.has("COLLECTED_AFTER_BOUNCE_CHEQUE") ||
+    seenTypes.has("BANKED_TO_OWNER")
   if (c.clearedDate && !clearedAlreadyImplied) {
     if (isBounceCollectedCash) {
       entries.push({ date: c.clearedDate, label: "Bounce collected — Cash", detail: "Cash settled the bounce", icon: "💰", sortKey: `${c.clearedDate}_2` })
@@ -1328,7 +1337,11 @@ function ChequeUnitCards({
           const ctr = contracts.find((x) =>
             (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId)
           )
-          // 1) Create the CashDeposit ledger row + email the owner
+          // For cash there is no separate "cleared in our account" step —
+          // it goes straight from tenant → owner. We stamp BANKED_TO_OWNER
+          // only (the Cleared status flag still gets set in the DB so the
+          // row is terminal, but the EVENT log stays clean: one event per
+          // visible action).
           let cashDepositId: string | null = null
           try {
             const depRes = await fetch("/api/cash-deposits", {
@@ -1359,9 +1372,11 @@ function ChequeUnitCards({
               await fetch(`/api/cash-deposits/${created.id}/slip`, { method: "POST", body: fd }).catch(() => {})
             }
           } catch (e) { console.error("cash-deposit create failed:", e) }
-          // 2) Stamp CLEARED + BANKED_TO_OWNER on the cheque in one shot
-          let newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} cash deposited to owner`, date)
-          newNotes = `${newNotes}\nOWNER_DEPOSITED:${date}`.trim()
+          // 2) Stamp ONLY BANKED_TO_OWNER on the cheque (cash skips the
+          // intermediate "cleared in our hands" stage — one event per visible
+          // user action). The DB status is still flipped to Cleared so the
+          // row is terminal.
+          let newNotes = `${baseNotes}\nOWNER_DEPOSITED:${date}`.trim()
           newNotes = appendEvent(newNotes, "BANKED_TO_OWNER", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} into owner account${cashDepositId ? ` (deposit ${cashDepositId})` : ""}`, date)
           await updateStatus(c.id, "Cleared", {
             clearedDate: date,
