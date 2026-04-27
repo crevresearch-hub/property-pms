@@ -2278,20 +2278,14 @@ function ChequeUnitCards({
                                 )}
                               </>
                             )}
-                            {/* Cleared CHEQUE → still needs an explicit owner remit step
-                                (cheque cleared into the org's account first, then transferred
-                                to the owner). Cash skips this — its single Deposit click
-                                already banked it directly to the owner. */}
-                            {!isPartialHalf && c.status === "Cleared" && !isCashPayment && !ownerDepositedDate && (
-                              <button
-                                onClick={() => { resetActionState(); setPendingAction({ type: "deposit-to-owner", cheque: c }) }}
-                                className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
-                                title="Record bank deposit into the owner's account"
-                              >
-                                💼 Deposit to Owner
-                              </button>
-                            )}
-                            {!isPartialHalf && c.status === "Cleared" && ownerDepositedDate && (
+                            {/* Per spec sections 4 + 5: Cleared is terminal, "Actions → ❌ None
+                                (flow ends)". For cash, the single Deposit-to-Owner click already
+                                booked the org→owner transfer (we show a "✓ Banked to owner" pill
+                                so the user sees the receipt was created). For cheques, Cleared
+                                means the bank statement was uploaded — no further action exposed
+                                here; the org→owner remit, when relevant, is tracked via the
+                                Cash Deposits page. */}
+                            {!isPartialHalf && c.status === "Cleared" && isCashPayment && ownerDepositedDate && (
                               <span className="text-[10px] text-emerald-400">✓ Banked to owner</span>
                             )}
                             {/* Undo Last — only when the most recent EVENT is within a 5-min window.
