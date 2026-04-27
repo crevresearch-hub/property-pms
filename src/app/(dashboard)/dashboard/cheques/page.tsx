@@ -48,6 +48,7 @@ interface ChequeRow {
   depositRemarks?: string
   clearedDate: string
   notes: string
+  parentId?: string | null
   [key: string]: unknown
 }
 
@@ -599,7 +600,9 @@ function ChequeFilters({
     })
   }, [cheques, statusFilter, tenantFilter, unitFilter, searchTerm, dateRange, paymentMethod, today, thisMonthStart, in7Str, in30Str])
 
-  const filteredTotal = filtered.reduce((s, c) => s + (c.amount || 0), 0)
+  // Exclude Replaced rows from the total so a Replacement / Bounce-Collect
+  // doesn't double-count the same installment (parent + child).
+  const filteredTotal = filtered.reduce((s, c) => s + (c.status === "Replaced" ? 0 : c.amount || 0), 0)
 
   const StatusButton = ({ value, label }: { value: string; label: string }) => (
     <button
@@ -1149,6 +1152,51 @@ function ChequeUnitCards({
       }).catch(() => {})
     } catch { /* non-blocking */ }
   }
+
+  // Per spec section 3 (data model + ordering rule): Replacement / Bounce-Collect
+  // must NOT mutate the parent row's identity. Instead, the parent stays as an
+  // immutable audit anchor (status="Replaced") and a new linked row is created
+  // with parentId=parent.id. The new row inherits the parent's sequenceNo so
+  // the [sequenceNo asc, createdAt asc] sort places it directly under the parent.
+  const createChildCheque = async (
+    parent: ChequeRow,
+    child: {
+      chequeNo: string
+      bankName: string
+      chequeDate: string
+      amount: number
+      paymentType?: string
+      issuedDetail: string
+    }
+  ): Promise<{ id: string } | null> => {
+    try {
+      const nowIso = new Date().toISOString().slice(0, 19)
+      const childNotes = `EVENT:${nowIso}|ISSUED|${child.issuedDetail}`
+      const res = await fetch("/api/cheques", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: parent.tenantId,
+          unitId: parent.unitId,
+          chequeNo: child.chequeNo,
+          chequeDate: child.chequeDate,
+          amount: child.amount,
+          bankName: child.bankName,
+          status: "Received",
+          paymentType: child.paymentType || parent.paymentType || "Rent",
+          periodFrom: parent.periodFrom || "",
+          periodTo: parent.periodTo || "",
+          sequenceNo: parent.sequenceNo,
+          totalCheques: parent.totalCheques,
+          notes: childNotes,
+          parentId: parent.id,
+        }),
+      })
+      if (!res.ok) return null
+      return await res.json()
+    } catch { return null }
+  }
+
   const resetActionState = () => {
     setPendingAction(null)
     setRejectReason("")
@@ -1267,35 +1315,38 @@ function ChequeUnitCards({
           baseNotesR = appendEvent(baseNotesR, "DELTA", `${oldRef} · original AED ${original.toLocaleString()} → new AED ${amt.toLocaleString()} (${sign}AED ${diff.toLocaleString()})`, date)
         }
         if (reverseSubtype === "ReplacementCash") {
-          // Per spec 6B: replacement collected in cash → status "Received",
-          // then user follows the cash flow (Deposit → Cleared). The auto-VAT
-          // invoice fires NOW because the cash is physically in our hands
-          // ("cash received" event in the spec); the later Deposit step is
-          // just admin/banking and does not re-fire the invoice.
-          const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash collected`, date)
-          await updateStatus(c.id, "Received", {
-            clearedDate: "",
-            depositedDate: "",
+          // Per spec section 10: replacement creates a NEW LINKED payment.
+          // Parent stays as an immutable audit anchor (status="Replaced");
+          // child carries the active lifecycle (Received → Deposit → Cleared).
+          // Auto-VAT invoice fires on the parent's installment ref (cash is in
+          // hand at the receive step).
+          const child = await createChildCheque(c, {
             chequeNo: "",
             bankName: "Cash",
-            amount: String(amt),
+            chequeDate: c.chequeDate,
+            amount: amt,
+            issuedDetail: `Cash replacement of ${oldRef} · AED ${amt.toLocaleString()}`,
+          })
+          const parentNotes = appendEvent(baseNotesR, "REPLACED_BY_CASH", `${oldRef} → cash replacement · AED ${amt.toLocaleString()}${child ? ` (new id ${child.id})` : ""}`, date)
+          await updateStatus(c.id, "Replaced", {
             bouncedReason: "Replaced by Cash",
-            paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
-            notes: newNotes,
+            notes: parentNotes,
           })
           await generateInstallmentInvoice(c, amt, date, "ReplacedByCash")
         } else if (reverseSubtype === "ReplacementCheque") {
-          const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
-          await updateStatus(c.id, "Received", {
+          // Same shape as Replacement Cash — new child carries the active
+          // cheque lifecycle, parent locked at Replaced.
+          const child = await createChildCheque(c, {
             chequeNo: reverseChequeNo,
             bankName: reverseChequeBank,
             chequeDate: reverseChequeDate || date,
-            amount: String(amt),
+            amount: amt,
+            issuedDetail: `Cheque replacement of ${oldRef} · #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`,
+          })
+          const parentNotes = appendEvent(baseNotesR, "REPLACED_BY_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}${child ? ` (new id ${child.id})` : ""}`, date)
+          await updateStatus(c.id, "Replaced", {
             bouncedReason: "Replaced by new Cheque",
-            clearedDate: "",
-            depositedDate: "",
-            paymentType: c.paymentType === "Upfront" ? "Upfront" : "Replacement",
-            notes: newNotes,
+            notes: parentNotes,
           })
         } else if (reverseSubtype === "Bounced") {
           const newNotes = appendEvent(baseNotesR, "BOUNCED", `${oldRef} · ${rejectReason}`, date)
@@ -1437,33 +1488,35 @@ function ChequeUnitCards({
         const oldRef = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotes = ensureIssuedEvent(c.notes, c)
         if (collectMethod === "Cash") {
-          // Per spec 6A: bounce collected in cash → status "Received", then
-          // user follows the cash flow (Deposit → Cleared). Invoice fires NOW
-          // ("cash received" event); the later Deposit step is admin-only.
-          const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash settled the bounce`, date)
-          await updateStatus(c.id, "Received", {
-            clearedDate: "",
-            depositedDate: "",
+          // Per spec 9 + parent-id model: bounce collected in cash creates a
+          // new LINKED row that follows the cash flow. Parent stays as an
+          // immutable Bounced audit anchor (status flipped to Replaced so the
+          // Collect button no longer shows on it). Invoice fires NOW.
+          const child = await createChildCheque(c, {
             chequeNo: "",
             bankName: "Cash",
-            amount: String(amt),
+            chequeDate: c.chequeDate,
+            amount: amt,
+            issuedDetail: `Cash collection for bounced ${oldRef} · AED ${amt.toLocaleString()}`,
+          })
+          const parentNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash settled the bounce${child ? ` (new id ${child.id})` : ""}`, date)
+          await updateStatus(c.id, "Replaced", {
             bouncedReason: `${c.bouncedReason || "Bounced"} — collected by Cash`,
-            paymentType: "Replacement",
-            notes: newNotes,
+            notes: parentNotes,
           })
           await generateInstallmentInvoice(c, amt, date, "BounceCollectCash")
         } else if (collectMethod === "Cheque") {
-          const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
-          await updateStatus(c.id, "Received", {
+          const child = await createChildCheque(c, {
             chequeNo: reverseChequeNo,
             bankName: reverseChequeBank,
             chequeDate: reverseChequeDate || date,
-            amount: String(amt),
+            amount: amt,
+            issuedDetail: `Cheque replacement for bounced ${oldRef} · #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`,
+          })
+          const parentNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}${child ? ` (new id ${child.id})` : ""}`, date)
+          await updateStatus(c.id, "Replaced", {
             bouncedReason: `${c.bouncedReason || "Bounced"} — replaced by new Cheque`,
-            clearedDate: "",
-            depositedDate: "",
-            paymentType: "Replacement",
-            notes: newNotes,
+            notes: parentNotes,
           })
         }
         if (reverseSlipFile && pendingAction.cheque.tenant?.id) {
@@ -1903,21 +1956,33 @@ function ChequeUnitCards({
                           )}
                         </td>
                         <td className="px-2 py-1.5 font-mono">
-                          <span className="inline-flex items-center gap-1.5">
-                            {c.chequeNo || "—"}
-                            {(() => {
-                              const eventCount = buildChequeHistory(realCheque).length
-                              if (eventCount <= 1) return null
-                              return (
-                                <button
-                                  onClick={() => setHistoryFor(realCheque)}
-                                  title={`Show lifecycle history (${eventCount} events)`}
-                                  className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-slate-500 hover:bg-slate-700 hover:text-slate-200"
-                                >
-                                  <span className="text-[11px]">📜</span>
-                                  <span className="rounded-full bg-slate-700 px-1.5 text-[9px] font-semibold leading-none text-slate-200">{eventCount}</span>
-                                </button>
-                              )
+                          <span className="inline-flex flex-col items-start gap-0.5">
+                            <span className="inline-flex items-center gap-1.5">
+                              {/* Child-row indicator: when this cheque was spawned by a Replacement
+                                  or Bounce-Collect on another cheque, prefix with "↳" so the parent-
+                                  child chain is visually obvious without opening the history modal. */}
+                              {c.parentId && <span className="text-slate-500" title="Linked from a previous cheque">↳</span>}
+                              {c.chequeNo || (isCashPayment ? "Cash" : "—")}
+                              {(() => {
+                                const eventCount = buildChequeHistory(realCheque).length
+                                if (eventCount <= 1) return null
+                                return (
+                                  <button
+                                    onClick={() => setHistoryFor(realCheque)}
+                                    title={`Show lifecycle history (${eventCount} events)`}
+                                    className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+                                  >
+                                    <span className="text-[11px]">📜</span>
+                                    <span className="rounded-full bg-slate-700 px-1.5 text-[9px] font-semibold leading-none text-slate-200">{eventCount}</span>
+                                  </button>
+                                )
+                              })()}
+                            </span>
+                            {c.parentId && (() => {
+                              const parent = g.cheques.find((x) => x.id === c.parentId)
+                              if (!parent) return null
+                              const parentRef = parent.chequeNo ? `#${parent.chequeNo}` : `seq ${parent.sequenceNo}`
+                              return <span className="text-[9px] text-slate-500 normal-case">from {parentRef}</span>
                             })()}
                           </span>
                         </td>
@@ -2285,7 +2350,7 @@ function ChequeUnitCards({
               disabled={
                 busyAction ||
                 (pendingAction?.type === "deposit" && !depositSlipFile) ||
-                (pendingAction?.type === "clear" && !clearStatementFile && clearNotes.trim().length < 2) ||
+                (pendingAction?.type === "clear" && !clearStatementFile) ||
                 (pendingAction?.type === "reverse" && !reverseSubtype) ||
                 (pendingAction?.type === "reverse" && reverseSubtype === "Bounced" && rejectReason.trim().length < 2) ||
                 (pendingAction?.type === "reverse" && reverseSubtype === "ReplacementCheque" && (!reverseChequeNo || !reverseChequeBank)) ||
@@ -2462,7 +2527,7 @@ function ChequeUnitCards({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Bank Statement / Screenshot <span className="text-slate-500 normal-case font-normal">(PDF/JPG/PNG)</span>
+                    Bank Statement / Screenshot <span className="text-red-400">*</span> <span className="text-slate-500 normal-case font-normal">(PDF/JPG/PNG)</span>
                   </label>
                   <input
                     type="file"
@@ -2470,11 +2535,14 @@ function ChequeUnitCards({
                     onChange={(e) => setClearStatementFile(e.target.files?.[0] || null)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-emerald-600 file:px-3 file:py-1 file:text-white"
                   />
+                  {!clearStatementFile && (
+                    <p className="mt-1 text-[10px] text-amber-400">Required — bank proof needed to mark this as Cleared.</p>
+                  )}
                   {clearStatementFile && <p className="mt-1 text-[11px] text-emerald-400">✓ {clearStatementFile.name}</p>}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Notes <span className="text-slate-500 normal-case font-normal">(if no statement attached)</span>
+                    Notes <span className="text-slate-500 normal-case font-normal">(optional)</span>
                   </label>
                   <textarea
                     value={clearNotes}
@@ -2484,9 +2552,6 @@ function ChequeUnitCards({
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
                   />
                 </div>
-                {!clearStatementFile && clearNotes.trim().length < 2 && (
-                  <p className="text-[10px] text-amber-400">Provide a bank statement upload OR explanatory notes (≥ 2 chars) to confirm clearance.</p>
-                )}
               </div>
             )}
 

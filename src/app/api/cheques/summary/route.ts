@@ -24,9 +24,13 @@ export async function GET() {
     type ChequeWithTenant = typeof cheques[number]
     const sumAmount = (arr: ChequeWithTenant[]) => arr.reduce((s: number, c: ChequeWithTenant) => s + c.amount, 0)
 
-    // Overall counts and amounts
-    const total = cheques.length
-    const totalAmount = sumAmount(cheques)
+    // Per spec parent-id model: Replaced rows are immutable audit anchors —
+    // their child carries the live amount. Excluding parent rows from the
+    // overall total avoids double-counting the same installment when a
+    // Replacement / Bounce-Collect spawns a new linked row.
+    const activeCheques = cheques.filter((c: ChequeWithTenant) => c.status !== 'Replaced')
+    const total = activeCheques.length
+    const totalAmount = sumAmount(activeCheques)
 
     const received = cheques.filter((c: ChequeWithTenant) => c.status === 'Received')
     const cleared = cheques.filter((c: ChequeWithTenant) => c.status === 'Cleared')
@@ -89,8 +93,12 @@ export async function GET() {
       }
 
       const entry = tenantMap.get(tid)!
-      entry.total += 1
-      entry.totalAmount += cheque.amount
+      // Skip Replaced parents in tenant totals — same double-count avoidance
+      // as the global summary above.
+      if (cheque.status !== 'Replaced') {
+        entry.total += 1
+        entry.totalAmount += cheque.amount
+      }
 
       if (cheque.status === 'Received') entry.received += 1
       if (cheque.status === 'Cleared') entry.cleared += 1

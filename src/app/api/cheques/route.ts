@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
       sequenceNo,
       totalCheques,
       notes,
+      parentId,
     } = body
 
     if (!tenantId || !amount) {
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
         sequenceNo: sequenceNo ? parseInt(sequenceNo, 10) : 1,
         totalCheques: totalCheques ? parseInt(totalCheques, 10) : 12,
         notes: notes || '',
+        parentId: parentId || null,
       },
       include: {
         tenant: {

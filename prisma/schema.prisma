@@ -337,11 +337,17 @@ model Cheque {
   depositRemarks String       @default("")
   clearedDate    String       @default("")
   notes          String       @default("")
+  // parentId — when this row was spawned by a Replacement / Bounce-Collect on
+  // another cheque, parentId points to the original. The parent stays at
+  // status="Replaced" and acts as an immutable audit anchor; the child carries
+  // the active lifecycle. Null for top-level seeded rows.
+  parentId       String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId])
   @@index([tenantId])
+  @@index([parentId])
 }
 
 // ════════════════════════════════════════════
