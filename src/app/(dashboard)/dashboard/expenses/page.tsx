@@ -382,30 +382,27 @@ export default function ExpensesPage() {
             </div>
             <div>
               <label className={labelText}>Type of Service *</label>
-              {/* Datalist gives both a dropdown of common AMC / utility / building
-                  expense categories AND free-text — the user can pick a preset
-                  or type a one-off ("Plumbing repair", "Painting touch-up", etc.). */}
-              <input
-                type="text"
-                list="vendor-bill-service-types"
+              {/* Closed list — user must pick one of the 11 standard service
+                  categories. Free-text is intentionally disabled to keep the
+                  expense ledger consistent for accounting reports. */}
+              <select
                 value={form.serviceType}
                 onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
-                placeholder="Pick a preset or type your own"
                 className={labelInput}
-              />
-              <datalist id="vendor-bill-service-types">
-                <option value="AMC - Fire Fighting" />
-                <option value="AMC - Elevators" />
-                <option value="AMC - Pest Control" />
-                <option value="AMC - Gas" />
-                <option value="AMC - GYM" />
-                <option value="Demand Charges - Expenses" />
-                <option value="Water & Electricity - Buildings" />
-                <option value="Gas Refilling Expenses" />
-                <option value="Cooling Charges - Expenses" />
-                <option value="General Maintenance" />
-                <option value="Unit Maintenance" />
-              </datalist>
+              >
+                <option value="">— Select —</option>
+                <option value="AMC - Fire Fighting">AMC - Fire Fighting</option>
+                <option value="AMC - Elevators">AMC - Elevators</option>
+                <option value="AMC - Pest Control">AMC - Pest Control</option>
+                <option value="AMC - Gas">AMC - Gas</option>
+                <option value="AMC - GYM">AMC - GYM</option>
+                <option value="Demand Charges - Expenses">Demand Charges - Expenses</option>
+                <option value="Water & Electricity - Buildings">Water &amp; Electricity - Buildings</option>
+                <option value="Gas Refilling Expenses">Gas Refilling Expenses</option>
+                <option value="Cooling Charges - Expenses">Cooling Charges - Expenses</option>
+                <option value="General Maintenance">General Maintenance</option>
+                <option value="Unit Maintenance">Unit Maintenance</option>
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
