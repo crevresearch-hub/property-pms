@@ -819,11 +819,13 @@ function ChequeFilters({
 
 type ReverseSubtype = "" | "ReplacementCash" | "ReplacementCheque" | "Bounced" | "Partial"
 type ChequeAction =
-  | { type: "deposit"; cheque: ChequeRow }
-  | { type: "clear"; cheque: ChequeRow }
+  // peId, when set, scopes the action to a Partial-event row instead of the
+  // parent cheque. The PE-scoped flows reuse the same modal UI (slip/date for
+  // Deposit, bank-statement/date for Clear) so the user experience is identical.
+  | { type: "deposit"; cheque: ChequeRow; peId?: string }
+  | { type: "clear"; cheque: ChequeRow; peId?: string }
   | { type: "reverse"; cheque: ChequeRow }
   // Bounce-collection: when a cheque is already Bounced, "Reverse" jumps straight to collecting full amount.
-  // When peId is set, the bounce-collect operates on a specific Partial event row instead of the parent cheque.
   | { type: "bounce-collect"; cheque: ChequeRow; peId?: string }
   // Cash collected from tenant, now staff is recording the bank deposit into the owner's account.
   | { type: "deposit-to-owner"; cheque: ChequeRow }
@@ -934,6 +936,8 @@ const EVENT_META: Record<string, { icon: string; label: string }> = {
   COLLECTED_AFTER_BOUNCE_CHEQUE: { icon: "💰", label: "Bounce collected — Cheque" },
   SLIP_UPLOADED: { icon: "📎", label: "Slip uploaded" },
   DELTA: { icon: "Δ", label: "Amount adjusted" },
+  PE_DEPOSITED: { icon: "🏦", label: "Partial Deposited" },
+  PE_CLEARED: { icon: "✓", label: "Partial Cleared" },
   PE_BOUNCED: { icon: "✕", label: "Partial Bounced" },
   PE_BOUNCE_COLLECTED: { icon: "💰", label: "Partial Bounce collected" },
   UNDONE: { icon: "↶", label: "Action undone" },
@@ -1227,6 +1231,79 @@ function ChequeUnitCards({
         const date = depositDate || todayStr()
         const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotes = ensureIssuedEvent(c.notes, c)
+
+        // PARTIAL-event scoped deposit. peId is set when the user clicks
+        // Deposit/Deposit-Cash on a Partial sub-row. Same UX as the parent
+        // (slip + date), but the action operates on a PE: line.
+        const peIdScoped = pendingAction.peId
+        if (peIdScoped) {
+          const events = parsePartialEvents(c.notes)
+          const ev = events.find((e) => e.id === peIdScoped)
+          if (!ev) { resetActionState(); setBusyAction(false); return }
+          const peRef = `Partial ${ev.id}`
+          const isCashPe = (ev.method || "").toLowerCase() === "cash"
+          if (isCashPe) {
+            // One-step direct-to-owner for partial cash, mirroring the parent
+            // cash flow: open CashDeposit, notify owner, mark PE Cleared,
+            // stamp PE_CLEARED + BANKED_TO_OWNER, fire invoice.
+            const ctr = contracts.find((x) =>
+              (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId)
+            )
+            let cashDepositId: string | null = null
+            try {
+              const depRes = await fetch("/api/cash-deposits", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  amount: ev.amount,
+                  cashSource: c.paymentType === "Upfront" ? "Upfront" : "Rent",
+                  tenantId: c.tenantId,
+                  tenantName: c.tenant?.name || "",
+                  unitNo: c.unit?.unitNo || "",
+                  ownerId: ctr?.ownerId || null,
+                  ownerName: "",
+                  bankName: "",
+                  accountNo: "",
+                  referenceNo: "",
+                  depositedAt: date,
+                  status: "Deposited",
+                  notes: depositRemarks || `Partial cash deposit for ${refLabel}`,
+                  notifyOwner: true,
+                }),
+              })
+              if (depRes.ok && depositSlipFile) {
+                const created = await depRes.json()
+                cashDepositId = created.id
+                const fd = new FormData()
+                fd.append("file", depositSlipFile)
+                await fetch(`/api/cash-deposits/${created.id}/slip`, { method: "POST", body: fd }).catch(() => {})
+              }
+            } catch (e) { console.error("partial cash-deposit create failed:", e) }
+            const updated: PartialEvent = { ...ev, status: "Cleared", bankedDate: date }
+            let newNotes = replacePartialEvent(c.notes || "", updated)
+            newNotes = appendEvent(newNotes, "PE_CLEARED", `${peRef} · AED ${ev.amount.toLocaleString()} cash deposited to owner${cashDepositId ? ` (deposit ${cashDepositId})` : ""}`, date)
+            await updateStatus(c.id, c.status, { notes: newNotes })
+            await generateInstallmentInvoice(c, ev.amount, date, `PE-${ev.id}`)
+          } else {
+            // Cheque PE deposit: mark PE as Deposited (awaiting bank clearance).
+            // Slip is uploaded as a tenant document so it's later traceable.
+            const updated: PartialEvent = { ...ev, status: "Deposited" }
+            let newNotes = replacePartialEvent(c.notes || "", updated)
+            newNotes = appendEvent(newNotes, "PE_DEPOSITED", `${peRef} · #${ev.chequeNo || "(no #)"} · ${ev.bank || "—"} · AED ${ev.amount.toLocaleString()} deposited`, date)
+            await updateStatus(c.id, c.status, { notes: newNotes })
+            if (depositSlipFile && c.tenant?.id) {
+              const fd = new FormData()
+              fd.append('file', depositSlipFile)
+              fd.append('tenantId', c.tenant.id)
+              fd.append('docType', `PE-Deposit-Slip-${ev.id}`)
+              await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+            }
+          }
+          resetActionState()
+          setBusyAction(false)
+          return
+        }
+
         // CASH path: one click does everything — opens a CashDeposit, notifies
         // the owner, attaches the slip, and stamps both CLEARED + BANKED_TO_OWNER
         // on the cheque. There is no intermediate "in our hands" state for cash;
@@ -1300,6 +1377,33 @@ function ChequeUnitCards({
         const c = pendingAction.cheque
         const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotes = ensureIssuedEvent(c.notes, c)
+
+        // PARTIAL-event scoped clear. Same UX as the parent — bank statement
+        // mandatory, optional notes — but the action targets a PE: line.
+        const peIdScopedClear = pendingAction.peId
+        if (peIdScopedClear) {
+          const events = parsePartialEvents(c.notes)
+          const ev = events.find((e) => e.id === peIdScopedClear)
+          if (!ev) { resetActionState(); setBusyAction(false); return }
+          const peRef = `Partial ${ev.id}`
+          const noteSuffix = clearNotes.trim() ? ` · ${clearNotes.trim()}` : ""
+          const updated: PartialEvent = { ...ev, status: "Cleared", bankedDate: date }
+          let newNotes = replacePartialEvent(c.notes || "", updated)
+          newNotes = appendEvent(newNotes, "PE_CLEARED", `${peRef} · #${ev.chequeNo || "(no #)"} · AED ${ev.amount.toLocaleString()} cleared via ${ev.bank || "bank"}${noteSuffix}`, date)
+          await updateStatus(c.id, c.status, { notes: newNotes })
+          if (clearStatementFile && c.tenant?.id) {
+            const fd = new FormData()
+            fd.append('file', clearStatementFile)
+            fd.append('tenantId', c.tenant.id)
+            fd.append('docType', `PE-Bank-Statement-${ev.id}`)
+            await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+          }
+          await generateInstallmentInvoice(c, ev.amount, date, `PE-${ev.id}`)
+          resetActionState()
+          setBusyAction(false)
+          return
+        }
+
         // Spec requires either a bank-statement upload OR explanatory notes
         // when clearing. The note is appended to the CLEARED event detail so
         // it shows up directly in the lifecycle modal; the statement file
@@ -2067,29 +2171,21 @@ function ChequeUnitCards({
                                 💰 Collect More
                               </button>
                             )}
-                            {/* Partial — Cash event: Received → 💼 Deposit Cash → Cleared */}
-                            {isPartialHalf === "pe-row" && isCashPayment && c.status === "Received" && (
+                            {/* Partial PE row uses the SAME modal-driven Deposit/Clear flow as the
+                                parent so the slip + date + bank-statement uploads are required. */}
+                            {isPartialHalf === "pe-row" && c.status === "Received" && (
                               <button
-                                onClick={async () => { await updatePartialEvent({ status: "Cleared", bankedDate: today }) }}
-                                className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
-                                title="Bank this cash into the owner's account"
+                                onClick={() => { resetActionState(); setPendingAction({ type: "deposit", cheque: realCheque, peId: peEventId }) }}
+                                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold text-white shadow ${isCashPayment ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+                                title={isCashPayment ? "Deposit this partial cash directly into owner's account" : "Deposit this partial cheque at the bank"}
                               >
-                                💼 Deposit Cash
-                              </button>
-                            )}
-                            {/* Partial — Cheque event: Received → 🏦 Deposit; Deposited → ✓ Clear */}
-                            {isPartialHalf === "pe-row" && !isCashPayment && c.status === "Received" && (
-                              <button
-                                onClick={async () => { await updatePartialEvent({ status: "Deposited" }) }}
-                                className="inline-flex items-center gap-1 rounded-md bg-blue-600 hover:bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
-                              >
-                                🏦 Deposit
+                                {isCashPayment ? "💼 Deposit to Owner" : "🏦 Deposit"}
                               </button>
                             )}
                             {isPartialHalf === "pe-row" && !isCashPayment && c.status === "Deposited" && (
                               <>
                                 <button
-                                  onClick={async () => { await updatePartialEvent({ status: "Cleared", bankedDate: today }) }}
+                                  onClick={() => { resetActionState(); setPendingAction({ type: "clear", cheque: realCheque, peId: peEventId }) }}
                                   className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
                                 >
                                   <CheckCircle className="h-3.5 w-3.5" /> Clear
