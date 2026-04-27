@@ -1227,22 +1227,59 @@ function ChequeUnitCards({
         const date = depositDate || todayStr()
         const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotes = ensureIssuedEvent(c.notes, c)
-        // Cash flow is one step (Received → Deposit clicked → Cleared); cheque
-        // flow is two (Received → Deposit → Deposited → Clear → Cleared). We
-        // detect cash payments by the synthetic "Cash" bank set during
-        // Bounce-Collect-Cash / Replacement-By-Cash.
+        // CASH path: one click does everything — opens a CashDeposit, notifies
+        // the owner, attaches the slip, and stamps both CLEARED + BANKED_TO_OWNER
+        // on the cheque. There is no intermediate "in our hands" state for cash;
+        // it goes straight from tenant to owner's account. Per spec section 4.
+        // CHEQUE path: stays at Deposited (Step 2 of cheque flow).
         const isCashPayment = (c.bankName || "").toLowerCase() === "cash"
         if (isCashPayment) {
-          const newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} cash banked`, date)
+          const ctr = contracts.find((x) =>
+            (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId)
+          )
+          // 1) Create the CashDeposit ledger row + email the owner
+          let cashDepositId: string | null = null
+          try {
+            const depRes = await fetch("/api/cash-deposits", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                amount: c.amount,
+                cashSource: c.paymentType === "Upfront" ? "Upfront" : "Rent",
+                tenantId: c.tenantId,
+                tenantName: c.tenant?.name || "",
+                unitNo: c.unit?.unitNo || "",
+                ownerId: ctr?.ownerId || null,
+                ownerName: "",
+                bankName: "",
+                accountNo: "",
+                referenceNo: "",
+                depositedAt: date,
+                status: "Deposited",
+                notes: depositRemarks || `Cash deposit for ${refLabel}`,
+                notifyOwner: true,
+              }),
+            })
+            if (depRes.ok && depositSlipFile) {
+              const created = await depRes.json()
+              cashDepositId = created.id
+              const fd = new FormData()
+              fd.append("file", depositSlipFile)
+              await fetch(`/api/cash-deposits/${created.id}/slip`, { method: "POST", body: fd }).catch(() => {})
+            }
+          } catch (e) { console.error("cash-deposit create failed:", e) }
+          // 2) Stamp CLEARED + BANKED_TO_OWNER on the cheque in one shot
+          let newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} cash deposited to owner`, date)
+          newNotes = `${newNotes}\nOWNER_DEPOSITED:${date}`.trim()
+          newNotes = appendEvent(newNotes, "BANKED_TO_OWNER", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} into owner account${cashDepositId ? ` (deposit ${cashDepositId})` : ""}`, date)
           await updateStatus(c.id, "Cleared", {
             clearedDate: date,
             depositedDate: date,
             depositRemarks,
             notes: newNotes,
           })
-          // Note: the auto-VAT invoice for cash payments is fired at the
-          // RECEIVE step (Bounce-Collect-Cash / Replacement-By-Cash) — that's
-          // when the tenant actually paid. Banking the cash is internal.
+          // Auto-VAT invoice fires here (cash hits owner's account = clearance)
+          await generateInstallmentInvoice(c, c.amount || 0, date, "cleared")
         } else {
           const newNotes = appendEvent(baseNotes, "DEPOSITED", `${refLabel} → ${c.bankName || "bank"} · ${depositRemarks || "awaiting clearance"}`, date)
           await updateStatus(c.id, "Deposited", {
@@ -1250,13 +1287,13 @@ function ChequeUnitCards({
             depositRemarks,
             notes: newNotes,
           })
-        }
-        if (depositSlipFile && c.tenant?.id) {
-          const fd = new FormData()
-          fd.append('file', depositSlipFile)
-          fd.append('tenantId', c.tenant.id)
-          fd.append('docType', `Deposit-Slip-Cheque-${c.id}`)
-          await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+          if (depositSlipFile && c.tenant?.id) {
+            const fd = new FormData()
+            fd.append('file', depositSlipFile)
+            fd.append('tenantId', c.tenant.id)
+            fd.append('docType', `Deposit-Slip-Cheque-${c.id}`)
+            await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+          }
         }
       } else if (pendingAction.type === "clear") {
         const date = clearDate || todayStr()
@@ -2108,9 +2145,10 @@ function ChequeUnitCards({
                                 {c.status !== "Deposited" && (
                                   <button
                                     onClick={() => setPendingAction({ type: "deposit", cheque: c })}
-                                    className="inline-flex items-center gap-1 rounded-md bg-blue-600 hover:bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                    className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold text-white shadow ${isCashPayment ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+                                    title={isCashPayment ? "Deposit cash directly into owner's account" : "Deposit cheque at the bank"}
                                   >
-                                    🏦 Deposit
+                                    {isCashPayment ? "💼 Deposit to Owner" : "🏦 Deposit"}
                                   </button>
                                 )}
                                 {/* Clear is only valid AFTER the cheque has been deposited at the
@@ -2140,10 +2178,11 @@ function ChequeUnitCards({
                                 )}
                               </>
                             )}
-                            {/* Cleared cheque → next canonical step is banking the funds into the
-                                owner's account. Shown for cash AND cheque payments (both end up
-                                in the org's account first, then need to be remitted to the owner). */}
-                            {!isPartialHalf && c.status === "Cleared" && !ownerDepositedDate && (
+                            {/* Cleared CHEQUE → still needs an explicit owner remit step
+                                (cheque cleared into the org's account first, then transferred
+                                to the owner). Cash skips this — its single Deposit click
+                                already banked it directly to the owner. */}
+                            {!isPartialHalf && c.status === "Cleared" && !isCashPayment && !ownerDepositedDate && (
                               <button
                                 onClick={() => { resetActionState(); setPendingAction({ type: "deposit-to-owner", cheque: c }) }}
                                 className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
@@ -2422,7 +2461,9 @@ function ChequeUnitCards({
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-white">
                     {pendingAction.type === "deposit"
-                      ? "Mark this cheque as Deposited (submitted to bank, awaiting clearance)?"
+                      ? ((pendingAction.cheque.bankName || "").toLowerCase() === "cash"
+                          ? "Deposit this cash directly into the owner's account?"
+                          : "Mark this cheque as Deposited (submitted to bank, awaiting clearance)?")
                       : pendingAction.type === "clear"
                       ? "Mark this cheque as Cleared?"
                       : pendingAction.type === "bounce-collect"
