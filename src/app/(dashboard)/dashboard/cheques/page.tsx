@@ -1292,7 +1292,10 @@ function ChequeUnitCards({
             } catch (e) { console.error("partial cash-deposit create failed:", e) }
             const updated: PartialEvent = { ...ev, status: "Cleared", bankedDate: date }
             let newNotes = replacePartialEvent(c.notes || "", updated)
-            newNotes = appendEvent(newNotes, "PE_CLEARED", `${peRef} · AED ${ev.amount.toLocaleString()} cash deposited to owner${cashDepositId ? ` (deposit ${cashDepositId})` : ""}`, date)
+            // Stamp BANKED_TO_OWNER (mirrors the parent cash flow). For cash
+            // there is no intermediate "Cleared in our hands" stage — cleared
+            // = banked to owner, so one event is enough.
+            newNotes = appendEvent(newNotes, "BANKED_TO_OWNER", `${peRef} · AED ${ev.amount.toLocaleString()} cash into owner account${cashDepositId ? ` (deposit ${cashDepositId})` : ""}`, date)
             // Watcher: when this cleared PE means ALL partials are now cleared
             // and the cumulative covers the full original, flip the parent to
             // Cleared too — that's the canonical "fully done" state.
@@ -2067,6 +2070,14 @@ function ChequeUnitCards({
                       const rows: ChequeRow[] = []
                       // One row per partial event
                       for (const e of peEvents) {
+                        // For a Cleared-Cash PE, inject an OWNER_DEPOSITED marker into
+                        // the synthetic row's notes (using the PE's own bankedDate). The
+                        // displayStatus + StatusDateCell logic both consult this marker
+                        // to render "to Owner" instead of "Cleared" — for cash, banked
+                        // to owner IS cleared, no separate state.
+                        const peCashBanked = e.method === "Cash" && e.status === "Cleared" && (e.bankedDate || e.date)
+                          ? `\nOWNER_DEPOSITED:${e.bankedDate || e.date}`
+                          : ""
                         rows.push({
                           ...c,
                           id: `${c.id}-pe-${e.id}`,
@@ -2077,7 +2088,7 @@ function ChequeUnitCards({
                           chequeDate: e.date,
                           clearedDate: e.status === "Cleared" ? (e.bankedDate || e.date) : "",
                           depositedDate: e.status === "Deposited" ? e.date : "",
-                          notes: `${c.notes || ""}\n__PE_ROW__:${e.id}:${c.id}`,
+                          notes: `${c.notes || ""}\n__PE_ROW__:${e.id}:${c.id}${peCashBanked}`,
                         } as ChequeRow)
                       }
                       // Legacy fallback — old data without PE lines, just render one collected row
@@ -2124,10 +2135,15 @@ function ChequeUnitCards({
                     const ownerDepositedDate = ownerDepositMarker ? ownerDepositMarker[1] : ""
                     // Cash flow: Received (in hand) → Cleared (banked to owner)
                     // Cheque flow: Pending → Deposited → Cleared
-                    const displayStatus = isCashPayment && c.status === "Cleared"
-                      ? (ownerDepositedDate ? "Cleared" : "Received")
-                      : isPartialHalf === "remaining" ? "Partial Pending"
+                    // PE rows always render as two pills (Partial + <PE status>)
+                    // per spec section 8 "Status can be multiple". Non-PE rows
+                    // keep the single-pill cash-cleared downgrade.
+                    const displayStatus =
+                      isPartialHalf === "remaining" ? "Partial Pending"
+                      : isPartialHalf === "pe-row" ? `Partial ${c.status}`
                       : isPartialHalf === "collected" ? (c.status === "Cleared" ? "Partial Cleared" : "Partial Received")
+                      : isCashPayment && c.status === "Cleared"
+                        ? (ownerDepositedDate ? "Cleared" : "Received")
                       : c.status
                     // Pick the relevant "status date" + the field name (used by inline edit)
                     let statusDate = ""
@@ -2196,13 +2212,13 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(c.amount)}</td>
                         <td className="px-2 py-1.5">
                           {/* Per spec section 8, partial rows carry TWO statuses
-                              (PARTIAL + RECEIVED/PENDING/CLEARED). Render them as
-                              two side-by-side pills so both facets are visually
-                              explicit. Non-partial rows render a single pill. */}
-                          {(displayStatus === "Partial Pending" || displayStatus === "Partial Received" || displayStatus === "Partial Cleared") ? (
+                              (PARTIAL + RECEIVED/PENDING/CLEARED/DEPOSITED/BOUNCED).
+                              Render them as two side-by-side pills so both facets are
+                              visually explicit. Non-partial rows render a single pill. */}
+                          {displayStatus.startsWith("Partial ") ? (
                             <span className="inline-flex flex-wrap gap-1">
                               <StatusBadge status="Partial" />
-                              <StatusBadge status={displayStatus.replace(/^Partial\s+/, "")} />
+                              <StatusBadge status={displayStatusLabel(displayStatus.replace(/^Partial\s+/, ""))} />
                             </span>
                           ) : (
                             <StatusBadge status={displayStatusLabel(displayStatus)} />
