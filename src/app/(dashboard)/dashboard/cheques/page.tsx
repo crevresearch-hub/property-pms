@@ -1499,7 +1499,6 @@ function ChequeUnitCards({
         } else if (reverseSubtype === "Partial") {
           const collectedSoFar = (typeof c.notes === "string" && c.notes.match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)?.[1]) || "0"
           const newCollected = parseFloat(collectedSoFar) + amt
-          const remaining = (c.amount || 0) - newCollected
           const cleanedNotes = baseNotesR.replace(/PARTIAL_COLLECTED:[^\n]*/g, "").trim()
           const eventType = collectMethod === "Cheque" ? "PARTIAL_CHEQUE" : "PARTIAL_CASH"
           const eventDetail = collectMethod === "Cheque"
@@ -1513,12 +1512,13 @@ function ChequeUnitCards({
           const peLine = `PE:${peId}|${date}|${amt}|${collectMethod || "Cash"}|${reverseChequeNo || ""}|${reverseChequeBank || ""}|Received|`
           let withEvent = `${cleanedNotes}\nPARTIAL_COLLECTED:${newCollected}\n${peLine}`.trim()
           withEvent = appendEvent(withEvent, eventType, eventDetail, date)
-          const isFullyCollected = remaining <= 0
-          if (isFullyCollected) withEvent = appendEvent(withEvent, "CLEARED", `${oldRef} fully collected (AED ${(c.amount || 0).toLocaleString()})`, date)
-          await updateStatus(c.id, isFullyCollected ? "Cleared" : "Partial", {
+          // Per spec: the parent stays "Partial" even when the cumulative
+          // collected covers the full amount — individual partial cheques may
+          // still need to clear at the bank. Parent flips to "Cleared" only
+          // after all PE events themselves reach status="Cleared" (handled in
+          // updatePartialEvent's watcher).
+          await updateStatus(c.id, "Partial", {
             notes: withEvent,
-            ...(isFullyCollected ? { clearedDate: date } : {}),
-            ...(collectMethod === "Cash" ? { bankName: collectMethod === "Cash" ? "Cash" : (c.bankName || "") } : {}),
           })
           // Auto-VAT invoice rules per partial event:
           //   - Partial Cash    → fire NOW (cash physically in hand)
@@ -1988,9 +1988,14 @@ function ChequeUnitCards({
                   {g.cheques.flatMap((c) => {
                     // PARTIAL SPLIT — for each PE: line, render its own row with its own status.
                     // Then add a "Partial Pending" row if any balance remains.
+                    // We render PE rows whenever PE events exist (even after the parent has
+                    // flipped to Cleared from a fully-covered amount), so the audit chain
+                    // — including any partial cheques still awaiting bank clearance — stays
+                    // visible. The remaining-balance row is only rendered when there's
+                    // actually a positive balance left.
                     const peEvents = parsePartialEvents(c.notes)
                     const cumulativeMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
-                    if (c.status === "Partial" && (peEvents.length > 0 || cumulativeMatch)) {
+                    if (peEvents.length > 0 || (c.status === "Partial" && cumulativeMatch)) {
                       const collectedTotal = peEvents.reduce((s, e) => s + e.amount, 0) || (cumulativeMatch ? parseFloat(cumulativeMatch[1]) || 0 : 0)
                       const remainingAmt = Math.max(0, (c.amount || 0) - collectedTotal)
                       const rows: ChequeRow[] = []
@@ -2066,8 +2071,26 @@ function ChequeUnitCards({
                       if (opts?.historyEvent) {
                         newNotes = appendEvent(newNotes, opts.historyEvent.type, opts.historyEvent.detail, today)
                       }
-                      await updateStatus(realCheque.id, realCheque.status, { notes: newNotes })
-                      // When this partial event reaches Cleared, generate an invoice for it
+                      // Watcher: if this PE flip means ALL partial events are
+                      // now Cleared and the cumulative covers the full original
+                      // amount, flip the parent cheque to Cleared too — that's
+                      // the canonical "fully collected and all banked" state.
+                      const allEvents = parsePartialEvents(newNotes)
+                      const allCleared = allEvents.length > 0 && allEvents.every((x) => x.status === "Cleared")
+                      const cumulative = allEvents.reduce((s, x) => s + x.amount, 0)
+                      const fullyDone = allCleared && cumulative >= (realCheque.amount || 0)
+                      let nextStatus = realCheque.status
+                      const extra: Record<string, string> = { notes: newNotes }
+                      if (fullyDone && realCheque.status !== "Cleared") {
+                        nextStatus = "Cleared"
+                        const finalDate = patch.bankedDate || updated.bankedDate || updated.date || today
+                        const refLabel = `Cheque ${realCheque.chequeNo ? `#${realCheque.chequeNo}` : `seq ${realCheque.sequenceNo}`}`
+                        const finalNotes = appendEvent(newNotes, "CLEARED", `${refLabel} fully collected via ${allEvents.length} partial(s)`, finalDate)
+                        extra.notes = finalNotes
+                        extra.clearedDate = finalDate
+                      }
+                      await updateStatus(realCheque.id, nextStatus, extra)
+                      // Auto-VAT invoice for THIS partial event when it clears.
                       if (patch.status === "Cleared") {
                         const date = patch.bankedDate || updated.bankedDate || updated.date || today
                         await generateInstallmentInvoice(realCheque, ev.amount, date, `PE-${ev.id}`)
