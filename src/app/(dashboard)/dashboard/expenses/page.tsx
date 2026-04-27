@@ -404,6 +404,7 @@ export default function ExpensesPage() {
                 <option value="Gas Refilling Expenses" />
                 <option value="Cooling Charges - Expenses" />
                 <option value="General Maintenance" />
+                <option value="Unit Maintenance" />
               </datalist>
             </div>
           </div>
