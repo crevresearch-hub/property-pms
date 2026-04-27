@@ -442,6 +442,7 @@ model Vendor {
   companyName        String
   contactPerson      String       @default("")
   phone              String       @default("")
+  landline           String       @default("")  // optional UAE landline
   email              String       @default("")
   tradeLicenseNo     String       @default("")
   tradeLicenseExpiry String       @default("")
@@ -449,6 +450,9 @@ model Vendor {
   status             String       @default("Active")
   isPreferred        Boolean      @default(false)
   categories         String       @default("")
+  // CSV of accepted payment methods, e.g. "Cash,Cheque,BankTransfer".
+  // Required to have ≥ 1 entry; UI enforces this with checkboxes.
+  paymentMethods     String       @default("Cash")
   notes              String       @default("")
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt

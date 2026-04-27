@@ -13,6 +13,7 @@ interface VendorRow {
   companyName: string
   contactPerson: string
   phone: string
+  landline: string
   email: string
   tradeLicenseNo: string
   tradeLicenseExpiry: string
@@ -21,6 +22,7 @@ interface VendorRow {
   isPreferred: boolean
   categories: string
   categoriesList: string[]
+  paymentMethods: string
   notes: string
   [key: string]: unknown
 }
@@ -43,6 +45,7 @@ const defaultForm = {
   companyName: "",
   contactPerson: "",
   phone: "",
+  landline: "",
   email: "",
   tradeLicenseNo: "",
   tradeLicenseExpiry: "",
@@ -50,6 +53,9 @@ const defaultForm = {
   status: "Active",
   isPreferred: false,
   categories: "",
+  // CSV string of accepted payment methods (Cash / Cheque / BankTransfer).
+  // Default to Cash so the "at least one" rule is satisfied for new rows.
+  paymentMethods: "Cash",
   notes: "",
 }
 
@@ -104,6 +110,7 @@ export default function VendorsPage() {
       companyName: v.companyName,
       contactPerson: v.contactPerson,
       phone: v.phone,
+      landline: v.landline || "",
       email: v.email,
       tradeLicenseNo: v.tradeLicenseNo,
       tradeLicenseExpiry: v.tradeLicenseExpiry,
@@ -111,6 +118,7 @@ export default function VendorsPage() {
       status: v.status,
       isPreferred: v.isPreferred,
       categories: v.categories,
+      paymentMethods: v.paymentMethods || "Cash",
       notes: v.notes,
     })
     setEditOpen(true)
@@ -205,13 +213,56 @@ export default function VendorsPage() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-400">Phone</label>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Mobile</label>
           <UaePhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-400">Email</label>
-          <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
+          <label className="mb-1 block text-xs font-medium text-slate-400">Landline <span className="text-slate-500">(optional)</span></label>
+          <input
+            type="tel"
+            value={form.landline}
+            onChange={(e) => setForm({ ...form, landline: e.target.value })}
+            placeholder="04 1234567"
+            inputMode="tel"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+          />
         </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-400">Email</label>
+        <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-400">
+          Accepted Payment Methods <span className="text-red-400">*</span>
+        </label>
+        <div className="flex flex-wrap gap-3 rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+          {([
+            { val: "Cash", label: "💵 Cash" },
+            { val: "Cheque", label: "📝 Cheque" },
+            { val: "BankTransfer", label: "🏦 Bank Transfer" },
+          ] as const).map(({ val, label }) => {
+            const set = new Set((form.paymentMethods || "").split(",").map((s) => s.trim()).filter(Boolean))
+            const checked = set.has(val)
+            return (
+              <label key={val} className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => {
+                    const next = new Set(set)
+                    if (e.target.checked) next.add(val); else next.delete(val)
+                    setForm({ ...form, paymentMethods: Array.from(next).join(",") })
+                  }}
+                />
+                {label}
+              </label>
+            )
+          })}
+        </div>
+        {!form.paymentMethods.trim() && (
+          <p className="mt-1 text-[10px] text-amber-400">Required — pick at least one method.</p>
+        )}
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-400">Categories (comma separated)</label>
@@ -276,12 +327,12 @@ export default function VendorsPage() {
       )}
 
       <Modal open={addOpen} onOpenChange={setAddOpen} title="Add Vendor" size="lg"
-        footer={<><ModalCancelButton /><ModalSaveButton onClick={handleAdd} disabled={saving || !form.companyName}>{saving ? "Saving..." : "Save"}</ModalSaveButton></>}>
+        footer={<><ModalCancelButton /><ModalSaveButton onClick={handleAdd} disabled={saving || !form.companyName || !form.paymentMethods.trim()}>{saving ? "Saving..." : "Save"}</ModalSaveButton></>}>
         {formFields}
       </Modal>
 
       <Modal open={editOpen} onOpenChange={setEditOpen} title="Edit Vendor" size="lg"
-        footer={<><ModalCancelButton /><ModalSaveButton onClick={handleEdit} disabled={saving || !form.companyName}>{saving ? "Saving..." : "Update"}</ModalSaveButton></>}>
+        footer={<><ModalCancelButton /><ModalSaveButton onClick={handleEdit} disabled={saving || !form.companyName || !form.paymentMethods.trim()}>{saving ? "Saving..." : "Update"}</ModalSaveButton></>}>
         {formFields}
       </Modal>
     </div>

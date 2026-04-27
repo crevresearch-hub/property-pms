@@ -90,6 +90,7 @@ export async function PUT(
     if (body.companyName !== undefined) updateData.companyName = body.companyName
     if (body.contactPerson !== undefined) updateData.contactPerson = body.contactPerson
     if (body.phone !== undefined) updateData.phone = body.phone
+    if (body.landline !== undefined) updateData.landline = body.landline
     if (body.email !== undefined) updateData.email = body.email
     if (body.tradeLicenseNo !== undefined) updateData.tradeLicenseNo = body.tradeLicenseNo
     if (body.tradeLicenseExpiry !== undefined) updateData.tradeLicenseExpiry = body.tradeLicenseExpiry
@@ -104,6 +105,23 @@ export async function PUT(
       } else {
         updateData.categories = body.categories
       }
+    }
+
+    if (body.paymentMethods !== undefined) {
+      const allowed = ['Cash', 'Cheque', 'BankTransfer']
+      let pm = ''
+      if (Array.isArray(body.paymentMethods)) {
+        pm = body.paymentMethods.filter((m: string) => allowed.includes(m)).join(',')
+      } else if (typeof body.paymentMethods === 'string') {
+        pm = body.paymentMethods.split(',').map((s: string) => s.trim()).filter((m: string) => allowed.includes(m)).join(',')
+      }
+      if (!pm) {
+        return NextResponse.json(
+          { error: 'At least one accepted payment method is required (Cash / Cheque / BankTransfer).' },
+          { status: 400 }
+        )
+      }
+      updateData.paymentMethods = pm
     }
 
     const vendor = await prisma.vendor.update({

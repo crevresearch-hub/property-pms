@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
       companyName,
       contactPerson,
       phone,
+      landline,
       email,
       tradeLicenseNo,
       tradeLicenseExpiry,
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
       status,
       isPreferred,
       categories,
+      paymentMethods,
       notes,
     } = body
 
@@ -72,12 +74,29 @@ export async function POST(request: NextRequest) {
       categoriesStr = categories
     }
 
+    // Payment methods: accept array of {Cash|Cheque|BankTransfer} or CSV string.
+    // At least one is required so the vendor's payable-routing isn't ambiguous.
+    const allowedMethods = ['Cash', 'Cheque', 'BankTransfer']
+    let paymentMethodsStr = ''
+    if (Array.isArray(paymentMethods)) {
+      paymentMethodsStr = paymentMethods.filter((m) => allowedMethods.includes(m)).join(',')
+    } else if (typeof paymentMethods === 'string') {
+      paymentMethodsStr = paymentMethods.split(',').map((s) => s.trim()).filter((m) => allowedMethods.includes(m)).join(',')
+    }
+    if (!paymentMethodsStr) {
+      return NextResponse.json(
+        { error: 'At least one accepted payment method is required (Cash / Cheque / BankTransfer).' },
+        { status: 400 }
+      )
+    }
+
     const vendor = await prisma.vendor.create({
       data: {
         organizationId,
         companyName,
         contactPerson: contactPerson || '',
         phone: phone || '',
+        landline: landline || '',
         email: email || '',
         tradeLicenseNo: tradeLicenseNo || '',
         tradeLicenseExpiry: tradeLicenseExpiry || '',
@@ -85,6 +104,7 @@ export async function POST(request: NextRequest) {
         status: status || 'Active',
         isPreferred: isPreferred === true,
         categories: categoriesStr,
+        paymentMethods: paymentMethodsStr,
         notes: notes || '',
       },
     })
