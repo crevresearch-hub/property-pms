@@ -2302,7 +2302,7 @@ function ChequeUnitCards({
                             )}
                             {c.status === "Bounced" && !isPartialHalf && (
                               <button
-                                onClick={() => { resetActionState(); setPendingAction({ type: "bounce-collect", cheque: c }) }}
+                                onClick={() => { resetActionState(); if (c.parentId) setCollectMethod("Cash"); setPendingAction({ type: "bounce-collect", cheque: c }) }}
                                 className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
                               >
                                 💰 Collect
@@ -2948,23 +2948,32 @@ function ChequeUnitCards({
             )}
 
             {pendingAction.type === "bounce-collect" && (() => {
-              // For PE-scoped bounce-collect (peId set) the only allowed
-              // settlement is Cash. A bounced partial cheque has already shown
-              // it can fail at the bank — accepting another cheque would just
-              // risk the same outcome again. Force Cash so the user proceeds
-              // straight to the cash flow.
+              // Cash-only is forced when:
+              //   (a) we're collecting on a Partial event (peId set) —
+              //       a bounced partial cheque shouldn't be swapped for another
+              //       cheque, OR
+              //   (b) the cheque is itself a Replacement / Bounce-Collect child
+              //       (parentId set) — the chain has already failed once at
+              //       the bank, accepting another cheque just risks a third
+              //       bounce. Forces the chain to terminate in cash.
               const peScoped = !!pendingAction.peId
+              const isChild = !!pendingAction.cheque.parentId
+              const cashOnly = peScoped || isChild
               const peEv = peScoped ? parsePartialEvents(pendingAction.cheque.notes).find((e) => e.id === pendingAction.peId) : null
               const collectAmount = peEv ? peEv.amount : pendingAction.cheque.amount
               return (
               <div className="space-y-3 rounded-lg border border-amber-700/40 bg-amber-900/10 p-3">
                 <p className="text-[11px] text-amber-200">
                   Collect the full bounced amount of <strong>{formatCurrency(collectAmount)}</strong>.
-                  {peScoped ? " Cash only — a bounced partial cheque cannot be replaced with another cheque." : " Pick how it was settled."}
+                  {peScoped
+                    ? " Cash only — a bounced partial cheque cannot be replaced with another cheque."
+                    : isChild
+                    ? " Cash only — this cheque is already a replacement and has bounced again, so the chain must terminate in cash."
+                    : " Pick how it was settled."}
                 </p>
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Method *</label>
-                  {peScoped ? (
+                  {cashOnly ? (
                     <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white">
                       <span>💵 Cash</span>
                       <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-300">Locked</span>
