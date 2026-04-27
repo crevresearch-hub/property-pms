@@ -879,18 +879,37 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
   if (c.depositedDate && !seenTypes.has("DEPOSITED")) {
     entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦", sortKey: c.depositedDate })
   }
+  // Bounce-collect resolution markers — when a cheque was bounced and then
+  // collected by Cash/Cheque, the bouncedReason has the suffix appended (see
+  // line 1230). We detect that suffix here so the legacy clearedDate can be
+  // rendered as "Bounce collected — …" instead of generic "Cleared", and the
+  // bounced reason is shown without the resolution suffix.
+  const reasonRaw = c.bouncedReason || ""
+  const isBounceCollectedCash = /—\s*collected by Cash\b/i.test(reasonRaw)
+  const isBounceCollectedCheque = /—\s*replaced by new Cheque\b/i.test(reasonRaw)
+  const cleanedBounceReason = reasonRaw.replace(/\s*—\s*(collected by Cash|collected by Cheque|replaced by Cash|replaced by new Cheque).*$/i, "").trim() || "—"
+
   // Skip Cleared legacy fallback if a REPLACED_BY_CASH or BOUNCE-COLLECT event
   // is already in the log — those imply clearance, so a separate Cleared entry
   // would just duplicate the same fact.
   const clearedAlreadyImplied =
     seenTypes.has("CLEARED") ||
     seenTypes.has("REPLACED_BY_CASH") ||
-    seenTypes.has("COLLECTED_AFTER_BOUNCE_CASH")
+    seenTypes.has("COLLECTED_AFTER_BOUNCE_CASH") ||
+    seenTypes.has("COLLECTED_AFTER_BOUNCE_CHEQUE")
   if (c.clearedDate && !clearedAlreadyImplied) {
-    entries.push({ date: c.clearedDate, label: "Cleared", detail: c.bankName ? `via ${c.bankName}` : "Funds credited", icon: "✓", sortKey: c.clearedDate })
+    if (isBounceCollectedCash) {
+      entries.push({ date: c.clearedDate, label: "Bounce collected — Cash", detail: "Cash settled the bounce", icon: "💰", sortKey: `${c.clearedDate}_2` })
+    } else if (isBounceCollectedCheque) {
+      entries.push({ date: c.clearedDate, label: "Bounce collected — Cheque", detail: c.chequeNo ? `New #${c.chequeNo} settled the bounce` : "New cheque settled the bounce", icon: "💰", sortKey: `${c.clearedDate}_2` })
+    } else {
+      entries.push({ date: c.clearedDate, label: "Cleared", detail: c.bankName ? `via ${c.bankName}` : "Funds credited", icon: "✓", sortKey: c.clearedDate })
+    }
   }
   if (c.bouncedDate && !seenTypes.has("BOUNCED")) {
-    entries.push({ date: c.bouncedDate, label: "Bounced", detail: c.bouncedReason || "—", icon: "✕", sortKey: c.bouncedDate })
+    // sortKey suffix "_1" so legacy Bounced sorts before legacy Cleared /
+    // Bounce-collected on the same day — a cheque cannot bounce after clearing.
+    entries.push({ date: c.bouncedDate, label: "Bounced", detail: cleanedBounceReason, icon: "✕", sortKey: `${c.bouncedDate}_1` })
   }
   // Legacy per-event partial entries
   const partialEvents = [...(c.notes || "").matchAll(/PARTIAL_EVENT:([^|]*)\|([^|]*)\|([^\s]*)/g)]
@@ -2119,7 +2138,11 @@ function ChequeUnitCards({
                     <option value="">— Select —</option>
                     <option value="ReplacementCash">Replacement By Cash</option>
                     <option value="ReplacementCheque">Replacement By CHQ</option>
-                    <option value="Bounced">Bounced CHQ</option>
+                    {/* Bounce only makes sense after the cheque has been deposited —
+                        you only learn it bounced once the bank rejects it. */}
+                    {pendingAction.cheque.status === "Deposited" && (
+                      <option value="Bounced">Bounced CHQ</option>
+                    )}
                     <option value="Partial">Partial Payment</option>
                   </select>
                 </div>
