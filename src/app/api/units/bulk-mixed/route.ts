@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Only the developer can bulk-create units' }, { status: 403 })
+    }
 
     const organizationId = session.user.organizationId
     const body = await request.json()

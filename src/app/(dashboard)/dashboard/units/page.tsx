@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import { KpiCard } from "@/components/ui/kpi-card"
 import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
@@ -53,6 +54,12 @@ const defaultForm = {
 }
 
 export default function UnitsPage() {
+  const { data: session } = useSession()
+  // Only the developer/superuser (role="admin") can create new units. CEO /
+  // Staff can view, edit, and delete existing units, but the Bulk Add and
+  // Add Single Unit buttons are hidden — the building inventory shouldn't
+  // grow accidentally from non-developer hands.
+  const isDeveloper = session?.user?.role === "admin"
   const [units, setUnits] = useState<UnitRow[]>([])
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
@@ -591,18 +598,22 @@ export default function UnitsPage() {
               },
             ]}
           />
-          <button
-            onClick={() => { setMixedOpen(true); setMixedPreview(null); setMixedResult(null) }}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
-          >
-            <Building2 className="h-4 w-4" /> Bulk Add (Per Floor)
-          </button>
-          <button
-            onClick={() => { setForm(defaultForm); setAddOpen(true) }}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-slate-950 hover:from-amber-400 hover:to-amber-500"
-          >
-            <Plus className="h-4 w-4" /> Add Single Unit
-          </button>
+          {isDeveloper && (
+            <>
+              <button
+                onClick={() => { setMixedOpen(true); setMixedPreview(null); setMixedResult(null) }}
+                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+              >
+                <Building2 className="h-4 w-4" /> Bulk Add (Per Floor)
+              </button>
+              <button
+                onClick={() => { setForm(defaultForm); setAddOpen(true) }}
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-slate-950 hover:from-amber-400 hover:to-amber-500"
+              >
+                <Plus className="h-4 w-4" /> Add Single Unit
+              </button>
+            </>
+          )}
         </div>
       </div>
 
