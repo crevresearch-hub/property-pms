@@ -368,6 +368,113 @@ export default function CashTrackerPage() {
         <KpiCard label="Pending Balance" value={summary.totalPending.toLocaleString()} subtitle={`${summary.fullyPaid}/${summary.tenantCount} fully paid`} color="red" icon={<ArrowRight className="h-5 w-5" />} />
       </div>
 
+      {/* ═══════════ CASH LEDGER ═══════════
+          Chronological view of every cash transaction in the org —
+          tenant-cash received (in), banking to owner (out), vendor
+          bills paid in cash (out) — with a running balance. Placed
+          near the top of the page so the financial summary is the
+          first thing the user sees, before the per-tenant card list. */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-white">Cash Ledger</h2>
+            <p className="text-xs text-slate-400">
+              Every cash transaction with a running balance — tenant cash in, owner banking + vendor expenses out.
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <select
+              value={ledgerUnitFilter}
+              onChange={(e) => setLedgerUnitFilter(e.target.value)}
+              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white"
+            >
+              <option value="all">All units</option>
+              {Array.from(new Set(ledger.map((r) => r.unitNo).filter(Boolean))).sort().map((u) => (
+                <option key={u} value={u}>Unit {u}</option>
+              ))}
+            </select>
+            {(["all", "in", "out"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setLedgerFilter(k)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  ledgerFilter === k ? "bg-amber-500 text-slate-900" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                {k === "all" ? "All" : k === "in" ? "Cash In" : "Cash Out"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {ledgerTotals && (
+          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-emerald-300/70">Cash Received</p>
+              <p className="text-sm font-bold text-emerald-300">{formatCurrency(ledgerTotals.received)}</p>
+            </div>
+            <div className="rounded-lg border border-blue-700/40 bg-blue-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-blue-300/70">Banked to Owner</p>
+              <p className="text-sm font-bold text-blue-300">{formatCurrency(ledgerTotals.bankedToOwner)}</p>
+            </div>
+            <div className="rounded-lg border border-purple-700/40 bg-purple-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-purple-300/70">Vendor Expenses</p>
+              <p className="text-sm font-bold text-purple-300">{formatCurrency(ledgerTotals.vendorExpenses)}</p>
+            </div>
+            <div className="rounded-lg border border-red-700/40 bg-red-950/20 p-2">
+              <p className="text-[10px] uppercase tracking-wide text-red-300/70">Total Out</p>
+              <p className="text-sm font-bold text-red-300">{formatCurrency(ledgerTotals.totalOut)}</p>
+            </div>
+            <div className={`rounded-lg border p-2 ${ledgerTotals.onHand >= 0 ? "border-amber-700/40 bg-amber-950/20" : "border-red-700/40 bg-red-950/20"}`}>
+              <p className="text-[10px] uppercase tracking-wide text-amber-300/70">Cash on Hand</p>
+              <p className={`text-sm font-bold ${ledgerTotals.onHand >= 0 ? "text-amber-300" : "text-red-300"}`}>{formatCurrency(ledgerTotals.onHand)}</p>
+            </div>
+          </div>
+        )}
+        {ledger.length === 0 ? (
+          <p className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">No cash transactions yet.</p>
+        ) : (
+          <div className="max-h-[420px] overflow-auto rounded-lg border border-slate-800">
+            <table className="w-full text-left text-[11px]">
+              <thead className="sticky top-0 bg-slate-900/95 text-[10px] uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="px-2 py-2">Date</th>
+                  <th className="px-2 py-2">Type</th>
+                  <th className="px-2 py-2">Unit</th>
+                  <th className="px-2 py-2">Counterparty</th>
+                  <th className="px-2 py-2">Description</th>
+                  <th className="px-2 py-2 text-right">Cash In</th>
+                  <th className="px-2 py-2 text-right">Cash Out</th>
+                  <th className="px-2 py-2 text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {ledger
+                  .filter((r) => ledgerFilter === "all" || r.kind === ledgerFilter)
+                  .filter((r) => ledgerUnitFilter === "all" || r.unitNo === ledgerUnitFilter)
+                  .map((r) => (
+                    <tr key={r.id} className="text-slate-300 hover:bg-slate-800/40">
+                      <td className="px-2 py-1.5 whitespace-nowrap">{r.date}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                          r.type === "Cash Received" ? "bg-emerald-500/20 text-emerald-300"
+                          : r.type === "Banked to Owner" ? "bg-blue-500/20 text-blue-300"
+                          : "bg-purple-500/20 text-purple-300"
+                        }`}>{r.type}</span>
+                      </td>
+                      <td className="px-2 py-1.5">{r.unitNo || "—"}</td>
+                      <td className="px-2 py-1.5">{r.counterparty || "—"}</td>
+                      <td className="px-2 py-1.5 text-slate-400">{r.description}</td>
+                      <td className="px-2 py-1.5 text-right font-mono text-emerald-300">{r.amountIn > 0 ? formatCurrency(r.amountIn) : "—"}</td>
+                      <td className="px-2 py-1.5 text-right font-mono text-red-300">{r.amountOut > 0 ? formatCurrency(r.amountOut) : "—"}</td>
+                      <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.runningBalance >= 0 ? "text-amber-300" : "text-red-400"}`}>{formatCurrency(r.runningBalance)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
         <input
@@ -501,111 +608,6 @@ export default function CashTrackerPage() {
           ))}
         </div>
       )}
-
-      {/* ═══════════ CASH LEDGER ═══════════
-          Chronological view of every cash transaction in the org —
-          tenant-cash received (in), banking to owner (out), vendor
-          bills paid in cash (out) — with a running balance. */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-white">Cash Ledger</h2>
-            <p className="text-xs text-slate-400">
-              Every cash transaction with a running balance — tenant cash in, owner banking + vendor expenses out.
-            </p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <select
-              value={ledgerUnitFilter}
-              onChange={(e) => setLedgerUnitFilter(e.target.value)}
-              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white"
-            >
-              <option value="all">All units</option>
-              {Array.from(new Set(ledger.map((r) => r.unitNo).filter(Boolean))).sort().map((u) => (
-                <option key={u} value={u}>Unit {u}</option>
-              ))}
-            </select>
-            {(["all", "in", "out"] as const).map((k) => (
-              <button
-                key={k}
-                onClick={() => setLedgerFilter(k)}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  ledgerFilter === k ? "bg-amber-500 text-slate-900" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                }`}
-              >
-                {k === "all" ? "All" : k === "in" ? "Cash In" : "Cash Out"}
-              </button>
-            ))}
-          </div>
-        </div>
-        {ledgerTotals && (
-          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-emerald-300/70">Cash Received</p>
-              <p className="text-sm font-bold text-emerald-300">{formatCurrency(ledgerTotals.received)}</p>
-            </div>
-            <div className="rounded-lg border border-blue-700/40 bg-blue-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-blue-300/70">Banked to Owner</p>
-              <p className="text-sm font-bold text-blue-300">{formatCurrency(ledgerTotals.bankedToOwner)}</p>
-            </div>
-            <div className="rounded-lg border border-purple-700/40 bg-purple-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-purple-300/70">Vendor Expenses</p>
-              <p className="text-sm font-bold text-purple-300">{formatCurrency(ledgerTotals.vendorExpenses)}</p>
-            </div>
-            <div className="rounded-lg border border-red-700/40 bg-red-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-red-300/70">Total Out</p>
-              <p className="text-sm font-bold text-red-300">{formatCurrency(ledgerTotals.totalOut)}</p>
-            </div>
-            <div className={`rounded-lg border p-2 ${ledgerTotals.onHand >= 0 ? "border-amber-700/40 bg-amber-950/20" : "border-red-700/40 bg-red-950/20"}`}>
-              <p className="text-[10px] uppercase tracking-wide text-amber-300/70">Cash on Hand</p>
-              <p className={`text-sm font-bold ${ledgerTotals.onHand >= 0 ? "text-amber-300" : "text-red-300"}`}>{formatCurrency(ledgerTotals.onHand)}</p>
-            </div>
-          </div>
-        )}
-        {ledger.length === 0 ? (
-          <p className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">No cash transactions yet.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-800">
-            <table className="w-full text-left text-[11px]">
-              <thead className="bg-slate-900/80 text-[10px] uppercase tracking-wide text-slate-400">
-                <tr>
-                  <th className="px-2 py-2">Date</th>
-                  <th className="px-2 py-2">Type</th>
-                  <th className="px-2 py-2">Unit</th>
-                  <th className="px-2 py-2">Counterparty</th>
-                  <th className="px-2 py-2">Description</th>
-                  <th className="px-2 py-2 text-right">Cash In</th>
-                  <th className="px-2 py-2 text-right">Cash Out</th>
-                  <th className="px-2 py-2 text-right">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {ledger
-                  .filter((r) => ledgerFilter === "all" || r.kind === ledgerFilter)
-                  .filter((r) => ledgerUnitFilter === "all" || r.unitNo === ledgerUnitFilter)
-                  .map((r) => (
-                    <tr key={r.id} className="text-slate-300 hover:bg-slate-800/40">
-                      <td className="px-2 py-1.5 whitespace-nowrap">{r.date}</td>
-                      <td className="px-2 py-1.5">
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${
-                          r.type === "Cash Received" ? "bg-emerald-500/20 text-emerald-300"
-                          : r.type === "Banked to Owner" ? "bg-blue-500/20 text-blue-300"
-                          : "bg-purple-500/20 text-purple-300"
-                        }`}>{r.type}</span>
-                      </td>
-                      <td className="px-2 py-1.5">{r.unitNo || "—"}</td>
-                      <td className="px-2 py-1.5">{r.counterparty || "—"}</td>
-                      <td className="px-2 py-1.5 text-slate-400">{r.description}</td>
-                      <td className="px-2 py-1.5 text-right font-mono text-emerald-300">{r.amountIn > 0 ? formatCurrency(r.amountIn) : "—"}</td>
-                      <td className="px-2 py-1.5 text-right font-mono text-red-300">{r.amountOut > 0 ? formatCurrency(r.amountOut) : "—"}</td>
-                      <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.runningBalance >= 0 ? "text-amber-300" : "text-red-400"}`}>{formatCurrency(r.runningBalance)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {/* Record cash modal */}
       <Modal
