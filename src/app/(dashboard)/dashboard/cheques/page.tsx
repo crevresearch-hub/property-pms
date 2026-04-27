@@ -827,6 +827,8 @@ type ChequeAction =
   | { type: "reverse"; cheque: ChequeRow }
   // Bounce-collection: when a cheque is already Bounced, "Reverse" jumps straight to collecting full amount.
   | { type: "bounce-collect"; cheque: ChequeRow; peId?: string }
+  // Bounce a Deposited partial cheque (modal-based — replaces window.prompt)
+  | { type: "pe-bounce"; cheque: ChequeRow; peId: string }
   // Cash collected from tenant, now staff is recording the bank deposit into the owner's account.
   | { type: "deposit-to-owner"; cheque: ChequeRow }
   // Time-bound undo of the most recent EVENT line on a cheque's history.
@@ -1282,7 +1284,19 @@ function ChequeUnitCards({
             const updated: PartialEvent = { ...ev, status: "Cleared", bankedDate: date }
             let newNotes = replacePartialEvent(c.notes || "", updated)
             newNotes = appendEvent(newNotes, "PE_CLEARED", `${peRef} · AED ${ev.amount.toLocaleString()} cash deposited to owner${cashDepositId ? ` (deposit ${cashDepositId})` : ""}`, date)
-            await updateStatus(c.id, c.status, { notes: newNotes })
+            // Watcher: when this cleared PE means ALL partials are now cleared
+            // and the cumulative covers the full original, flip the parent to
+            // Cleared too — that's the canonical "fully done" state.
+            const allEv = parsePartialEvents(newNotes)
+            const allCleared = allEv.length > 0 && allEv.every((x) => x.status === "Cleared")
+            const cumulative = allEv.reduce((s, x) => s + x.amount, 0)
+            if (allCleared && cumulative >= (c.amount || 0) && c.status !== "Cleared") {
+              const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
+              newNotes = appendEvent(newNotes, "CLEARED", `${refLabel} fully collected via ${allEv.length} partial(s)`, date)
+              await updateStatus(c.id, "Cleared", { notes: newNotes, clearedDate: date })
+            } else {
+              await updateStatus(c.id, c.status, { notes: newNotes })
+            }
             await generateInstallmentInvoice(c, ev.amount, date, `PE-${ev.id}`)
           } else {
             // Cheque PE deposit: mark PE as Deposited (awaiting bank clearance).
@@ -1390,7 +1404,17 @@ function ChequeUnitCards({
           const updated: PartialEvent = { ...ev, status: "Cleared", bankedDate: date }
           let newNotes = replacePartialEvent(c.notes || "", updated)
           newNotes = appendEvent(newNotes, "PE_CLEARED", `${peRef} · #${ev.chequeNo || "(no #)"} · AED ${ev.amount.toLocaleString()} cleared via ${ev.bank || "bank"}${noteSuffix}`, date)
-          await updateStatus(c.id, c.status, { notes: newNotes })
+          // Watcher: flip parent to Cleared when all PEs are individually cleared
+          // and the cumulative covers the full original amount.
+          const allEv = parsePartialEvents(newNotes)
+          const allCleared = allEv.length > 0 && allEv.every((x) => x.status === "Cleared")
+          const cumulative = allEv.reduce((s, x) => s + x.amount, 0)
+          if (allCleared && cumulative >= (c.amount || 0) && c.status !== "Cleared") {
+            newNotes = appendEvent(newNotes, "CLEARED", `${refLabel} fully collected via ${allEv.length} partial(s)`, date)
+            await updateStatus(c.id, "Cleared", { notes: newNotes, clearedDate: date })
+          } else {
+            await updateStatus(c.id, c.status, { notes: newNotes })
+          }
           if (clearStatementFile && c.tenant?.id) {
             const fd = new FormData()
             fd.append('file', clearStatementFile)
@@ -1667,6 +1691,24 @@ function ChequeUnitCards({
           fd.append('docType', `BounceCollect-Cheque-${pendingAction.cheque.id}`)
           await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
         }
+      } else if (pendingAction.type === "pe-bounce") {
+        // Modal-driven version of the partial-cheque bounce flow (replaces the
+        // old window.prompt). Flips the PE event to Bounced + stamps a
+        // PE_BOUNCED audit line. Does NOT trigger the parent-clear watcher —
+        // a bounced partial obviously doesn't move the parent toward Cleared.
+        const c = pendingAction.cheque
+        const peIdToBounce = pendingAction.peId
+        const reason = (rejectReason || "").trim()
+        if (!reason) { setBusyAction(false); return }
+        const events = parsePartialEvents(c.notes)
+        const ev = events.find((e) => e.id === peIdToBounce)
+        if (!ev) { resetActionState(); setBusyAction(false); return }
+        const updated: PartialEvent = { ...ev, status: "Bounced" }
+        let newNotes = replacePartialEvent(c.notes || "", updated)
+        const peRef = `Partial ${ev.id}`
+        const refForLog = ev.chequeNo ? `#${ev.chequeNo}` : "(no #)"
+        newNotes = appendEvent(newNotes, "PE_BOUNCED", `${peRef} · ${refForLog} · ${ev.bank || "—"} · ${reason}`, todayStr())
+        await updateStatus(c.id, c.status, { notes: newNotes })
       } else if (pendingAction.type === "undo-last") {
         // Strip the most recent canonical EVENT line from notes and restore
         // the cheque to whatever the previous status implies. We don't
@@ -2063,48 +2105,6 @@ function ChequeUnitCards({
                     const isPartialHalf = partialHalfMatch?.[1] || (peEventId ? "pe-row" : "")
                     const realChequeId = partialHalfMatch?.[2] || peRowMatch?.[2] || c.id
                     const realCheque = isPartialHalf ? g.cheques.find(x => x.id === realChequeId) || c : c
-                    // Helper: update a specific PE event's status on the parent's notes.
-                    // The optional historyEvent param lets callers stamp an EVENT line
-                    // (e.g. PE_BOUNCED) alongside the status change so the lifecycle modal
-                    // shows the transition explicitly.
-                    const updatePartialEvent = async (
-                      patch: Partial<PartialEvent>,
-                      opts?: { historyEvent?: { type: string; detail: string } }
-                    ) => {
-                      if (!peEventId) return
-                      const events = parsePartialEvents(realCheque.notes)
-                      const ev = events.find(e => e.id === peEventId)
-                      if (!ev) return
-                      const updated = { ...ev, ...patch }
-                      let newNotes = replacePartialEvent(realCheque.notes || "", updated)
-                      if (opts?.historyEvent) {
-                        newNotes = appendEvent(newNotes, opts.historyEvent.type, opts.historyEvent.detail, today)
-                      }
-                      // Watcher: if this PE flip means ALL partial events are
-                      // now Cleared and the cumulative covers the full original
-                      // amount, flip the parent cheque to Cleared too — that's
-                      // the canonical "fully collected and all banked" state.
-                      const allEvents = parsePartialEvents(newNotes)
-                      const allCleared = allEvents.length > 0 && allEvents.every((x) => x.status === "Cleared")
-                      const cumulative = allEvents.reduce((s, x) => s + x.amount, 0)
-                      const fullyDone = allCleared && cumulative >= (realCheque.amount || 0)
-                      let nextStatus = realCheque.status
-                      const extra: Record<string, string> = { notes: newNotes }
-                      if (fullyDone && realCheque.status !== "Cleared") {
-                        nextStatus = "Cleared"
-                        const finalDate = patch.bankedDate || updated.bankedDate || updated.date || today
-                        const refLabel = `Cheque ${realCheque.chequeNo ? `#${realCheque.chequeNo}` : `seq ${realCheque.sequenceNo}`}`
-                        const finalNotes = appendEvent(newNotes, "CLEARED", `${refLabel} fully collected via ${allEvents.length} partial(s)`, finalDate)
-                        extra.notes = finalNotes
-                        extra.clearedDate = finalDate
-                      }
-                      await updateStatus(realCheque.id, nextStatus, extra)
-                      // Auto-VAT invoice for THIS partial event when it clears.
-                      if (patch.status === "Cleared") {
-                        const date = patch.bankedDate || updated.bankedDate || updated.date || today
-                        await generateInstallmentInvoice(realCheque, ev.amount, date, `PE-${ev.id}`)
-                      }
-                    }
                     const ownerDepositMarker = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
                     const ownerDepositedDate = ownerDepositMarker ? ownerDepositMarker[1] : ""
                     // Cash flow: Received (in hand) → Cleared (banked to owner)
@@ -2226,17 +2226,12 @@ function ChequeUnitCards({
                                 >
                                   <CheckCircle className="h-3.5 w-3.5" /> Clear
                                 </button>
-                                {/* Partial cheque bounced at the bank — flip to Bounced and
-                                    surface a Collect button on the next render. */}
+                                {/* Partial cheque bounced at the bank — opens the bounce
+                                    confirmation modal scoped to this PE event. The handler
+                                    flips the PE to Bounced and stamps a PE_BOUNCED event;
+                                    a Collect button surfaces on the next render. */}
                                 <button
-                                  onClick={async () => {
-                                    const reason = prompt("Bounce reason (bank rejection):")
-                                    if (!reason) return
-                                    await updatePartialEvent(
-                                      { status: "Bounced" },
-                                      { historyEvent: { type: "PE_BOUNCED", detail: `Partial ${peEventId} · ${reason}` } }
-                                    )
-                                  }}
+                                  onClick={() => { resetActionState(); setPendingAction({ type: "pe-bounce", cheque: realCheque, peId: peEventId }) }}
                                   className="inline-flex items-center gap-1 rounded-md bg-red-600 hover:bg-red-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
                                 >
                                   <XCircle className="h-3.5 w-3.5" /> Bounce
@@ -2517,6 +2512,8 @@ function ChequeUnitCards({
             ? (pendingAction.peId ? "Collect Bounced Partial" : "Collect Bounced Cheque")
             : pendingAction?.type === "deposit-to-owner"
             ? "Deposit Cash to Owner Account"
+            : pendingAction?.type === "pe-bounce"
+            ? "Bounce Partial Cheque"
             : pendingAction?.type === "undo-last"
             ? "Undo Last Action"
             : "Reverse Cheque"
@@ -2537,7 +2534,8 @@ function ChequeUnitCards({
                 (pendingAction?.type === "reverse" && reverseSubtype === "Partial" && (!collectMethod || !reverseAmount)) ||
                 (pendingAction?.type === "bounce-collect" && !collectMethod) ||
                 (pendingAction?.type === "bounce-collect" && collectMethod === "Cheque" && (!reverseChequeNo || !reverseChequeBank)) ||
-                (pendingAction?.type === "deposit-to-owner" && !reverseSlipFile)
+                (pendingAction?.type === "deposit-to-owner" && !reverseSlipFile) ||
+                (pendingAction?.type === "pe-bounce" && rejectReason.trim().length < 2)
               }
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 ${
                 pendingAction?.type === "deposit"
@@ -2563,6 +2561,8 @@ function ChequeUnitCards({
                 ? "💰 Confirm Collection"
                 : pendingAction?.type === "deposit-to-owner"
                 ? "💼 Confirm Bank Deposit"
+                : pendingAction?.type === "pe-bounce"
+                ? "✕ Confirm Bounce"
                 : pendingAction?.type === "undo-last"
                 ? "↶ Confirm Undo"
                 : "✓ Confirm Reverse"}
@@ -2619,6 +2619,8 @@ function ChequeUnitCards({
                             ? "Mark this cheque as Cleared?"
                             : pendingAction.type === "bounce-collect"
                             ? (pendingAction.peId ? "Collect this bounced partial in full" : "Collect the bounced cheque amount in full")
+                            : pendingAction.type === "pe-bounce"
+                            ? "Why was this partial cheque rejected by the bank?"
                             : pendingAction.type === "undo-last"
                             ? "Undo the most recent action on this cheque"
                             : "Reverse this cheque — what happened?"}
@@ -2968,6 +2970,30 @@ function ChequeUnitCards({
               </div>
             )}
 
+            {pendingAction.type === "pe-bounce" && (
+              <div className="space-y-3 rounded-lg border border-red-700/40 bg-red-900/10 p-3">
+                <p className="text-[11px] text-red-200">
+                  This partial cheque will be marked <strong>Bounced</strong>. It stays Bounced until you click the
+                  💰 Collect button on the partial row to settle it via Cash or a new Cheque.
+                </p>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">
+                    Bounce reason <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Insufficient funds, signature mismatch, account closed"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                  />
+                  {rejectReason.trim().length < 2 && (
+                    <p className="mt-1 text-[10px] text-amber-400">Required — at least 2 characters.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {pendingAction.type === "undo-last" && (() => {
               const lines = (pendingAction.cheque.notes || "").split("\n")
               let lastLine = ""
@@ -2993,7 +3019,7 @@ function ChequeUnitCards({
               )
             })()}
 
-            {pendingAction.type !== "deposit-to-owner" && pendingAction.type !== "undo-last" && (
+            {pendingAction.type !== "deposit-to-owner" && pendingAction.type !== "undo-last" && pendingAction.type !== "pe-bounce" && (
               <div className="rounded-lg border border-blue-700/40 bg-blue-900/20 p-3 text-xs text-blue-200">
                 ✉️ The tenant will be automatically emailed an updated payment statement
                 showing total paid + remaining balance.
