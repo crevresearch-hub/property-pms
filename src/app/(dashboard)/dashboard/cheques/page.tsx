@@ -818,7 +818,8 @@ function replacePartialEvent(notes: string, e: PartialEvent): string {
 // any replacement / bounce / partial mutates the chequeNo / amount fields.
 // Without this, replacements would erase the audit of "this used to be cheque #X".
 function ensureIssuedEvent(notes: string | null | undefined, c: { chequeNo: string; bankName: string; chequeDate: string; amount: number; sequenceNo: number }): string {
-  if ((notes || "").includes("EVENT:") && /\|ISSUED\|/.test(notes || "")) return notes || ""
+  // Anchor to start-of-line so we don't false-positive on `PARTIAL_EVENT:` substrings.
+  if (/(?:^|\n)EVENT:[^|]*\|ISSUED\|/.test(notes || "")) return notes || ""
   const date = c.chequeDate || ""
   const ref = c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`
   const detail = `${ref} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`
@@ -851,9 +852,11 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
   const seen = new Set<string>()
 
   // 1) Canonical EVENT lines (timestamp may be YYYY-MM-DD or full ISO).
+  // Anchored to start-of-line so the "EVENT:" substring inside legacy
+  // `PARTIAL_EVENT:` lines doesn't get misparsed as a canonical event.
   // Final sort happens via each entry's sortKey at the end of this function,
   // so we don't need to pre-sort here.
-  const eventLines = [...(c.notes || "").matchAll(/EVENT:([^|]*)\|([^|]+)\|([^\n]*)/g)]
+  const eventLines = [...(c.notes || "").matchAll(/(?:^|\n)EVENT:([^|]*)\|([^|]+)\|([^\n]*)/g)]
   for (const m of eventLines) {
     const [, ts, type, detail] = m
     const meta = EVENT_META[type] || { icon: "•", label: type }
@@ -862,13 +865,16 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
     const key = `${ts}|${type}|${detail}`
     if (seen.has(key)) continue
     seen.add(key)
-    entries.push({ date: displayDate, label: meta.label, detail: detail || "—", icon: meta.icon, sortKey: ts || displayDate })
+    // ISSUED is always conceptually first, even when chequeDate is post-dated
+    // (its visible date may be in the future, but it predates every action).
+    const sortKey = type === "ISSUED" ? "0" : (ts || displayDate)
+    entries.push({ date: displayDate, label: meta.label, detail: detail || "—", icon: meta.icon, sortKey })
   }
 
   // 2) Legacy fallbacks — only add if the corresponding canonical event isn't already in seen
   const seenTypes = new Set([...eventLines].map((m) => m[2]))
   if (c.chequeDate && !seenTypes.has("ISSUED")) {
-    entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅", sortKey: c.chequeDate })
+    entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅", sortKey: "0" })
   }
   if (c.depositedDate && !seenTypes.has("DEPOSITED")) {
     entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦", sortKey: c.depositedDate })
