@@ -2240,7 +2240,7 @@ function ChequeUnitCards({
                             )}
                             {isPartialHalf === "pe-row" && c.status === "Bounced" && (
                               <button
-                                onClick={() => { resetActionState(); setPendingAction({ type: "bounce-collect", cheque: realCheque, peId: peEventId }) }}
+                                onClick={() => { resetActionState(); setCollectMethod("Cash"); setPendingAction({ type: "bounce-collect", cheque: realCheque, peId: peEventId }) }}
                                 className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
                               >
                                 💰 Collect
@@ -2894,16 +2894,35 @@ function ChequeUnitCards({
               </div>
             )}
 
-            {pendingAction.type === "bounce-collect" && (
+            {pendingAction.type === "bounce-collect" && (() => {
+              // For PE-scoped bounce-collect (peId set) the only allowed
+              // settlement is Cash. A bounced partial cheque has already shown
+              // it can fail at the bank — accepting another cheque would just
+              // risk the same outcome again. Force Cash so the user proceeds
+              // straight to the cash flow.
+              const peScoped = !!pendingAction.peId
+              const peEv = peScoped ? parsePartialEvents(pendingAction.cheque.notes).find((e) => e.id === pendingAction.peId) : null
+              const collectAmount = peEv ? peEv.amount : pendingAction.cheque.amount
+              return (
               <div className="space-y-3 rounded-lg border border-amber-700/40 bg-amber-900/10 p-3">
-                <p className="text-[11px] text-amber-200">Collect the full bounced amount of <strong>{formatCurrency(pendingAction.cheque.amount)}</strong>. Pick how it was settled.</p>
+                <p className="text-[11px] text-amber-200">
+                  Collect the full bounced amount of <strong>{formatCurrency(collectAmount)}</strong>.
+                  {peScoped ? " Cash only — a bounced partial cheque cannot be replaced with another cheque." : " Pick how it was settled."}
+                </p>
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Method *</label>
-                  <select value={collectMethod} onChange={(e) => setCollectMethod(e.target.value as "" | "Cash" | "Cheque")} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white">
-                    <option value="">—</option>
-                    <option value="Cash">💵 Cash</option>
-                    <option value="Cheque">📝 Cheque (replacement)</option>
-                  </select>
+                  {peScoped ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white">
+                      <span>💵 Cash</span>
+                      <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-300">Locked</span>
+                    </div>
+                  ) : (
+                    <select value={collectMethod} onChange={(e) => setCollectMethod(e.target.value as "" | "Cash" | "Cheque")} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white">
+                      <option value="">—</option>
+                      <option value="Cash">💵 Cash</option>
+                      <option value="Cheque">📝 Cheque (replacement)</option>
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Date *</label>
@@ -2931,7 +2950,8 @@ function ChequeUnitCards({
                   </div>
                 )}
               </div>
-            )}
+              )
+            })()}
 
             {pendingAction.type === "deposit-to-owner" && (
               <div className="space-y-3 rounded-lg border border-purple-700/40 bg-purple-900/10 p-3">
