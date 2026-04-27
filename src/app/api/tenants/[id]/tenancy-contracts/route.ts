@@ -315,6 +315,10 @@ export async function POST(
       const perCheque = rentAmount
         ? Math.round((rentAmount / numberOfCheques) * 100) / 100
         : 0
+      // Stamp an ISSUED event in notes at creation time so the history modal
+      // always shows the original sequence/amount even if the cheque is later
+      // replaced or its fields mutated.
+      const nowIso = new Date().toISOString().slice(0, 19)
       await prisma.cheque.createMany({
         data: Array.from({ length: numberOfCheques }, (_, i) => ({
           organizationId,
@@ -328,6 +332,7 @@ export async function POST(
           chequeNo: '',
           chequeDate: '',
           bankName: '',
+          notes: `EVENT:${nowIso}|ISSUED|Sequence ${i + 1} of ${numberOfCheques} · AED ${perCheque.toLocaleString()} (rent installment)`,
         })),
       })
     }

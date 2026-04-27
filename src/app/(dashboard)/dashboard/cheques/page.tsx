@@ -760,12 +760,20 @@ function parseNotesBlock(notes: string | null | undefined, prefix: string): Reco
   return null
 }
 
-// Append a structured event line to a cheque's notes. Format:
-//   EVENT:<date>|<type>|<detail>
-// All lifecycle changes go through this helper so the history modal has a
-// single source of truth.
-function appendEvent(notes: string | null | undefined, type: string, detail: string, date: string): string {
-  const line = `EVENT:${date}|${type}|${detail.replace(/\|/g, " ")}`
+// Append a structured event line to a cheque's notes.
+// Format: EVENT:<ISO-timestamp>|<type>|<detail>
+// We always store a full ISO timestamp (including time) so events that share
+// the same calendar date still sort by insertion order in the history modal.
+// `dateOrIso` accepts either YYYY-MM-DD (we append the current wall-clock time)
+// or a full ISO datetime.
+function appendEvent(notes: string | null | undefined, type: string, detail: string, dateOrIso: string): string {
+  let ts = dateOrIso
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ts)) {
+    // Date-only — combine with the current time so multiple same-day events
+    // can still be ordered correctly.
+    ts = `${ts}T${new Date().toISOString().slice(11, 19)}`
+  }
+  const line = `EVENT:${ts}|${type}|${detail.replace(/\|/g, " ")}`
   return `${(notes || "").trim()}\n${line}`.trim()
 }
 
@@ -838,34 +846,45 @@ const EVENT_META: Record<string, { icon: string; label: string }> = {
 //   2. Legacy fields (chequeDate, depositedDate, clearedDate, bouncedDate, OWNER_DEPOSITED, PARTIAL_*)
 //      — kept for backwards compat with rows created before the EVENT log existed.
 function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail: string; icon: string }[] {
-  type Entry = { date: string; label: string; detail: string; icon: string }
+  type Entry = { date: string; label: string; detail: string; icon: string; sortKey: string }
   const entries: Entry[] = []
   const seen = new Set<string>()
 
-  // 1) Canonical EVENT lines
+  // 1) Canonical EVENT lines (timestamp may be YYYY-MM-DD or full ISO).
+  // Final sort happens via each entry's sortKey at the end of this function,
+  // so we don't need to pre-sort here.
   const eventLines = [...(c.notes || "").matchAll(/EVENT:([^|]*)\|([^|]+)\|([^\n]*)/g)]
   for (const m of eventLines) {
-    const [, date, type, detail] = m
+    const [, ts, type, detail] = m
     const meta = EVENT_META[type] || { icon: "•", label: type }
-    const key = `${date}|${type}|${detail}`
+    // Display only the date portion (YYYY-MM-DD) — the time is just for ordering.
+    const displayDate = (ts || "").slice(0, 10)
+    const key = `${ts}|${type}|${detail}`
     if (seen.has(key)) continue
     seen.add(key)
-    entries.push({ date: date || "", label: meta.label, detail: detail || "—", icon: meta.icon })
+    entries.push({ date: displayDate, label: meta.label, detail: detail || "—", icon: meta.icon, sortKey: ts || displayDate })
   }
 
   // 2) Legacy fallbacks — only add if the corresponding canonical event isn't already in seen
   const seenTypes = new Set([...eventLines].map((m) => m[2]))
   if (c.chequeDate && !seenTypes.has("ISSUED")) {
-    entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅" })
+    entries.push({ date: c.chequeDate, label: "Cheque issued", detail: `${c.chequeNo ? `#${c.chequeNo}` : "no cheque #"} · ${c.bankName || "—"} · AED ${(c.amount || 0).toLocaleString()}`, icon: "📅", sortKey: c.chequeDate })
   }
   if (c.depositedDate && !seenTypes.has("DEPOSITED")) {
-    entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦" })
+    entries.push({ date: c.depositedDate, label: "Deposited at bank", detail: c.depositRemarks || "Submitted, awaiting clearance", icon: "🏦", sortKey: c.depositedDate })
   }
-  if (c.clearedDate && !seenTypes.has("CLEARED")) {
-    entries.push({ date: c.clearedDate, label: "Cleared", detail: c.bankName ? `via ${c.bankName}` : "Funds credited", icon: "✓" })
+  // Skip Cleared legacy fallback if a REPLACED_BY_CASH or BOUNCE-COLLECT event
+  // is already in the log — those imply clearance, so a separate Cleared entry
+  // would just duplicate the same fact.
+  const clearedAlreadyImplied =
+    seenTypes.has("CLEARED") ||
+    seenTypes.has("REPLACED_BY_CASH") ||
+    seenTypes.has("COLLECTED_AFTER_BOUNCE_CASH")
+  if (c.clearedDate && !clearedAlreadyImplied) {
+    entries.push({ date: c.clearedDate, label: "Cleared", detail: c.bankName ? `via ${c.bankName}` : "Funds credited", icon: "✓", sortKey: c.clearedDate })
   }
   if (c.bouncedDate && !seenTypes.has("BOUNCED")) {
-    entries.push({ date: c.bouncedDate, label: "Bounced", detail: c.bouncedReason || "—", icon: "✕" })
+    entries.push({ date: c.bouncedDate, label: "Bounced", detail: c.bouncedReason || "—", icon: "✕", sortKey: c.bouncedDate })
   }
   // Legacy per-event partial entries
   const partialEvents = [...(c.notes || "").matchAll(/PARTIAL_EVENT:([^|]*)\|([^|]*)\|([^\s]*)/g)]
@@ -877,25 +896,30 @@ function buildChequeHistory(c: ChequeRow): { date: string; label: string; detail
       label: `Partial collected — ${evMethod || "Cash"}`,
       detail: `AED ${parseFloat(evAmt || "0").toLocaleString()}`,
       icon: "💰",
+      sortKey: evDate || "",
     })
   }
   if (partialEvents.length === 0 && !seenTypes.has("PARTIAL_CASH") && !seenTypes.has("PARTIAL_CHEQUE")) {
     const partialMatch = (c.notes || "").match(/PARTIAL_COLLECTED:(\d+(?:\.\d+)?)/)
-    if (partialMatch) entries.push({ date: c.chequeDate || "", label: "Partial collected (cumulative)", detail: `AED ${parseFloat(partialMatch[1]).toLocaleString()} of AED ${(c.amount || 0).toLocaleString()}`, icon: "💰" })
+    if (partialMatch) entries.push({ date: c.chequeDate || "", label: "Partial collected (cumulative)", detail: `AED ${parseFloat(partialMatch[1]).toLocaleString()} of AED ${(c.amount || 0).toLocaleString()}`, icon: "💰", sortKey: c.chequeDate || "" })
   }
   const ownerMatch = (c.notes || "").match(/OWNER_DEPOSITED:([^\s]+)/)
   if (ownerMatch && !seenTypes.has("BANKED_TO_OWNER")) {
-    entries.push({ date: ownerMatch[1], label: "Banked to Owner", detail: "Cash deposited into owner account", icon: "💼" })
+    entries.push({ date: ownerMatch[1], label: "Banked to Owner", detail: "Cash deposited into owner account", icon: "💼", sortKey: ownerMatch[1] })
   }
   // Heuristic for old replacements based on bouncedReason text
   if (!seenTypes.has("REPLACED_BY_CASH") && /replaced by cash/i.test(c.bouncedReason || "")) {
-    entries.push({ date: c.clearedDate || "", label: "Replaced by Cash", detail: c.bouncedReason || "", icon: "🔄" })
+    entries.push({ date: c.clearedDate || "", label: "Replaced by Cash", detail: c.bouncedReason || "", icon: "🔄", sortKey: c.clearedDate || "" })
   }
   if (!seenTypes.has("REPLACED_BY_CHEQUE") && /replaced by new cheque/i.test(c.bouncedReason || "")) {
-    entries.push({ date: c.chequeDate || "", label: "Replaced by new Cheque", detail: `${c.chequeNo ? `New #${c.chequeNo} · ` : ""}${c.bankName || ""}`, icon: "🔄" })
+    entries.push({ date: c.chequeDate || "", label: "Replaced by new Cheque", detail: `${c.chequeNo ? `New #${c.chequeNo} · ` : ""}${c.bankName || ""}`, icon: "🔄", sortKey: c.chequeDate || "" })
   }
 
-  return entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+  // Sort by full timestamp (canonical events keep insertion order on same-day);
+  // strip the sortKey from the returned entries.
+  return entries
+    .sort((a, b) => (a.sortKey || "").localeCompare(b.sortKey || ""))
+    .map(({ sortKey: _sk, ...rest }) => rest)
 }
 
 // Read-only status date display (label + date). Edits happen via the action
