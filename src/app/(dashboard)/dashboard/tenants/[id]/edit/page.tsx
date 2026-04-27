@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import {
@@ -165,6 +166,17 @@ export default function TenantEditPage() {
   const params = useParams<{ id: string }>()
   const tenantId = params.id
   const toast = useToast()
+  const { data: session } = useSession()
+  // Permission flags (per spec):
+  //   isDeveloper — only the dev-login user (id="admin-dev") can change
+  //     identity fields like name, Emirates ID number, etc, and can hard-
+  //     delete tenants.
+  //   isContractLocked — once the active contract is "Active", security
+  //     deposit / admin fees / rent are frozen for EVERYONE (including
+  //     the developer). Changes after this point require a renewal flow.
+  const isDeveloper =
+    session?.user?.id === "admin-dev" ||
+    session?.user?.email === "admin@cre.ae"
 
   const [tenant, setTenant] = useState<TenantFull | null>(null)
   const [contracts, setContracts] = useState<TenancyContract[]>([])
@@ -642,10 +654,15 @@ export default function TenantEditPage() {
               <User className="h-4 w-4 text-[#E30613]" />
               <h2 className="text-sm font-semibold text-slate-900">Tenant Information</h2>
             </div>
+            {!isDeveloper && (
+              <p className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-[11px] text-amber-800">
+                ⚠ Non-developer mode: only Email, Phone, and Emirates ID Expiry are editable here. To change Name / Emirates ID / Status / Occupation, etc., open a Request Update from the Tenants list page.
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
               <div>
                 <label className={LABEL}>Full Name</label>
-                <input className={INPUT} value={tenant.name} onChange={(e) => updateField({ name: e.target.value })} />
+                <input className={INPUT} value={tenant.name} onChange={(e) => updateField({ name: e.target.value })} disabled={!isDeveloper} />
               </div>
               <div>
                 <label className={LABEL}>Email</label>
@@ -657,7 +674,7 @@ export default function TenantEditPage() {
               </div>
               <div>
                 <label className={LABEL}>Status</label>
-                <select className={INPUT} value={tenant.status} onChange={(e) => updateField({ status: e.target.value })}>
+                <select className={INPUT} value={tenant.status} onChange={(e) => updateField({ status: e.target.value })} disabled={!isDeveloper}>
                   <option>Active</option>
                   <option>Vacating</option>
                   <option>Vacated</option>
@@ -666,7 +683,7 @@ export default function TenantEditPage() {
               </div>
               <div>
                 <label className={LABEL}>Emirates ID</label>
-                <input className={INPUT} value={tenant.emiratesId} onChange={(e) => updateField({ emiratesId: e.target.value })} />
+                <input className={INPUT} value={tenant.emiratesId} onChange={(e) => updateField({ emiratesId: e.target.value })} disabled={!isDeveloper} />
               </div>
               <div>
                 <label className={LABEL}>Emirates ID Expiry</label>
@@ -674,15 +691,15 @@ export default function TenantEditPage() {
               </div>
               <div>
                 <label className={LABEL}>Nationality</label>
-                <input className={INPUT} value={tenant.nationality} onChange={(e) => updateField({ nationality: e.target.value })} />
+                <input className={INPUT} value={tenant.nationality} onChange={(e) => updateField({ nationality: e.target.value })} disabled={!isDeveloper} />
               </div>
               <div>
                 <label className={LABEL}>Occupation</label>
-                <input className={INPUT} value={tenant.occupation} onChange={(e) => updateField({ occupation: e.target.value })} />
+                <input className={INPUT} value={tenant.occupation} onChange={(e) => updateField({ occupation: e.target.value })} disabled={!isDeveloper} />
               </div>
               <div>
                 <label className={LABEL}>Employer</label>
-                <input className={INPUT} value={tenant.employer} onChange={(e) => updateField({ employer: e.target.value })} />
+                <input className={INPUT} value={tenant.employer} onChange={(e) => updateField({ employer: e.target.value })} disabled={!isDeveloper} />
               </div>
               <div>
                 <label className={LABEL}>Family Members</label>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { DataTable, Column } from "@/components/ui/data-table"
 import { StatusBadge } from "@/components/ui/status-badge"
@@ -135,6 +136,13 @@ const defaultContractForm = {
 }
 
 export default function TenantsPage() {
+  const { data: session } = useSession()
+  // Only the developer (dev-login synthetic user) can hard-delete tenants.
+  // Org admins / staff still see the Terminate button (which goes through
+  // the proper notice + handover workflow).
+  const isDeveloper =
+    session?.user?.id === "admin-dev" ||
+    session?.user?.email === "admin@cre.ae"
   const [tenants, setTenants] = useState<TenantRow[]>([])
   const [units, setUnits] = useState<UnitOption[]>([])
   const [vacantUnits, setVacantUnits] = useState<UnitOption[]>([])
@@ -665,13 +673,17 @@ export default function TenantsPage() {
               <Ban className="h-4 w-4" />
             </button>
           )}
-          <button
-            title="Delete"
-            onClick={(e) => { e.stopPropagation(); handleDelete(row) }}
-            className="rounded p-1.5 text-slate-400 hover:bg-red-900/50 hover:text-red-400"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {/* Hard-delete is developer-only. Non-developer users use the
+              Terminate button above for the proper end-of-tenancy workflow. */}
+          {isDeveloper && (
+            <button
+              title="Delete (developer only)"
+              onClick={(e) => { e.stopPropagation(); handleDelete(row) }}
+              className="rounded p-1.5 text-slate-400 hover:bg-red-900/50 hover:text-red-400"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },

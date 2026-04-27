@@ -168,6 +168,13 @@ export async function DELETE(
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    // Hard-delete is reserved for the developer (dev-login synthetic user).
+    // Org admins / staff use the Terminate workflow instead. Defense-in-depth
+    // mirroring the UI gate on the Tenants list page.
+    const isDeveloper = session.user.id === 'admin-dev' || session.user.email === 'admin@cre.ae'
+    if (!isDeveloper) {
+      return NextResponse.json({ error: 'Only the developer can delete tenants' }, { status: 403 })
+    }
 
     const organizationId = session.user.organizationId
     const { id } = await params
