@@ -1921,7 +1921,11 @@ function ChequeUnitCards({
                           <td className="px-2 py-1.5 font-mono">{e.chequeNo}</td>
                           <td className="px-2 py-1.5">{e.bank}</td>
                           <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(e.amount)}</td>
-                          <td className="px-2 py-1.5"><StatusBadge status={displayStatusLabel(showStatus)} /></td>
+                          {/* Synthetic extras rows have a legitimate "Pending" semantic
+                              (awaiting first collection) — do NOT pass through the
+                              Pending→Received alias, which is meant only for legacy
+                              cheque-row data that was seeded as "Pending". */}
+                          <td className="px-2 py-1.5"><StatusBadge status={showStatus} /></td>
                           <td className="px-2 py-1.5">
                             {banked ? (
                               <div className="flex flex-col items-start text-left">
