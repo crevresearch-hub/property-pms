@@ -2160,8 +2160,18 @@ function ChequeUnitCards({
                               {c.parentId && <span className="text-slate-500" title="Linked from a previous cheque">↳</span>}
                               {c.chequeNo || (isCashPayment ? "Cash" : "—")}
                               {(() => {
-                                const eventCount = buildChequeHistory(realCheque).length
-                                if (eventCount <= 1) return null
+                                // Use the same parent-chain walk the modal uses, so
+                                // the icon shows up even on a fresh child row whose
+                                // own ISSUED is suppressed (parentId !== null).
+                                const visitedCount = new Set<string>()
+                                const walk = (node: ChequeRow | undefined): number => {
+                                  if (!node || visitedCount.has(node.id)) return 0
+                                  visitedCount.add(node.id)
+                                  const p = node.parentId ? cheques.find((x) => x.id === node.parentId) : undefined
+                                  return walk(p) + buildChequeHistory(node).length
+                                }
+                                const eventCount = walk(realCheque)
+                                if (eventCount < 1) return null
                                 return (
                                   <button
                                     onClick={() => setHistoryFor(realCheque)}
