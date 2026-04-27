@@ -1875,15 +1875,19 @@ function ChequeUnitCards({
                           notes: `${c.notes || ""}\n__PARTIAL_HALF__:collected:${c.id}`,
                         } as ChequeRow)
                       }
-                      // Remaining balance row
+                      // Remaining balance row — inherits the original cheque's
+                      // chequeNo + bank so the user can see WHICH cheque this
+                      // remainder belongs to. The "Partial Pending" status pill
+                      // and "Awaiting collection" hint already differentiate it
+                      // from a fully collected row.
                       if (remainingAmt > 0) {
                         rows.push({
                           ...c,
                           id: `${c.id}-remaining`,
                           amount: remainingAmt,
                           status: "Partial Pending",
-                          chequeNo: "",
-                          bankName: "",
+                          chequeNo: c.chequeNo || "",
+                          bankName: c.bankName || "",
                           notes: `${c.notes || ""}\n__PARTIAL_HALF__:remaining:${c.id}`,
                         } as ChequeRow)
                       }
