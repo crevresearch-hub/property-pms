@@ -1763,12 +1763,17 @@ function ChequeUnitCards({
                                     🏦 Deposit
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => setPendingAction({ type: "clear", cheque: c })}
-                                  className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
-                                >
-                                  <CheckCircle className="h-3.5 w-3.5" /> Clear
-                                </button>
+                                {/* Clear is only valid AFTER the cheque has been deposited at the
+                                    bank — clearing means "the bank credited my deposit". Hidden
+                                    on Pending / Partial so the lifecycle stays linear. */}
+                                {c.status === "Deposited" && (
+                                  <button
+                                    onClick={() => setPendingAction({ type: "clear", cheque: c })}
+                                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                  >
+                                    <CheckCircle className="h-3.5 w-3.5" /> Clear
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => { resetActionState(); setPendingAction({ type: "reverse", cheque: c }) }}
                                   className="inline-flex items-center gap-1 rounded-md bg-red-600 hover:bg-red-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
@@ -1777,18 +1782,20 @@ function ChequeUnitCards({
                                 </button>
                               </>
                             )}
-                            {/* Cash collected → staff still needs to bank it into owner's account */}
-                            {!isPartialHalf && c.status === "Cleared" && isCashPayment && !ownerDepositedDate && (
+                            {/* Cleared cheque → next canonical step is banking the funds into the
+                                owner's account. Shown for cash AND cheque payments (both end up
+                                in the org's account first, then need to be remitted to the owner). */}
+                            {!isPartialHalf && c.status === "Cleared" && !ownerDepositedDate && (
                               <button
                                 onClick={() => { resetActionState(); setPendingAction({ type: "deposit-to-owner", cheque: c }) }}
                                 className="inline-flex items-center gap-1 rounded-md bg-purple-600 hover:bg-purple-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
-                                title="Record bank deposit of this cash into the owner's account"
+                                title="Record bank deposit into the owner's account"
                               >
-                                💼 Deposit Cash
+                                💼 Deposit to Owner
                               </button>
                             )}
-                            {!isPartialHalf && c.status === "Cleared" && !isCashPayment && (
-                              <span className="text-[10px] text-slate-500">— Final —</span>
+                            {!isPartialHalf && c.status === "Cleared" && ownerDepositedDate && (
+                              <span className="text-[10px] text-emerald-400">✓ Banked to owner</span>
                             )}
                           </div>
                         </td>
