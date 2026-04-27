@@ -402,6 +402,7 @@ export default function ExpensesPage() {
                 <option value="Cooling Charges - Expenses">Cooling Charges - Expenses</option>
                 <option value="General Maintenance">General Maintenance</option>
                 <option value="Unit Maintenance">Unit Maintenance</option>
+                <option value="General - Building Wide">General - Building Wide</option>
               </select>
             </div>
           </div>
