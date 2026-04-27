@@ -42,7 +42,15 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      // Per spec: row order is fixed by the original cheque date / sequence
+      // and must NOT shift when statuses change. sequenceNo is preserved
+      // through bounce / replacement / partial flows, so sorting by it (ASC)
+      // gives a stable, "as-issued" ordering within each contract.
+      // createdAt is the global tiebreaker.
+      orderBy: [
+        { sequenceNo: 'asc' },
+        { createdAt: 'asc' },
+      ],
     })
 
     return NextResponse.json(cheques)

@@ -1083,6 +1083,11 @@ function ChequeUnitCards({
   const [depositRemarks, setDepositRemarks] = useState("")
   const [depositSlipFile, setDepositSlipFile] = useState<File | null>(null)
   const [clearDate, setClearDate] = useState("")
+  // Per spec: Clear step requires evidence — either a bank-statement
+  // upload OR explanatory notes (e.g. "cheque cleared by SMS confirmation,
+  // attachment unavailable"). Confirm is gated on at least one being present.
+  const [clearStatementFile, setClearStatementFile] = useState<File | null>(null)
+  const [clearNotes, setClearNotes] = useState("")
   const [busyAction, setBusyAction] = useState(false)
   // Reverse-modal extras
   const [reverseSubtype, setReverseSubtype] = useState<ReverseSubtype>("")
@@ -1155,6 +1160,8 @@ function ChequeUnitCards({
     setDepositRemarks("")
     setDepositSlipFile(null)
     setClearDate("")
+    setClearStatementFile(null)
+    setClearNotes("")
     setReverseSubtype("")
     setReverseAmount("")
     setReverseDate("")
@@ -1211,8 +1218,20 @@ function ChequeUnitCards({
         const c = pendingAction.cheque
         const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotes = ensureIssuedEvent(c.notes, c)
-        const newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} via ${c.bankName || "bank"}`, date)
+        // Spec requires either a bank-statement upload OR explanatory notes
+        // when clearing. The note is appended to the CLEARED event detail so
+        // it shows up directly in the lifecycle modal; the statement file
+        // (if any) is uploaded as a tenant document.
+        const noteSuffix = clearNotes.trim() ? ` · ${clearNotes.trim()}` : (clearStatementFile ? ` · statement attached` : "")
+        const newNotes = appendEvent(baseNotes, "CLEARED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} via ${c.bankName || "bank"}${noteSuffix}`, date)
         await updateStatus(c.id, "Cleared", { clearedDate: date, notes: newNotes })
+        if (clearStatementFile && c.tenant?.id) {
+          const fd = new FormData()
+          fd.append('file', clearStatementFile)
+          fd.append('tenantId', c.tenant.id)
+          fd.append('docType', `Bank-Statement-Cheque-${c.id}`)
+          await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+        }
         // Auto-generate Rent invoice for this cleared installment
         try {
           const ctr = contracts.find((x) => (c.tenantId && x.tenantId === c.tenantId) || (c.unitId && x.unitId === c.unitId))
@@ -2076,12 +2095,20 @@ function ChequeUnitCards({
                                     <CheckCircle className="h-3.5 w-3.5" /> Clear
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => { resetActionState(); setPendingAction({ type: "reverse", cheque: c }) }}
-                                  className="inline-flex items-center gap-1 rounded-md bg-red-600 hover:bg-red-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
-                                >
-                                  <XCircle className="h-3.5 w-3.5" /> Reverse
-                                </button>
+                                {/* Reverse is a CHEQUE-only action per spec. Cash payments only
+                                    have Deposit available — they are uniquely-tracked per
+                                    instance and do not get a Bounce / Replacement / Partial
+                                    workflow applied. The "↺ Reverse Cash" admin action below
+                                    is a separate refund flow and not part of the standard
+                                    Reverse modal. */}
+                                {!isCashPayment && (
+                                  <button
+                                    onClick={() => { resetActionState(); setPendingAction({ type: "reverse", cheque: c }) }}
+                                    className="inline-flex items-center gap-1 rounded-md bg-red-600 hover:bg-red-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" /> Reverse
+                                  </button>
+                                )}
                               </>
                             )}
                             {/* Cleared cheque → next canonical step is banking the funds into the
@@ -2312,6 +2339,8 @@ function ChequeUnitCards({
               onClick={runAction}
               disabled={
                 busyAction ||
+                (pendingAction?.type === "deposit" && !depositSlipFile) ||
+                (pendingAction?.type === "clear" && !clearStatementFile && clearNotes.trim().length < 2) ||
                 (pendingAction?.type === "reverse" && !reverseSubtype) ||
                 (pendingAction?.type === "reverse" && reverseSubtype === "Bounced" && rejectReason.trim().length < 2) ||
                 (pendingAction?.type === "reverse" && reverseSubtype === "ReplacementCheque" && (!reverseChequeNo || !reverseChequeBank)) ||
@@ -2443,7 +2472,7 @@ function ChequeUnitCards({
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Deposit Slip <span className="text-slate-500 normal-case font-normal">(optional — PDF/JPG/PNG)</span>
+                      Deposit Slip <span className="text-red-400">*</span> <span className="text-slate-500 normal-case font-normal">(PDF/JPG/PNG)</span>
                     </label>
                     <input
                       type="file"
@@ -2451,6 +2480,9 @@ function ChequeUnitCards({
                       onChange={(e) => setDepositSlipFile(e.target.files?.[0] || null)}
                       className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-blue-600 file:px-3 file:py-1 file:text-white"
                     />
+                    {!depositSlipFile && (
+                      <p className="mt-1 text-[10px] text-amber-400">Required — bank deposit slip needed to mark this as Deposited.</p>
+                    )}
                     {depositSlipFile && (
                       <p className="mt-1 text-[11px] text-emerald-400">✓ {depositSlipFile.name}</p>
                     )}
@@ -2472,19 +2504,48 @@ function ChequeUnitCards({
             )}
 
             {pendingAction.type === "clear" && (
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Cleared Date <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={clearDate || todayStr()}
-                  onChange={(e) => setClearDate(e.target.value)}
-                  min={pendingAction.cheque.depositedDate || pendingAction.cheque.chequeDate || undefined}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
-                />
-                {pendingAction.cheque.depositedDate && (clearDate || todayStr()) < pendingAction.cheque.depositedDate && (
-                  <p className="mt-1 text-[10px] text-red-400">✕ Clear date cannot be before the deposit date ({pendingAction.cheque.depositedDate}).</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Cleared Date <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={clearDate || todayStr()}
+                    onChange={(e) => setClearDate(e.target.value)}
+                    min={pendingAction.cheque.depositedDate || pendingAction.cheque.chequeDate || undefined}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
+                  />
+                  {pendingAction.cheque.depositedDate && (clearDate || todayStr()) < pendingAction.cheque.depositedDate && (
+                    <p className="mt-1 text-[10px] text-red-400">✕ Clear date cannot be before the deposit date ({pendingAction.cheque.depositedDate}).</p>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Bank Statement / Screenshot <span className="text-slate-500 normal-case font-normal">(PDF/JPG/PNG)</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    onChange={(e) => setClearStatementFile(e.target.files?.[0] || null)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white file:mr-3 file:rounded file:border-0 file:bg-emerald-600 file:px-3 file:py-1 file:text-white"
+                  />
+                  {clearStatementFile && <p className="mt-1 text-[11px] text-emerald-400">✓ {clearStatementFile.name}</p>}
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Notes <span className="text-slate-500 normal-case font-normal">(if no statement attached)</span>
+                  </label>
+                  <textarea
+                    value={clearNotes}
+                    onChange={(e) => setClearNotes(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Confirmed via SMS from Emirates NBD, ref #ABC123"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                {!clearStatementFile && clearNotes.trim().length < 2 && (
+                  <p className="text-[10px] text-amber-400">Provide a bank statement upload OR explanatory notes (≥ 2 chars) to confirm clearance.</p>
                 )}
               </div>
             )}
