@@ -90,6 +90,10 @@ export default function CashTrackerPage() {
   const [ledgerTotals, setLedgerTotals] = useState<LedgerTotals | null>(null)
   const [ledgerFilter, setLedgerFilter] = useState<"all" | "in" | "out">("all")
   const [ledgerUnitFilter, setLedgerUnitFilter] = useState<string>("all")
+  const [ledgerCounterpartyFilter, setLedgerCounterpartyFilter] = useState<string>("")
+  const [ledgerDateRange, setLedgerDateRange] = useState<"all" | "today" | "week" | "month" | "30d" | "custom">("all")
+  const [ledgerFrom, setLedgerFrom] = useState<string>("")
+  const [ledgerTo, setLedgerTo] = useState<string>("")
 
   // "Record Cash" modal state — records a collection from a tenant +
   // (optionally) logs the bank deposit to the owner in one shot.
@@ -371,18 +375,36 @@ export default function CashTrackerPage() {
       {/* ═══════════ CASH LEDGER ═══════════
           Chronological view of every cash transaction in the org —
           tenant-cash received (in), banking to owner (out), vendor
-          bills paid in cash (out) — with a running balance. Placed
-          near the top of the page so the financial summary is the
-          first thing the user sees, before the per-tenant card list. */}
+          bills paid in cash (out) — with a running balance.
+          The page-level KPIs above are still based on the per-tenant
+          summary; this section filters independently by date / type /
+          unit / counterparty so the user can drill into any window. */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-        <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div className="mb-3 flex flex-wrap items-start gap-3">
           <div>
             <h2 className="text-lg font-bold text-white">Cash Ledger</h2>
             <p className="text-xs text-slate-400">
               Every cash transaction with a running balance — tenant cash in, owner banking + vendor expenses out.
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* Quick date-range presets — switching to "custom" surfaces the from/to date inputs below. */}
+            <select
+              value={ledgerDateRange}
+              onChange={(e) => {
+                const v = e.target.value as typeof ledgerDateRange
+                setLedgerDateRange(v)
+                if (v !== "custom") { setLedgerFrom(""); setLedgerTo("") }
+              }}
+              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white"
+            >
+              <option value="all">All time</option>
+              <option value="today">Today</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="30d">Last 30 days</option>
+              <option value="custom">Custom range</option>
+            </select>
             <select
               value={ledgerUnitFilter}
               onChange={(e) => setLedgerUnitFilter(e.target.value)}
@@ -393,6 +415,13 @@ export default function CashTrackerPage() {
                 <option key={u} value={u}>Unit {u}</option>
               ))}
             </select>
+            <input
+              type="search"
+              value={ledgerCounterpartyFilter}
+              onChange={(e) => setLedgerCounterpartyFilter(e.target.value)}
+              placeholder="Counterparty / vendor / tenant"
+              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white w-[200px]"
+            />
             {(["all", "in", "out"] as const).map((k) => (
               <button
                 key={k}
@@ -406,106 +435,132 @@ export default function CashTrackerPage() {
             ))}
           </div>
         </div>
-        {ledgerTotals && (
-          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-emerald-300/70">Cash Received</p>
-              <p className="text-sm font-bold text-emerald-300">{formatCurrency(ledgerTotals.received)}</p>
-            </div>
-            <div className="rounded-lg border border-blue-700/40 bg-blue-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-blue-300/70">Banked to Owner</p>
-              <p className="text-sm font-bold text-blue-300">{formatCurrency(ledgerTotals.bankedToOwner)}</p>
-            </div>
-            <div className="rounded-lg border border-purple-700/40 bg-purple-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-purple-300/70">Vendor Expenses</p>
-              <p className="text-sm font-bold text-purple-300">{formatCurrency(ledgerTotals.vendorExpenses)}</p>
-            </div>
-            <div className="rounded-lg border border-red-700/40 bg-red-950/20 p-2">
-              <p className="text-[10px] uppercase tracking-wide text-red-300/70">Total Out</p>
-              <p className="text-sm font-bold text-red-300">{formatCurrency(ledgerTotals.totalOut)}</p>
-            </div>
-            <div className={`rounded-lg border p-2 ${ledgerTotals.onHand >= 0 ? "border-amber-700/40 bg-amber-950/20" : "border-red-700/40 bg-red-950/20"}`}>
-              <p className="text-[10px] uppercase tracking-wide text-amber-300/70">Cash on Hand</p>
-              <p className={`text-sm font-bold ${ledgerTotals.onHand >= 0 ? "text-amber-300" : "text-red-300"}`}>{formatCurrency(ledgerTotals.onHand)}</p>
-            </div>
+        {ledgerDateRange === "custom" && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+            <label className="text-[10px] uppercase tracking-wide text-slate-400">From</label>
+            <input type="date" value={ledgerFrom} onChange={(e) => setLedgerFrom(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white" />
+            <label className="text-[10px] uppercase tracking-wide text-slate-400">To</label>
+            <input type="date" value={ledgerTo} onChange={(e) => setLedgerTo(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white" />
+            <button onClick={() => { setLedgerFrom(""); setLedgerTo("") }} className="ml-auto rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700">Clear</button>
           </div>
         )}
-        {ledger.length === 0 ? (
-          <p className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">No cash transactions yet.</p>
-        ) : (
-          <div className="max-h-[420px] overflow-auto rounded-lg border border-slate-800">
-            <table className="w-full text-left text-[11px]">
-              <thead className="sticky top-0 bg-slate-900/95 text-[10px] uppercase tracking-wide text-slate-400">
-                <tr>
-                  <th className="px-2 py-2">Date</th>
-                  <th className="px-2 py-2">Type</th>
-                  <th className="px-2 py-2">Unit</th>
-                  <th className="px-2 py-2">Counterparty</th>
-                  <th className="px-2 py-2">Description</th>
-                  <th className="px-2 py-2 text-right">Cash In</th>
-                  <th className="px-2 py-2 text-right">Cash Out</th>
-                  <th className="px-2 py-2 text-right">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {ledger
-                  .filter((r) => ledgerFilter === "all" || r.kind === ledgerFilter)
-                  .filter((r) => ledgerUnitFilter === "all" || r.unitNo === ledgerUnitFilter)
-                  .map((r) => (
-                    <tr key={r.id} className="text-slate-300 hover:bg-slate-800/40">
-                      <td className="px-2 py-1.5 whitespace-nowrap">{r.date}</td>
-                      <td className="px-2 py-1.5">
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${
-                          r.type === "Cash Received" ? "bg-emerald-500/20 text-emerald-300"
-                          : r.type === "Banked to Owner" ? "bg-blue-500/20 text-blue-300"
-                          : "bg-purple-500/20 text-purple-300"
-                        }`}>{r.type}</span>
-                      </td>
-                      <td className="px-2 py-1.5">{r.unitNo || "—"}</td>
-                      <td className="px-2 py-1.5">{r.counterparty || "—"}</td>
-                      <td className="px-2 py-1.5 text-slate-400">{r.description}</td>
-                      <td className="px-2 py-1.5 text-right font-mono text-emerald-300">{r.amountIn > 0 ? formatCurrency(r.amountIn) : "—"}</td>
-                      <td className="px-2 py-1.5 text-right font-mono text-red-300">{r.amountOut > 0 ? formatCurrency(r.amountOut) : "—"}</td>
-                      <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.runningBalance >= 0 ? "text-amber-300" : "text-red-400"}`}>{formatCurrency(r.runningBalance)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {(() => {
+          // Compute the date window from the dropdown preset (or custom inputs).
+          const today = new Date(); today.setHours(0, 0, 0, 0)
+          let from = ""
+          let to = ""
+          if (ledgerDateRange === "today") { from = today.toISOString().slice(0, 10); to = from }
+          else if (ledgerDateRange === "week") {
+            const d = new Date(today); d.setDate(d.getDate() - d.getDay())
+            from = d.toISOString().slice(0, 10); to = today.toISOString().slice(0, 10)
+          }
+          else if (ledgerDateRange === "month") {
+            from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`
+            to = today.toISOString().slice(0, 10)
+          }
+          else if (ledgerDateRange === "30d") {
+            const d = new Date(today); d.setDate(d.getDate() - 30)
+            from = d.toISOString().slice(0, 10); to = today.toISOString().slice(0, 10)
+          }
+          else if (ledgerDateRange === "custom") { from = ledgerFrom; to = ledgerTo }
+
+          const cp = ledgerCounterpartyFilter.trim().toLowerCase()
+          // Apply ALL filters; recompute a running balance over the filtered set
+          // so the "Balance" column reflects the visible window.
+          const filtered = ledger.filter((r) => {
+            if (ledgerFilter !== "all" && r.kind !== ledgerFilter) return false
+            if (ledgerUnitFilter !== "all" && r.unitNo !== ledgerUnitFilter) return false
+            if (from && r.date < from) return false
+            if (to && r.date > to) return false
+            if (cp) {
+              const hay = `${r.counterparty} ${r.tenantName} ${r.description}`.toLowerCase()
+              if (!hay.includes(cp)) return false
+            }
+            return true
+          })
+          let bal = 0
+          const rows = filtered.map((r) => { bal += r.amountIn - r.amountOut; return { ...r, windowedBalance: bal } })
+          const totalIn = rows.reduce((s, r) => s + r.amountIn, 0)
+          const totalOut = rows.reduce((s, r) => s + r.amountOut, 0)
+          const banked = rows.filter((r) => r.type === "Banked to Owner").reduce((s, r) => s + r.amountOut, 0)
+          const vendor = rows.filter((r) => r.type === "Vendor Bill (Cash)").reduce((s, r) => s + r.amountOut, 0)
+          const onHand = totalIn - totalOut
+
+          return (
+            <>
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-2">
+                  <p className="text-[10px] uppercase tracking-wide text-emerald-300/70">Cash Received</p>
+                  <p className="text-sm font-bold text-emerald-300">{formatCurrency(totalIn)}</p>
+                </div>
+                <div className="rounded-lg border border-blue-700/40 bg-blue-950/20 p-2">
+                  <p className="text-[10px] uppercase tracking-wide text-blue-300/70">Banked to Owner</p>
+                  <p className="text-sm font-bold text-blue-300">{formatCurrency(banked)}</p>
+                </div>
+                <div className="rounded-lg border border-purple-700/40 bg-purple-950/20 p-2">
+                  <p className="text-[10px] uppercase tracking-wide text-purple-300/70">Vendor Expenses</p>
+                  <p className="text-sm font-bold text-purple-300">{formatCurrency(vendor)}</p>
+                </div>
+                <div className="rounded-lg border border-red-700/40 bg-red-950/20 p-2">
+                  <p className="text-[10px] uppercase tracking-wide text-red-300/70">Total Out</p>
+                  <p className="text-sm font-bold text-red-300">{formatCurrency(totalOut)}</p>
+                </div>
+                <div className={`rounded-lg border p-2 ${onHand >= 0 ? "border-amber-700/40 bg-amber-950/20" : "border-red-700/40 bg-red-950/20"}`}>
+                  <p className="text-[10px] uppercase tracking-wide text-amber-300/70">Cash on Hand</p>
+                  <p className={`text-sm font-bold ${onHand >= 0 ? "text-amber-300" : "text-red-300"}`}>{formatCurrency(onHand)}</p>
+                </div>
+              </div>
+              {rows.length === 0 ? (
+                <p className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">
+                  {ledger.length === 0 ? "No cash transactions yet." : "No transactions match the current filters."}
+                </p>
+              ) : (
+                <div className="max-h-[520px] overflow-auto rounded-lg border border-slate-800">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="sticky top-0 bg-slate-900/95 text-[10px] uppercase tracking-wide text-slate-400">
+                      <tr>
+                        <th className="px-2 py-2">Date</th>
+                        <th className="px-2 py-2">Type</th>
+                        <th className="px-2 py-2">Unit</th>
+                        <th className="px-2 py-2">Counterparty</th>
+                        <th className="px-2 py-2">Description</th>
+                        <th className="px-2 py-2 text-right">Cash In</th>
+                        <th className="px-2 py-2 text-right">Cash Out</th>
+                        <th className="px-2 py-2 text-right">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {rows.map((r) => (
+                        <tr key={r.id} className="text-slate-300 hover:bg-slate-800/40">
+                          <td className="px-2 py-1.5 whitespace-nowrap">{r.date}</td>
+                          <td className="px-2 py-1.5">
+                            <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                              r.type === "Cash Received" ? "bg-emerald-500/20 text-emerald-300"
+                              : r.type === "Banked to Owner" ? "bg-blue-500/20 text-blue-300"
+                              : "bg-purple-500/20 text-purple-300"
+                            }`}>{r.type}</span>
+                          </td>
+                          <td className="px-2 py-1.5">{r.unitNo || "—"}</td>
+                          <td className="px-2 py-1.5">{r.counterparty || "—"}</td>
+                          <td className="px-2 py-1.5 text-slate-400">{r.description}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-emerald-300">{r.amountIn > 0 ? formatCurrency(r.amountIn) : "—"}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-red-300">{r.amountOut > 0 ? formatCurrency(r.amountOut) : "—"}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.windowedBalance >= 0 ? "text-amber-300" : "text-red-400"}`}>{formatCurrency(r.windowedBalance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )
+        })()}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search unit or tenant name..."
-          className="flex-1 min-w-[200px] rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
-        />
-        {[
-          { k: "all", label: `All (${cashCards.length})` },
-          { k: "pending", label: `With Pending (${cashCards.filter((r) => r.pending > 0).length})` },
-          { k: "fully-paid", label: `Fully Paid (${summary.fullyPaid})` },
-        ].map((b) => (
-          <button
-            key={b.k}
-            onClick={() => setFilter(b.k as typeof filter)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              filter === b.k ? "bg-amber-500 text-slate-900" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-            }`}
-          >
-            {b.label}
-          </button>
-        ))}
-      </div>
-
-      {visible.length === 0 ? (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-12 text-center text-sm text-slate-500">
-          No cash-paying tenants match the current filters.
-        </div>
-      ) : (
+      {/* Per-tenant card grid is hidden by default — the Cash Ledger above
+          replaces it as the primary view. Re-enabled only if explicitly
+          requested via ?showCards=1 in the URL (developer/debug). */}
+      {false && (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {visible.map((r) => (
             <div key={r.unit.id} className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60">
