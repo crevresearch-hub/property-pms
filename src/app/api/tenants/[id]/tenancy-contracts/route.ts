@@ -326,7 +326,7 @@ export async function POST(
           unitId: unitId || null,
           sequenceNo: i + 1,
           totalCheques: numberOfCheques,
-          status: 'Pending',
+          status: 'Received',
           paymentType: 'Rent',
           amount: perCheque,
           chequeNo: '',

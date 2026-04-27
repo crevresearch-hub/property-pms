@@ -820,9 +820,14 @@ type ChequeAction =
   | { type: "clear"; cheque: ChequeRow }
   | { type: "reverse"; cheque: ChequeRow }
   // Bounce-collection: when a cheque is already Bounced, "Reverse" jumps straight to collecting full amount.
-  | { type: "bounce-collect"; cheque: ChequeRow }
+  // When peId is set, the bounce-collect operates on a specific Partial event row instead of the parent cheque.
+  | { type: "bounce-collect"; cheque: ChequeRow; peId?: string }
   // Cash collected from tenant, now staff is recording the bank deposit into the owner's account.
   | { type: "deposit-to-owner"; cheque: ChequeRow }
+  // Admin-only: void a previously-collected cash payment (refund / mistake correction).
+  | { type: "cash-reverse"; cheque: ChequeRow }
+  // Time-bound undo of the most recent EVENT line on a cheque's history.
+  | { type: "undo-last"; cheque: ChequeRow }
 
 type ContractLite = {
   id: string
@@ -927,6 +932,11 @@ const EVENT_META: Record<string, { icon: string; label: string }> = {
   COLLECTED_AFTER_BOUNCE_CASH: { icon: "💰", label: "Bounce collected — Cash" },
   COLLECTED_AFTER_BOUNCE_CHEQUE: { icon: "💰", label: "Bounce collected — Cheque" },
   SLIP_UPLOADED: { icon: "📎", label: "Slip uploaded" },
+  DELTA: { icon: "Δ", label: "Amount adjusted" },
+  PE_BOUNCED: { icon: "✕", label: "Partial Bounced" },
+  PE_BOUNCE_COLLECTED: { icon: "💰", label: "Partial Bounce collected" },
+  CASH_REVERSED: { icon: "↺", label: "Cash reversed (refund)" },
+  UNDONE: { icon: "↶", label: "Action undone" },
 }
 
 // Builds a chronological lifecycle log for a cheque. Reads:
@@ -1229,7 +1239,17 @@ function ChequeUnitCards({
         const date = reverseDate || todayStr()
         const amt = parseFloat(reverseAmount || String(c.amount)) || c.amount
         const oldRef = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
-        const baseNotesR = ensureIssuedEvent(c.notes, c)
+        let baseNotesR = ensureIssuedEvent(c.notes, c)
+        // Stamp a DELTA event if the replacement / partial amount differs
+        // from the original — keeps the audit trail explicit about over-/
+        // under-collected sums (e.g. when a late fee is added to the
+        // replacement cheque).
+        const original = c.amount || 0
+        if (reverseSubtype !== "Partial" && Math.abs(amt - original) >= 0.01) {
+          const sign = amt > original ? "+" : "−"
+          const diff = Math.abs(amt - original)
+          baseNotesR = appendEvent(baseNotesR, "DELTA", `${oldRef} · original AED ${original.toLocaleString()} → new AED ${amt.toLocaleString()} (${sign}AED ${diff.toLocaleString()})`, date)
+        }
         if (reverseSubtype === "ReplacementCash") {
           // Per spec 6B: replacement collected in cash → status "Received",
           // then user follows the cash flow (Deposit → Cleared). The auto-VAT
@@ -1237,7 +1257,7 @@ function ChequeUnitCards({
           // ("cash received" event in the spec); the later Deposit step is
           // just admin/banking and does not re-fire the invoice.
           const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash collected`, date)
-          await updateStatus(c.id, "Pending", {
+          await updateStatus(c.id, "Received", {
             clearedDate: "",
             depositedDate: "",
             chequeNo: "",
@@ -1250,7 +1270,7 @@ function ChequeUnitCards({
           await generateInstallmentInvoice(c, amt, date, "ReplacedByCash")
         } else if (reverseSubtype === "ReplacementCheque") {
           const newNotes = appendEvent(baseNotesR, "REPLACED_BY_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
-          await updateStatus(c.id, "Pending", {
+          await updateStatus(c.id, "Received", {
             chequeNo: reverseChequeNo,
             bankName: reverseChequeBank,
             chequeDate: reverseChequeDate || date,
@@ -1279,7 +1299,10 @@ function ChequeUnitCards({
             : `${oldRef} · AED ${amt.toLocaleString()} cash`
           // Append a PE: line to track this partial's own status flow.
           const peId = `pe${Date.now()}`
-          const peLine = `PE:${peId}|${date}|${amt}|${collectMethod || "Cash"}|${reverseChequeNo || ""}|${reverseChequeBank || ""}|${collectMethod === "Cheque" ? "Pending" : "Received"}|`
+          // Per spec: initial state for ALL payments is "Received". Both cash
+          // and cheque PEs start there; cheque PEs progress Received → Deposited
+          // → Cleared, cash PEs go Received → Cleared via Deposit Cash.
+          const peLine = `PE:${peId}|${date}|${amt}|${collectMethod || "Cash"}|${reverseChequeNo || ""}|${reverseChequeBank || ""}|Received|`
           let withEvent = `${cleanedNotes}\nPARTIAL_COLLECTED:${newCollected}\n${peLine}`.trim()
           withEvent = appendEvent(withEvent, eventType, eventDetail, date)
           const isFullyCollected = remaining <= 0
@@ -1355,6 +1378,45 @@ function ChequeUnitCards({
       } else if (pendingAction.type === "bounce-collect") {
         const c = pendingAction.cheque
         const date = reverseDate || todayStr()
+        const peIdScoped = pendingAction.peId
+        // Partial-event scoped bounce-collect: operate on the PE: line, leave
+        // the parent cheque alone except for the appended history event.
+        if (peIdScoped) {
+          const events = parsePartialEvents(c.notes)
+          const ev = events.find((e) => e.id === peIdScoped)
+          if (!ev) { resetActionState(); setBusyAction(false); return }
+          const peRef = `Partial ${ev.id}`
+          const updated: PartialEvent = {
+            ...ev,
+            status: "Received",
+            method: collectMethod === "Cheque" ? "Cheque" : "Cash",
+            chequeNo: collectMethod === "Cheque" ? reverseChequeNo : "",
+            bank: collectMethod === "Cheque" ? reverseChequeBank : "Cash",
+            bankedDate: "",
+            date,
+          }
+          let newNotes = replacePartialEvent(c.notes || "", updated)
+          const detail = collectMethod === "Cash"
+            ? `${peRef} · AED ${ev.amount.toLocaleString()} cash settled the bounce`
+            : `${peRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${ev.amount.toLocaleString()}`
+          newNotes = appendEvent(newNotes, "PE_BOUNCE_COLLECTED", detail, date)
+          await updateStatus(c.id, c.status, { notes: newNotes })
+          // For partial cash: invoice fires NOW (money in hand). For partial
+          // cheque: defer until the new partial cheque clears.
+          if (collectMethod === "Cash") {
+            await generateInstallmentInvoice(c, ev.amount, date, `PE-${ev.id}`)
+          }
+          if (reverseSlipFile && c.tenant?.id) {
+            const fd = new FormData()
+            fd.append('file', reverseSlipFile)
+            fd.append('tenantId', c.tenant.id)
+            fd.append('docType', `PE-BounceCollect-${peIdScoped}`)
+            await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
+          }
+          resetActionState()
+          setBusyAction(false)
+          return
+        }
         const amt = c.amount
         const oldRef = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
         const baseNotes = ensureIssuedEvent(c.notes, c)
@@ -1363,7 +1425,7 @@ function ChequeUnitCards({
           // user follows the cash flow (Deposit → Cleared). Invoice fires NOW
           // ("cash received" event); the later Deposit step is admin-only.
           const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CASH", `${oldRef} · AED ${amt.toLocaleString()} cash settled the bounce`, date)
-          await updateStatus(c.id, "Pending", {
+          await updateStatus(c.id, "Received", {
             clearedDate: "",
             depositedDate: "",
             chequeNo: "",
@@ -1376,7 +1438,7 @@ function ChequeUnitCards({
           await generateInstallmentInvoice(c, amt, date, "BounceCollectCash")
         } else if (collectMethod === "Cheque") {
           const newNotes = appendEvent(baseNotes, "COLLECTED_AFTER_BOUNCE_CHEQUE", `${oldRef} → New #${reverseChequeNo} · ${reverseChequeBank} · AED ${amt.toLocaleString()}`, date)
-          await updateStatus(c.id, "Pending", {
+          await updateStatus(c.id, "Received", {
             chequeNo: reverseChequeNo,
             bankName: reverseChequeBank,
             chequeDate: reverseChequeDate || date,
@@ -1395,6 +1457,73 @@ function ChequeUnitCards({
           fd.append('docType', `BounceCollect-Cheque-${pendingAction.cheque.id}`)
           await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
         }
+      } else if (pendingAction.type === "cash-reverse") {
+        // Admin-only: void a previously-collected cash payment. Records the
+        // reversal in history, flips the cheque to Replaced, and posts a
+        // negative-amount credit note via auto-vat (if the endpoint accepts
+        // it; failure is non-blocking and the EVENT log is still authoritative).
+        const c = pendingAction.cheque
+        const date = reverseDate || todayStr()
+        const reason = (rejectReason || "").trim()
+        if (!reason) { setBusyAction(false); return }
+        const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
+        const baseNotes = ensureIssuedEvent(c.notes, c)
+        const newNotes = appendEvent(baseNotes, "CASH_REVERSED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} refunded · ${reason}`, date)
+        await updateStatus(c.id, "Replaced", {
+          notes: newNotes,
+          bouncedReason: `Cash refund: ${reason}`,
+        })
+        // Best-effort credit note (negative-amount invoice). The auto-vat
+        // endpoint validates baseAmount > 0, so this will currently 400 — we
+        // keep the call here so the day the endpoint supports credit notes,
+        // it lights up automatically. The history EVENT is the source of truth.
+        try {
+          await fetch("/api/invoices/auto-vat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenantId: c.tenantId,
+              unitId: c.unitId,
+              type: `Refund — ${refLabel}`,
+              baseAmount: -(c.amount || 0),
+              vatRate: 0,
+              paymentDate: date,
+              notes: `CREDIT NOTE · ${reason}`,
+              sourceRef: `cheque-${c.id}-cash-reverse`,
+              sendEmail: false,
+            }),
+          }).catch(() => {})
+        } catch { /* non-blocking */ }
+      } else if (pendingAction.type === "undo-last") {
+        // Strip the most recent canonical EVENT line from notes and restore
+        // the cheque to whatever the previous status implies. We don't
+        // mutate other DB columns (clearedDate / depositedDate / etc.) — the
+        // user can re-perform the action correctly. Audit-trail safe: we
+        // also stamp an UNDONE event so the undo itself is logged.
+        const c = pendingAction.cheque
+        const lines = (c.notes || "").split("\n")
+        // Find the last EVENT: line that is line-anchored.
+        let lastIdx = -1
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (/^EVENT:/.test(lines[i])) { lastIdx = i; break }
+        }
+        if (lastIdx < 0) { setBusyAction(false); resetActionState(); return }
+        const removedLine = lines[lastIdx]
+        const m = removedLine.match(/^EVENT:([^|]*)\|([^|]+)\|(.*)$/)
+        const removedType = m?.[2] || "?"
+        const remaining = lines.filter((_, i) => i !== lastIdx).join("\n").trim()
+        const stamped = appendEvent(remaining, "UNDONE", `Removed: ${removedType} · ${m?.[3] || ""}`, todayStr())
+        // Pick a safe rollback status based on what was undone.
+        const rollbackStatus =
+          removedType === "CLEARED" ? "Deposited"
+          : removedType === "DEPOSITED" ? "Received"
+          : removedType === "BOUNCED" ? "Deposited"
+          : c.status
+        const extra: Record<string, string> = { notes: stamped }
+        if (removedType === "CLEARED") extra.clearedDate = ""
+        if (removedType === "DEPOSITED") { extra.depositedDate = ""; extra.depositRemarks = "" }
+        if (removedType === "BOUNCED") { extra.bouncedDate = ""; extra.bouncedReason = "" }
+        await updateStatus(c.id, rollbackStatus, extra)
       }
       resetActionState()
     } finally {
@@ -1739,14 +1868,23 @@ function ChequeUnitCards({
                     const isPartialHalf = partialHalfMatch?.[1] || (peEventId ? "pe-row" : "")
                     const realChequeId = partialHalfMatch?.[2] || peRowMatch?.[2] || c.id
                     const realCheque = isPartialHalf ? g.cheques.find(x => x.id === realChequeId) || c : c
-                    // Helper: update a specific PE event's status on the parent's notes
-                    const updatePartialEvent = async (patch: Partial<PartialEvent>) => {
+                    // Helper: update a specific PE event's status on the parent's notes.
+                    // The optional historyEvent param lets callers stamp an EVENT line
+                    // (e.g. PE_BOUNCED) alongside the status change so the lifecycle modal
+                    // shows the transition explicitly.
+                    const updatePartialEvent = async (
+                      patch: Partial<PartialEvent>,
+                      opts?: { historyEvent?: { type: string; detail: string } }
+                    ) => {
                       if (!peEventId) return
                       const events = parsePartialEvents(realCheque.notes)
                       const ev = events.find(e => e.id === peEventId)
                       if (!ev) return
                       const updated = { ...ev, ...patch }
-                      const newNotes = replacePartialEvent(realCheque.notes || "", updated)
+                      let newNotes = replacePartialEvent(realCheque.notes || "", updated)
+                      if (opts?.historyEvent) {
+                        newNotes = appendEvent(newNotes, opts.historyEvent.type, opts.historyEvent.detail, today)
+                      }
                       await updateStatus(realCheque.id, realCheque.status, { notes: newNotes })
                       // When this partial event reaches Cleared, generate an invoice for it
                       if (patch.status === "Cleared") {
@@ -1788,21 +1926,37 @@ function ChequeUnitCards({
                         <td className="px-2 py-1.5 font-mono">
                           <span className="inline-flex items-center gap-1.5">
                             {c.chequeNo || "—"}
-                            {buildChequeHistory(realCheque).length > 1 && (
-                              <button
-                                onClick={() => setHistoryFor(realCheque)}
-                                title="Show lifecycle history"
-                                className="rounded text-slate-500 hover:bg-slate-700 hover:text-slate-200 p-0.5"
-                              >
-                                <span className="text-[11px]">📜</span>
-                              </button>
-                            )}
+                            {(() => {
+                              const eventCount = buildChequeHistory(realCheque).length
+                              if (eventCount <= 1) return null
+                              return (
+                                <button
+                                  onClick={() => setHistoryFor(realCheque)}
+                                  title={`Show lifecycle history (${eventCount} events)`}
+                                  className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+                                >
+                                  <span className="text-[11px]">📜</span>
+                                  <span className="rounded-full bg-slate-700 px-1.5 text-[9px] font-semibold leading-none text-slate-200">{eventCount}</span>
+                                </button>
+                              )
+                            })()}
                           </span>
                         </td>
                         <td className="px-2 py-1.5">{c.bankName || "—"}</td>
                         <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(c.amount)}</td>
                         <td className="px-2 py-1.5">
-                          <StatusBadge status={displayStatusLabel(displayStatus)} />
+                          {/* Per spec section 8, partial rows carry TWO statuses
+                              (PARTIAL + RECEIVED/PENDING/CLEARED). Render them as
+                              two side-by-side pills so both facets are visually
+                              explicit. Non-partial rows render a single pill. */}
+                          {(displayStatus === "Partial Pending" || displayStatus === "Partial Received" || displayStatus === "Partial Cleared") ? (
+                            <span className="inline-flex flex-wrap gap-1">
+                              <StatusBadge status="Partial" />
+                              <StatusBadge status={displayStatus.replace(/^Partial\s+/, "")} />
+                            </span>
+                          ) : (
+                            <StatusBadge status={displayStatusLabel(displayStatus)} />
+                          )}
                         </td>
                         <td className="px-2 py-1.5">
                           {isPartialHalf === "remaining" ? (
@@ -1838,8 +1992,8 @@ function ChequeUnitCards({
                                 💼 Deposit Cash
                               </button>
                             )}
-                            {/* Partial — Cheque event: Pending → 🏦 Deposit; Deposited → ✓ Clear */}
-                            {isPartialHalf === "pe-row" && !isCashPayment && c.status === "Pending" && (
+                            {/* Partial — Cheque event: Received → 🏦 Deposit; Deposited → ✓ Clear */}
+                            {isPartialHalf === "pe-row" && !isCashPayment && c.status === "Received" && (
                               <button
                                 onClick={async () => { await updatePartialEvent({ status: "Deposited" }) }}
                                 className="inline-flex items-center gap-1 rounded-md bg-blue-600 hover:bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
@@ -1848,11 +2002,36 @@ function ChequeUnitCards({
                               </button>
                             )}
                             {isPartialHalf === "pe-row" && !isCashPayment && c.status === "Deposited" && (
+                              <>
+                                <button
+                                  onClick={async () => { await updatePartialEvent({ status: "Cleared", bankedDate: today }) }}
+                                  className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5" /> Clear
+                                </button>
+                                {/* Partial cheque bounced at the bank — flip to Bounced and
+                                    surface a Collect button on the next render. */}
+                                <button
+                                  onClick={async () => {
+                                    const reason = prompt("Bounce reason (bank rejection):")
+                                    if (!reason) return
+                                    await updatePartialEvent(
+                                      { status: "Bounced" },
+                                      { historyEvent: { type: "PE_BOUNCED", detail: `Partial ${peEventId} · ${reason}` } }
+                                    )
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-md bg-red-600 hover:bg-red-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" /> Bounce
+                                </button>
+                              </>
+                            )}
+                            {isPartialHalf === "pe-row" && c.status === "Bounced" && (
                               <button
-                                onClick={async () => { await updatePartialEvent({ status: "Cleared", bankedDate: today }) }}
-                                className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                                onClick={() => { resetActionState(); setPendingAction({ type: "bounce-collect", cheque: realCheque, peId: peEventId }) }}
+                                className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow"
                               >
-                                <CheckCircle className="h-3.5 w-3.5" /> Clear
+                                💰 Collect
                               </button>
                             )}
                             {isPartialHalf === "pe-row" && c.status === "Cleared" && (
@@ -1920,6 +2099,41 @@ function ChequeUnitCards({
                             {!isPartialHalf && c.status === "Cleared" && ownerDepositedDate && (
                               <span className="text-[10px] text-emerald-400">✓ Banked to owner</span>
                             )}
+                            {/* Admin: Reverse Cash on a previously-cleared cash payment.
+                                Stamps a CASH_REVERSED EVENT and best-effort posts a credit
+                                note. Hidden once the cash has already been banked to owner —
+                                at that point the org→owner transfer has to be unwound separately. */}
+                            {!isPartialHalf && c.status === "Cleared" && isCashPayment && !ownerDepositedDate && (
+                              <button
+                                onClick={() => { resetActionState(); setPendingAction({ type: "cash-reverse", cheque: c }) }}
+                                className="inline-flex items-center gap-1 rounded-md border border-red-700 bg-red-950/40 hover:bg-red-900/50 px-2.5 py-1 text-[11px] font-medium text-red-300"
+                                title="Admin: void this cash payment and post a credit note"
+                              >
+                                ↺ Reverse Cash
+                              </button>
+                            )}
+                            {/* Undo Last — only when the most recent EVENT is within a 5-min window.
+                                Pulls the timestamp off the last EVENT: line in notes. */}
+                            {!isPartialHalf && (() => {
+                              const m = (c.notes || "").match(/(?:^|\n)EVENT:([^|]*)\|([^|]+)\|/g)
+                              if (!m || m.length === 0) return null
+                              const last = m[m.length - 1]
+                              const tsMatch = last.match(/EVENT:([^|]*)\|/)
+                              const ts = tsMatch?.[1] || ""
+                              const tsMs = ts ? new Date(ts).getTime() : 0
+                              if (!tsMs || isNaN(tsMs)) return null
+                              const ageMin = (Date.now() - tsMs) / 60000
+                              if (ageMin < 0 || ageMin > 5) return null
+                              return (
+                                <button
+                                  onClick={() => { resetActionState(); setPendingAction({ type: "undo-last", cheque: c }) }}
+                                  className="inline-flex items-center gap-1 rounded-md border border-slate-600 bg-slate-800 hover:bg-slate-700 px-2 py-1 text-[10px] font-medium text-slate-300"
+                                  title={`Undo the last action (${Math.round(ageMin * 60)}s ago)`}
+                                >
+                                  ↶ Undo
+                                </button>
+                              )
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -2081,9 +2295,13 @@ function ChequeUnitCards({
             : pendingAction?.type === "clear"
             ? "Confirm: Mark as Cleared"
             : pendingAction?.type === "bounce-collect"
-            ? "Collect Bounced Cheque"
+            ? (pendingAction.peId ? "Collect Bounced Partial" : "Collect Bounced Cheque")
             : pendingAction?.type === "deposit-to-owner"
             ? "Deposit Cash to Owner Account"
+            : pendingAction?.type === "cash-reverse"
+            ? "Reverse Cash Payment (Refund)"
+            : pendingAction?.type === "undo-last"
+            ? "Undo Last Action"
             : "Reverse Cheque"
         }
         size="md"
@@ -2100,7 +2318,8 @@ function ChequeUnitCards({
                 (pendingAction?.type === "reverse" && reverseSubtype === "Partial" && (!collectMethod || !reverseAmount)) ||
                 (pendingAction?.type === "bounce-collect" && !collectMethod) ||
                 (pendingAction?.type === "bounce-collect" && collectMethod === "Cheque" && (!reverseChequeNo || !reverseChequeBank)) ||
-                (pendingAction?.type === "deposit-to-owner" && !reverseSlipFile)
+                (pendingAction?.type === "deposit-to-owner" && !reverseSlipFile) ||
+                (pendingAction?.type === "cash-reverse" && rejectReason.trim().length < 2)
               }
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 ${
                 pendingAction?.type === "deposit"
@@ -2111,6 +2330,8 @@ function ChequeUnitCards({
                   ? "bg-amber-600 hover:bg-amber-500"
                   : pendingAction?.type === "deposit-to-owner"
                   ? "bg-purple-600 hover:bg-purple-500"
+                  : pendingAction?.type === "undo-last"
+                  ? "bg-slate-600 hover:bg-slate-500"
                   : "bg-red-600 hover:bg-red-500"
               }`}
             >
@@ -2124,6 +2345,10 @@ function ChequeUnitCards({
                 ? "💰 Confirm Collection"
                 : pendingAction?.type === "deposit-to-owner"
                 ? "💼 Confirm Bank Deposit"
+                : pendingAction?.type === "cash-reverse"
+                ? "↺ Confirm Refund"
+                : pendingAction?.type === "undo-last"
+                ? "↶ Confirm Undo"
                 : "✓ Confirm Reverse"}
             </button>
           </>
@@ -2161,7 +2386,11 @@ function ChequeUnitCards({
                       : pendingAction.type === "clear"
                       ? "Mark this cheque as Cleared?"
                       : pendingAction.type === "bounce-collect"
-                      ? "Collect the bounced cheque amount in full"
+                      ? (pendingAction.peId ? "Collect this bounced partial in full" : "Collect the bounced cheque amount in full")
+                      : pendingAction.type === "cash-reverse"
+                      ? "Void this cash payment — refund issued to tenant?"
+                      : pendingAction.type === "undo-last"
+                      ? "Undo the most recent action on this cheque"
                       : "Reverse this cheque — what happened?"}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
@@ -2205,8 +2434,12 @@ function ChequeUnitCards({
                       type="date"
                       value={depositDate || todayStr()}
                       onChange={(e) => setDepositDate(e.target.value)}
+                      min={pendingAction.cheque.chequeDate || undefined}
                       className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
                     />
+                    {pendingAction.cheque.chequeDate && (depositDate || todayStr()) < pendingAction.cheque.chequeDate && (
+                      <p className="mt-1 text-[10px] text-amber-400">⚠ Deposit date is before the cheque date ({pendingAction.cheque.chequeDate}). The bank will likely reject a postdated cheque.</p>
+                    )}
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -2247,8 +2480,12 @@ function ChequeUnitCards({
                   type="date"
                   value={clearDate || todayStr()}
                   onChange={(e) => setClearDate(e.target.value)}
+                  min={pendingAction.cheque.depositedDate || pendingAction.cheque.chequeDate || undefined}
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
                 />
+                {pendingAction.cheque.depositedDate && (clearDate || todayStr()) < pendingAction.cheque.depositedDate && (
+                  <p className="mt-1 text-[10px] text-red-400">✕ Clear date cannot be before the deposit date ({pendingAction.cheque.depositedDate}).</p>
+                )}
               </div>
             )}
 
@@ -2288,7 +2525,7 @@ function ChequeUnitCards({
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Collection Date *</label>
-                        <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                        <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} min={pendingAction.cheque.chequeDate || undefined} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
                       </div>
                     </div>
                   </div>
@@ -2330,7 +2567,7 @@ function ChequeUnitCards({
                     <p className="text-[11px] text-red-200">Mark cheque as Bounced. It stays Bounced until you collect the full amount via the 💰 Collect button.</p>
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bounced Date *</label>
-                      <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} min={pendingAction.cheque.chequeDate || undefined} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
                     </div>
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Reason *</label>
@@ -2367,7 +2604,7 @@ function ChequeUnitCards({
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Date *</label>
-                        <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                        <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} min={pendingAction.cheque.chequeDate || undefined} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
                       </div>
                       {collectMethod === "Cheque" && (
                         <>
@@ -2400,7 +2637,7 @@ function ChequeUnitCards({
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Date *</label>
-                  <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                  <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} min={pendingAction.cheque.chequeDate || undefined} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
                 </div>
                 {collectMethod === "Cheque" && (
                   <div className="grid grid-cols-2 gap-3">
@@ -2436,7 +2673,7 @@ function ChequeUnitCards({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Deposit Date *</label>
-                    <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                    <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} min={pendingAction.cheque.chequeDate || undefined} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">
@@ -2463,7 +2700,71 @@ function ChequeUnitCards({
               </div>
             )}
 
-            {pendingAction.type !== "deposit-to-owner" && (
+            {pendingAction.type === "cash-reverse" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Refund Date <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={reverseDate || todayStr()}
+                      onChange={(e) => setReverseDate(e.target.value)}
+                      min={pendingAction.cheque.clearedDate || pendingAction.cheque.chequeDate || undefined}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Refund Amount (AED)</label>
+                    <input type="number" value={pendingAction.cheque.amount} readOnly className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white opacity-70 cursor-not-allowed" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Refund Reason <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Counterfeit notes detected, tenant requested refund, duplicate payment, accounting correction"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                  />
+                  <p className="mt-1 text-[10px] text-slate-500">Stamped on the lifecycle log + posted as a credit-note invoice (best-effort).</p>
+                </div>
+                <div className="rounded-lg border border-red-700/40 bg-red-900/20 p-3 text-[11px] text-red-200">
+                  ⚠ This is an admin action. The cheque will be marked <strong>Replaced</strong> and a CASH_REVERSED event will be permanently appended to its history. The cash already banked to the owner is NOT auto-reversed — handle that separately if applicable.
+                </div>
+              </div>
+            )}
+
+            {pendingAction.type === "undo-last" && (() => {
+              const lines = (pendingAction.cheque.notes || "").split("\n")
+              let lastLine = ""
+              for (let i = lines.length - 1; i >= 0; i--) {
+                if (/^EVENT:/.test(lines[i])) { lastLine = lines[i]; break }
+              }
+              const m = lastLine.match(/^EVENT:([^|]*)\|([^|]+)\|(.*)$/)
+              const eventType = m?.[2] || "?"
+              const eventDetail = m?.[3] || ""
+              const eventTs = m?.[1] || ""
+              return (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Action to undo</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{eventType}</p>
+                    <p className="text-xs text-slate-300">{eventDetail}</p>
+                    <p className="mt-1 text-[10px] text-slate-500">{eventTs}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700/40 bg-slate-900/40 p-3 text-[11px] text-slate-300">
+                    The action will be removed from the lifecycle log and the cheque rolled back to the previous status. An <strong>UNDONE</strong> event is stamped so the undo itself is auditable. Available only within 5 minutes of the original action.
+                  </div>
+                </div>
+              )
+            })()}
+
+            {pendingAction.type !== "deposit-to-owner" && pendingAction.type !== "undo-last" && (
               <div className="rounded-lg border border-blue-700/40 bg-blue-900/20 p-3 text-xs text-blue-200">
                 ✉️ The tenant will be automatically emailed an updated payment statement
                 showing total paid + remaining balance.
