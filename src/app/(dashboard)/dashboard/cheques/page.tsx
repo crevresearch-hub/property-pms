@@ -824,8 +824,6 @@ type ChequeAction =
   | { type: "bounce-collect"; cheque: ChequeRow; peId?: string }
   // Cash collected from tenant, now staff is recording the bank deposit into the owner's account.
   | { type: "deposit-to-owner"; cheque: ChequeRow }
-  // Admin-only: void a previously-collected cash payment (refund / mistake correction).
-  | { type: "cash-reverse"; cheque: ChequeRow }
   // Time-bound undo of the most recent EVENT line on a cheque's history.
   | { type: "undo-last"; cheque: ChequeRow }
 
@@ -935,7 +933,6 @@ const EVENT_META: Record<string, { icon: string; label: string }> = {
   DELTA: { icon: "Δ", label: "Amount adjusted" },
   PE_BOUNCED: { icon: "✕", label: "Partial Bounced" },
   PE_BOUNCE_COLLECTED: { icon: "💰", label: "Partial Bounce collected" },
-  CASH_REVERSED: { icon: "↺", label: "Cash reversed (refund)" },
   UNDONE: { icon: "↶", label: "Action undone" },
 }
 
@@ -1476,43 +1473,6 @@ function ChequeUnitCards({
           fd.append('docType', `BounceCollect-Cheque-${pendingAction.cheque.id}`)
           await fetch('/api/documents/upload', { method: 'POST', body: fd }).catch(() => {})
         }
-      } else if (pendingAction.type === "cash-reverse") {
-        // Admin-only: void a previously-collected cash payment. Records the
-        // reversal in history, flips the cheque to Replaced, and posts a
-        // negative-amount credit note via auto-vat (if the endpoint accepts
-        // it; failure is non-blocking and the EVENT log is still authoritative).
-        const c = pendingAction.cheque
-        const date = reverseDate || todayStr()
-        const reason = (rejectReason || "").trim()
-        if (!reason) { setBusyAction(false); return }
-        const refLabel = `Cheque ${c.chequeNo ? `#${c.chequeNo}` : `seq ${c.sequenceNo}`}`
-        const baseNotes = ensureIssuedEvent(c.notes, c)
-        const newNotes = appendEvent(baseNotes, "CASH_REVERSED", `${refLabel} · AED ${(c.amount || 0).toLocaleString()} refunded · ${reason}`, date)
-        await updateStatus(c.id, "Replaced", {
-          notes: newNotes,
-          bouncedReason: `Cash refund: ${reason}`,
-        })
-        // Best-effort credit note (negative-amount invoice). The auto-vat
-        // endpoint validates baseAmount > 0, so this will currently 400 — we
-        // keep the call here so the day the endpoint supports credit notes,
-        // it lights up automatically. The history EVENT is the source of truth.
-        try {
-          await fetch("/api/invoices/auto-vat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tenantId: c.tenantId,
-              unitId: c.unitId,
-              type: `Refund — ${refLabel}`,
-              baseAmount: -(c.amount || 0),
-              vatRate: 0,
-              paymentDate: date,
-              notes: `CREDIT NOTE · ${reason}`,
-              sourceRef: `cheque-${c.id}-cash-reverse`,
-              sendEmail: false,
-            }),
-          }).catch(() => {})
-        } catch { /* non-blocking */ }
       } else if (pendingAction.type === "undo-last") {
         // Strip the most recent canonical EVENT line from notes and restore
         // the cheque to whatever the previous status implies. We don't
@@ -2126,19 +2086,6 @@ function ChequeUnitCards({
                             {!isPartialHalf && c.status === "Cleared" && ownerDepositedDate && (
                               <span className="text-[10px] text-emerald-400">✓ Banked to owner</span>
                             )}
-                            {/* Admin: Reverse Cash on a previously-cleared cash payment.
-                                Stamps a CASH_REVERSED EVENT and best-effort posts a credit
-                                note. Hidden once the cash has already been banked to owner —
-                                at that point the org→owner transfer has to be unwound separately. */}
-                            {!isPartialHalf && c.status === "Cleared" && isCashPayment && !ownerDepositedDate && (
-                              <button
-                                onClick={() => { resetActionState(); setPendingAction({ type: "cash-reverse", cheque: c }) }}
-                                className="inline-flex items-center gap-1 rounded-md border border-red-700 bg-red-950/40 hover:bg-red-900/50 px-2.5 py-1 text-[11px] font-medium text-red-300"
-                                title="Admin: void this cash payment and post a credit note"
-                              >
-                                ↺ Reverse Cash
-                              </button>
-                            )}
                             {/* Undo Last — only when the most recent EVENT is within a 5-min window.
                                 Pulls the timestamp off the last EVENT: line in notes. */}
                             {!isPartialHalf && (() => {
@@ -2325,8 +2272,6 @@ function ChequeUnitCards({
             ? (pendingAction.peId ? "Collect Bounced Partial" : "Collect Bounced Cheque")
             : pendingAction?.type === "deposit-to-owner"
             ? "Deposit Cash to Owner Account"
-            : pendingAction?.type === "cash-reverse"
-            ? "Reverse Cash Payment (Refund)"
             : pendingAction?.type === "undo-last"
             ? "Undo Last Action"
             : "Reverse Cheque"
@@ -2347,8 +2292,7 @@ function ChequeUnitCards({
                 (pendingAction?.type === "reverse" && reverseSubtype === "Partial" && (!collectMethod || !reverseAmount)) ||
                 (pendingAction?.type === "bounce-collect" && !collectMethod) ||
                 (pendingAction?.type === "bounce-collect" && collectMethod === "Cheque" && (!reverseChequeNo || !reverseChequeBank)) ||
-                (pendingAction?.type === "deposit-to-owner" && !reverseSlipFile) ||
-                (pendingAction?.type === "cash-reverse" && rejectReason.trim().length < 2)
+                (pendingAction?.type === "deposit-to-owner" && !reverseSlipFile)
               }
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 ${
                 pendingAction?.type === "deposit"
@@ -2374,8 +2318,6 @@ function ChequeUnitCards({
                 ? "💰 Confirm Collection"
                 : pendingAction?.type === "deposit-to-owner"
                 ? "💼 Confirm Bank Deposit"
-                : pendingAction?.type === "cash-reverse"
-                ? "↺ Confirm Refund"
                 : pendingAction?.type === "undo-last"
                 ? "↶ Confirm Undo"
                 : "✓ Confirm Reverse"}
@@ -2416,8 +2358,6 @@ function ChequeUnitCards({
                       ? "Mark this cheque as Cleared?"
                       : pendingAction.type === "bounce-collect"
                       ? (pendingAction.peId ? "Collect this bounced partial in full" : "Collect the bounced cheque amount in full")
-                      : pendingAction.type === "cash-reverse"
-                      ? "Void this cash payment — refund issued to tenant?"
                       : pendingAction.type === "undo-last"
                       ? "Undo the most recent action on this cheque"
                       : "Reverse this cheque — what happened?"}
@@ -2757,45 +2697,6 @@ function ChequeUnitCards({
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Notes (optional)</label>
                   <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={2} placeholder="e.g. Deposited at Emirates NBD Bur Dubai branch, slip #4432" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
-                </div>
-              </div>
-            )}
-
-            {pendingAction.type === "cash-reverse" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Refund Date <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={reverseDate || todayStr()}
-                      onChange={(e) => setReverseDate(e.target.value)}
-                      min={pendingAction.cheque.clearedDate || pendingAction.cheque.chequeDate || undefined}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Refund Amount (AED)</label>
-                    <input type="number" value={pendingAction.cheque.amount} readOnly className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white opacity-70 cursor-not-allowed" />
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Refund Reason <span className="text-red-400">*</span>
-                  </label>
-                  <textarea
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    rows={3}
-                    placeholder="e.g. Counterfeit notes detected, tenant requested refund, duplicate payment, accounting correction"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                  />
-                  <p className="mt-1 text-[10px] text-slate-500">Stamped on the lifecycle log + posted as a credit-note invoice (best-effort).</p>
-                </div>
-                <div className="rounded-lg border border-red-700/40 bg-red-900/20 p-3 text-[11px] text-red-200">
-                  ⚠ This is an admin action. The cheque will be marked <strong>Replaced</strong> and a CASH_REVERSED event will be permanently appended to its history. The cash already banked to the owner is NOT auto-reversed — handle that separately if applicable.
                 </div>
               </div>
             )}
