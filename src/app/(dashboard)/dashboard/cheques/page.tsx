@@ -1985,7 +1985,16 @@ function ChequeUnitCards({
                       )
                     })
                   })()}
-                  {g.cheques.flatMap((c) => {
+                  {g.cheques.filter((c) => {
+                    // Hide a Replaced parent IF a child row in this same group
+                    // points back to it. The child carries the active lifecycle
+                    // and shows a "↳ from #<parent>" hint, so two rows for the
+                    // same logical cheque is just visual clutter. The parent's
+                    // history is still reachable via the child's lifecycle modal
+                    // (which walks the parentId chain).
+                    if (c.status !== "Replaced") return true
+                    return !g.cheques.some((other) => other.parentId === c.id)
+                  }).flatMap((c) => {
                     // PARTIAL SPLIT — for each PE: line, render its own row with its own status.
                     // Then add a "Partial Pending" row if any balance remains.
                     // We render PE rows whenever PE events exist (even after the parent has
@@ -2455,7 +2464,18 @@ function ChequeUnitCards({
         footer={<ModalCancelButton onClick={() => setHistoryFor(null)} />}
       >
         {historyFor && (() => {
-          const h = buildChequeHistory(historyFor)
+          // Walk the parentId chain so the modal shows the FULL audit log:
+          // original cheque issued + replaced + new cheque issued + deposited
+          // + cleared, etc. Each ancestor's events are merged before the
+          // current cheque's, so the timeline reads top-to-bottom.
+          const visited = new Set<string>()
+          const collect = (node: ChequeRow | undefined): { date: string; label: string; detail: string; icon: string }[] => {
+            if (!node || visited.has(node.id)) return []
+            visited.add(node.id)
+            const parent = node.parentId ? cheques.find((x) => x.id === node.parentId) : undefined
+            return [...collect(parent), ...buildChequeHistory(node)]
+          }
+          const h = collect(historyFor)
           if (h.length === 0) return <p className="text-sm text-slate-400">No history events yet.</p>
           return (
             <div className="relative">
