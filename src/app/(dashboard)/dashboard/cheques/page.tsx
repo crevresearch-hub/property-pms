@@ -514,6 +514,8 @@ function ChequeFilters({
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [tenantFilter, setTenantFilter] = useState<string>("all")
+  const [unitFilter, setUnitFilter] = useState<string>("all")
+  const [search, setSearch] = useState<string>("")
   const [dateRange, setDateRange] = useState<string>("all")
   const [paymentMethod, setPaymentMethod] = useState<"all" | "cheque" | "cash">("all")
   const [view, setView] = useState<"cards" | "table">("cards")
@@ -538,12 +540,42 @@ function ChequeFilters({
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   }, [cheques, allUnits])
 
+  const unitOptions = useMemo(() => {
+    const m = new Map<string, string>()
+    // Honor the active tenant filter: when a tenant is selected, only show
+    // their units so the dropdown stays manageable on a 364-tenant portfolio.
+    for (const u of allUnits) {
+      if (tenantFilter !== "all" && u.tenantId !== tenantFilter) continue
+      m.set(u.id, u.unitNo)
+    }
+    for (const c of cheques) {
+      if (tenantFilter !== "all" && c.tenantId !== tenantFilter) continue
+      if (c.unit?.id && !m.has(c.unit.id)) m.set(c.unit.id, c.unit.unitNo || "")
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }))
+  }, [cheques, allUnits, tenantFilter])
+
+  const searchTerm = search.trim().toLowerCase()
   const filtered = useMemo(() => {
     // Cash Only: show no cheques at all (card view seeds cash-only tenants)
     if (paymentMethod === "cash") return []
     return cheques.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false
       if (tenantFilter !== "all" && c.tenantId !== tenantFilter) return false
+      if (unitFilter !== "all" && c.unit?.id !== unitFilter) return false
+      if (searchTerm) {
+        const haystack = [
+          c.tenant?.name,
+          c.unit?.unitNo,
+          c.chequeNo,
+          c.bankName,
+          c.paymentType,
+          c.status,
+          String(c.amount || ""),
+          c.notes,
+        ].filter(Boolean).join(" ").toLowerCase()
+        if (!haystack.includes(searchTerm)) return false
+      }
       if (dateRange !== "all") {
         const d = c.chequeDate || ""
         if (!d) return false
@@ -558,7 +590,7 @@ function ChequeFilters({
       }
       return true
     })
-  }, [cheques, statusFilter, tenantFilter, dateRange, paymentMethod, today, thisMonthStart, in7Str, in30Str])
+  }, [cheques, statusFilter, tenantFilter, unitFilter, searchTerm, dateRange, paymentMethod, today, thisMonthStart, in7Str, in30Str])
 
   const filteredTotal = filtered.reduce((s, c) => s + (c.amount || 0), 0)
 
@@ -645,12 +677,33 @@ function ChequeFilters({
             })()}
           </div>
         </div>
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Search</p>
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tenant, unit #, cheque #, bank, amount, notes..."
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 pr-8 text-sm text-white outline-none focus:border-amber-500/50"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tenant</p>
             <select
               value={tenantFilter}
-              onChange={(e) => setTenantFilter(e.target.value)}
+              onChange={(e) => { setTenantFilter(e.target.value); setUnitFilter("all") }}
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
             >
               <option value="all">All tenants ({tenantOptions.length})</option>
@@ -659,21 +712,34 @@ function ChequeFilters({
               ))}
             </select>
           </div>
-          <div className="flex items-end justify-end gap-3 text-xs text-slate-400">
-            <span>
-              Showing <strong className="text-white">{filtered.length}</strong> cheques
-              {(statusFilter !== "all" || tenantFilter !== "all" || dateRange !== "all") && ` of ${cheques.length}`}
-            </span>
-            <span className="text-amber-400 font-semibold">{formatCurrency(filteredTotal)}</span>
-            {(statusFilter !== "all" || tenantFilter !== "all" || dateRange !== "all") && (
-              <button
-                onClick={() => { setStatusFilter("all"); setTenantFilter("all"); setDateRange("all") }}
-                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
-              >
-                Clear filters
-              </button>
-            )}
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Unit</p>
+            <select
+              value={unitFilter}
+              onChange={(e) => setUnitFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+            >
+              <option value="all">All units ({unitOptions.length})</option>
+              {unitOptions.map(([id, unitNo]) => (
+                <option key={id} value={id}>{unitNo}</option>
+              ))}
+            </select>
           </div>
+        </div>
+        <div className="flex items-end justify-end gap-3 text-xs text-slate-400">
+          <span>
+            Showing <strong className="text-white">{filtered.length}</strong> cheques
+            {(statusFilter !== "all" || tenantFilter !== "all" || unitFilter !== "all" || dateRange !== "all" || searchTerm) && ` of ${cheques.length}`}
+          </span>
+          <span className="text-amber-400 font-semibold">{formatCurrency(filteredTotal)}</span>
+          {(statusFilter !== "all" || tenantFilter !== "all" || unitFilter !== "all" || dateRange !== "all" || searchTerm) && (
+            <button
+              onClick={() => { setStatusFilter("all"); setTenantFilter("all"); setUnitFilter("all"); setDateRange("all"); setSearch("") }}
+              className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -710,16 +776,28 @@ function ChequeFilters({
           cheques={filtered}
           contracts={contracts}
           updateStatus={updateStatus}
-          allUnits={
-            paymentMethod === "cheque"
+          allUnits={(() => {
+            // Start from the payment-method base set (cheque-only / cash-only / all),
+            // then apply tenant/unit/search filters so the card grid mirrors the
+            // table view's universal filters.
+            const base = paymentMethod === "cheque"
               ? allUnits.filter((u) => cheques.some((c) => c.unit?.id === u.id))
               : paymentMethod === "cash"
                 ? allUnits.filter((u) => u.tenantId && !cheques.some((c) => c.unit?.id === u.id))
                 : allUnits
-          }
+            return base.filter((u) => {
+              if (tenantFilter !== "all" && u.tenantId !== tenantFilter) return false
+              if (unitFilter !== "all" && u.id !== unitFilter) return false
+              if (searchTerm) {
+                const haystack = [u.unitNo, u.tenant?.name].filter(Boolean).join(" ").toLowerCase()
+                if (!haystack.includes(searchTerm)) return false
+              }
+              return true
+            })
+          })()}
           showCashOnly={
             paymentMethod === "cash" ||
-            (paymentMethod === "all" && statusFilter === "all" && tenantFilter === "all" && dateRange === "all")
+            (paymentMethod === "all" && statusFilter === "all" && tenantFilter === "all" && unitFilter === "all" && dateRange === "all" && !searchTerm)
           }
         />
       )}
