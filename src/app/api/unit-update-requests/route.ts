@@ -51,6 +51,22 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:18px;color:#666;font-size:12px;">Submitted: ${new Date().toLocaleString()}</p>
       </div>`
 
+    // Persist the request so the developer can triage it from
+    // /dashboard/developer-tools — DB row is the source of truth, the
+    // email is just a heads-up.
+    const created = await prisma.updateRequest.create({
+      data: {
+        organizationId,
+        type: 'unit',
+        refId: unit.id,
+        refLabel: `Unit ${unit.unitNo}`,
+        requestedBy: session.user.name || '',
+        requestedByEmail: session.user.email || '',
+        message: message.trim(),
+        status: 'pending',
+      },
+    })
+
     await sendEmail({
       organizationId,
       to: 'admin@cre.ae',
@@ -59,8 +75,8 @@ export async function POST(request: NextRequest) {
       html,
       template: 'unit_update_request',
       triggeredBy: session.user.name || session.user.email,
-      refType: 'unit',
-      refId: unit.id,
+      refType: 'update_request',
+      refId: created.id,
     }).catch((e) => console.warn('unit-update-request email failed:', e))
 
     await logActivity(
@@ -70,7 +86,7 @@ export async function POST(request: NextRequest) {
       `Unit ${unit.unitNo}: ${message.trim().slice(0, 200)}`
     )
 
-    return NextResponse.json({ ok: true, unitNo: unit.unitNo }, { status: 201 })
+    return NextResponse.json({ ok: true, unitNo: unit.unitNo, requestId: created.id }, { status: 201 })
   } catch (error) {
     console.error('POST /api/unit-update-requests error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

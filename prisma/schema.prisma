@@ -50,6 +50,7 @@ model Organization {
   emailLogs          EmailLog[]
   tenancyContracts   TenancyContract[]
   cashDeposits       CashDeposit[]
+  updateRequests     UpdateRequest[]
 }
 
 // ════════════════════════════════════════════
@@ -977,4 +978,31 @@ model EmailLog {
   @@index([toEmail])
   @@index([refType, refId])
   @@index([sentAt])
+}
+
+// ════════════════════════════════════════════
+// UPDATE REQUESTS — non-developer users submit change requests via the
+// Request Update flow (Units / Tenants pages). The developer triages them
+// from /dashboard/developer-tools.
+// ════════════════════════════════════════════
+model UpdateRequest {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type             String       @default("unit")          // unit | tenant | other
+  refId            String       @default("")              // unit.id / tenant.id
+  refLabel         String       @default("")              // e.g. "Unit 1001" / "Tenant John Doe"
+  requestedBy      String       @default("")              // user name
+  requestedByEmail String       @default("")
+  message          String       @default("")
+  status           String       @default("pending")       // pending | resolved | declined
+  resolverNote     String       @default("")
+  resolvedAt       DateTime?
+  resolvedBy       String       @default("")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([type, refId])
 }
