@@ -382,7 +382,29 @@ export default function ExpensesPage() {
             </div>
             <div>
               <label className={labelText}>Type of Service *</label>
-              <input type="text" value={form.serviceType} onChange={(e) => setForm({ ...form, serviceType: e.target.value })} placeholder="e.g. Plumbing repair, AC service" className={labelInput} />
+              {/* Datalist gives both a dropdown of common AMC / utility / building
+                  expense categories AND free-text — the user can pick a preset
+                  or type a one-off ("Plumbing repair", "Painting touch-up", etc.). */}
+              <input
+                type="text"
+                list="vendor-bill-service-types"
+                value={form.serviceType}
+                onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
+                placeholder="Pick a preset or type your own"
+                className={labelInput}
+              />
+              <datalist id="vendor-bill-service-types">
+                <option value="AMC - Fire Fighting" />
+                <option value="AMC - Elevators" />
+                <option value="AMC - Pest Control" />
+                <option value="AMC - Gas" />
+                <option value="AMC - GYM" />
+                <option value="Demand Charges - Expenses" />
+                <option value="Water & Electricity - Buildings" />
+                <option value="Gas Refilling Expenses" />
+                <option value="Cooling Charges - Expenses" />
+                <option value="General Maintenance" />
+              </datalist>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
