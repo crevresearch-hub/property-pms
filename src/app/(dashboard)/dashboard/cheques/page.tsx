@@ -2709,16 +2709,46 @@ function ChequeUnitCards({
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Deposit Date <span className="text-red-400">*</span>
                     </label>
-                    <input
-                      type="date"
-                      value={depositDate || todayStr()}
-                      onChange={(e) => setDepositDate(e.target.value)}
-                      min={pendingAction.cheque.chequeDate || undefined}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
-                    />
-                    {pendingAction.cheque.chequeDate && (depositDate || todayStr()) < pendingAction.cheque.chequeDate && (
-                      <p className="mt-1 text-[10px] text-amber-400">⚠ Deposit date is before the cheque date ({pendingAction.cheque.chequeDate}). The bank will likely reject a postdated cheque.</p>
-                    )}
+                    {(() => {
+                      const isCashDep = (pendingAction.cheque.bankName || "").toLowerCase() === "cash"
+                      // Cash: deposit date can't be after today (cash physically in our hand,
+                      // can't deposit it in the future) and shouldn't be before the cash was
+                      // received (the chequeDate / created date on the row).
+                      // Cheque: per spec — deposit can be at most one month before the cheque
+                      // date (postdated grace) and any time after.
+                      const ch = pendingAction.cheque.chequeDate || ""
+                      const minDate = isCashDep
+                        ? (ch || undefined)
+                        : ch
+                          ? new Date(new Date(ch).getTime() - 30 * 86400000).toISOString().slice(0, 10)
+                          : undefined
+                      const maxDate = isCashDep ? todayStr() : undefined
+                      const cur = depositDate || todayStr()
+                      const tooEarly = minDate && cur < minDate
+                      const tooLate = maxDate && cur > maxDate
+                      return (
+                        <>
+                          <input
+                            type="date"
+                            value={cur}
+                            onChange={(e) => setDepositDate(e.target.value)}
+                            min={minDate}
+                            max={maxDate}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
+                          />
+                          {tooEarly && (
+                            <p className="mt-1 text-[10px] text-red-400">
+                              {isCashDep
+                                ? `✕ Deposit date can't be before the cash was received (${minDate}).`
+                                : `✕ Deposit can be at most one month before the cheque date — earliest allowed is ${minDate}.`}
+                            </p>
+                          )}
+                          {tooLate && (
+                            <p className="mt-1 text-[10px] text-red-400">✕ Cash deposit date can&rsquo;t be in the future.</p>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -2759,16 +2789,34 @@ function ChequeUnitCards({
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Cleared Date <span className="text-red-400">*</span>
                   </label>
-                  <input
-                    type="date"
-                    value={clearDate || todayStr()}
-                    onChange={(e) => setClearDate(e.target.value)}
-                    min={pendingAction.cheque.depositedDate || pendingAction.cheque.chequeDate || undefined}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
-                  />
-                  {pendingAction.cheque.depositedDate && (clearDate || todayStr()) < pendingAction.cheque.depositedDate && (
-                    <p className="mt-1 text-[10px] text-red-400">✕ Clear date cannot be before the deposit date ({pendingAction.cheque.depositedDate}).</p>
-                  )}
+                  {(() => {
+                    // Per spec: clearing date can only be on/after the cheque
+                    // due date (chequeDate). Bank cannot credit the cheque
+                    // before its postdated date. Also can't be before the
+                    // deposit (which is already enforced by depositedDate).
+                    const ch = pendingAction.cheque.chequeDate || ""
+                    const dep = pendingAction.cheque.depositedDate || ""
+                    const minDate = [ch, dep].filter(Boolean).sort().pop() || undefined
+                    const cur = clearDate || todayStr()
+                    const tooEarly = minDate && cur < minDate
+                    return (
+                      <>
+                        <input
+                          type="date"
+                          value={cur}
+                          onChange={(e) => setClearDate(e.target.value)}
+                          min={minDate}
+                          max={todayStr()}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
+                        />
+                        {tooEarly && (
+                          <p className="mt-1 text-[10px] text-red-400">
+                            ✕ Cleared date can&rsquo;t be before the cheque due date / deposit date ({minDate}).
+                          </p>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -2890,7 +2938,24 @@ function ChequeUnitCards({
                     <p className="text-[11px] text-red-200">Mark cheque as Bounced. It stays Bounced until you collect the full amount via the 💰 Collect button.</p>
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Bounced Date *</label>
-                      <input type="date" value={reverseDate || todayStr()} onChange={(e) => setReverseDate(e.target.value)} min={pendingAction.cheque.chequeDate || undefined} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                      {(() => {
+                        // Per spec: bounce date must be on/after the cheque due
+                        // date. Also can't precede the deposit date (which is
+                        // typically already after chequeDate).
+                        const ch = pendingAction.cheque.chequeDate || ""
+                        const dep = pendingAction.cheque.depositedDate || ""
+                        const minBounce = [ch, dep].filter(Boolean).sort().pop() || undefined
+                        const cur = reverseDate || todayStr()
+                        const tooEarly = minBounce && cur < minBounce
+                        return (
+                          <>
+                            <input type="date" value={cur} onChange={(e) => setReverseDate(e.target.value)} min={minBounce} max={todayStr()} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white" />
+                            {tooEarly && (
+                              <p className="mt-1 text-[10px] text-red-400">✕ Bounce date can&rsquo;t be before the cheque due date / deposit date ({minBounce}).</p>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Reason *</label>
