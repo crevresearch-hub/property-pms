@@ -165,6 +165,12 @@ export default function UnitsPage() {
   const [deleteTarget, setDeleteTarget] = useState<UnitRow | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState("")
   const [deleting, setDeleting] = useState(false)
+  // Update-request modal — non-developer users send a free-text request to
+  // the developer instead of editing/deleting the unit themselves.
+  const [requestTarget, setRequestTarget] = useState<UnitRow | null>(null)
+  const [requestText, setRequestText] = useState("")
+  const [requestSubmitting, setRequestSubmitting] = useState(false)
+  const [requestStatus, setRequestStatus] = useState<"" | "ok" | "error">("")
 
   const fetchUnits = useCallback(async () => {
     try {
@@ -388,18 +394,32 @@ export default function UnitsPage() {
       header: "Actions",
       render: (row) => (
         <div className="flex gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); openEdit(row) }}
-            className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleDelete(row) }}
-            className="rounded p-1.5 text-slate-400 hover:bg-red-900/50 hover:text-red-400"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {isDeveloper ? (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); openEdit(row) }}
+                className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                title="Edit unit"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(row) }}
+                className="rounded p-1.5 text-slate-400 hover:bg-red-900/50 hover:text-red-400"
+                title="Delete unit"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); setRequestTarget(row); setRequestText(""); setRequestStatus("") }}
+              className="inline-flex items-center gap-1 rounded-md border border-blue-700/40 bg-blue-900/20 hover:bg-blue-900/40 px-2 py-1 text-[11px] font-medium text-blue-300"
+              title="Request the developer to update this unit"
+            >
+              ✉ Request Update
+            </button>
+          )}
         </div>
       ),
     },
@@ -952,6 +972,85 @@ export default function UnitsPage() {
           </div>
         </div>
       )}
+
+      {/* Request Update modal — non-developer users send a free-text request
+          to the developer for any unit change (rent, type, sq ft, status, etc.) */}
+      <Modal
+        open={!!requestTarget}
+        onOpenChange={(o) => { if (!o) { setRequestTarget(null); setRequestText(""); setRequestStatus("") } }}
+        title={requestTarget ? `Request Update — Unit ${requestTarget.unitNo}` : "Request Update"}
+        size="md"
+        footer={
+          <>
+            <ModalCancelButton onClick={() => { setRequestTarget(null); setRequestText(""); setRequestStatus("") }} />
+            <button
+              disabled={requestSubmitting || requestText.trim().length < 5}
+              onClick={async () => {
+                if (!requestTarget) return
+                setRequestSubmitting(true)
+                setRequestStatus("")
+                try {
+                  const res = await fetch("/api/unit-update-requests", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      unitId: requestTarget.id,
+                      unitNo: requestTarget.unitNo,
+                      message: requestText.trim(),
+                    }),
+                  })
+                  if (!res.ok) throw new Error("send failed")
+                  setRequestStatus("ok")
+                  setTimeout(() => { setRequestTarget(null); setRequestText(""); setRequestStatus("") }, 1500)
+                } catch {
+                  setRequestStatus("error")
+                } finally {
+                  setRequestSubmitting(false)
+                }
+              }}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-40 hover:bg-blue-500"
+            >
+              {requestSubmitting ? "Sending…" : "✉ Send Request"}
+            </button>
+          </>
+        }
+      >
+        {requestTarget && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-xs">
+              <div className="flex justify-between"><span className="text-slate-500">Unit</span><span className="font-mono text-white">{requestTarget.unitNo}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Type</span><span className="text-white">{requestTarget.unitType || "—"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Tenant</span><span className="text-white">{requestTarget.tenant?.name || "—"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Rent</span><span className="text-white">{formatCurrency(requestTarget.currentRent || 0)}</span></div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                What needs to change? <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                value={requestText}
+                onChange={(e) => setRequestText(e.target.value)}
+                rows={4}
+                placeholder="e.g. Change rent from 67,000 to 70,000 starting next renewal. Or: Mark unit as Under Maintenance — kitchen pipe burst on 28 Apr."
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50"
+              />
+              <p className="mt-1 text-[10px] text-slate-500">
+                Goes straight to the developer. Min 5 characters. Editing / deleting units is reserved for the developer.
+              </p>
+            </div>
+            {requestStatus === "ok" && (
+              <p className="rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-2 text-[11px] text-emerald-300">
+                ✓ Request sent. The developer has been notified.
+              </p>
+            )}
+            {requestStatus === "error" && (
+              <p className="rounded-lg border border-red-700/40 bg-red-900/20 p-2 text-[11px] text-red-300">
+                ✕ Couldn&rsquo;t send the request. Try again or contact the developer directly.
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Bulk Add Per-Floor Modal */}
       <Modal
