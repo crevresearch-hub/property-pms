@@ -134,13 +134,32 @@ export async function POST(
     )
 
     if (tenant.email) {
+      // Inline-styled HTML — must work in Gmail/Outlook without external CSS.
+      const safeReason = reason.replace(/[<>]/g, '')
       const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111;background:#f4f5f7;margin:0;padding:0;">
-        <div style="max-width:560px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
+        <div style="max-width:600px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
           <div style="height:4px;width:48px;background:#E30613;border-radius:2px;margin-bottom:20px;"></div>
           <h1 style="margin:0 0 14px 0;font-size:20px;">Tenancy Contract Terminated</h1>
-          <p>Dear ${tenant.name},</p>
+          <p>Dear ${tenant.name.replace(/[<>]/g, '')},</p>
           <p>Your tenancy contract with Alwaan has been terminated${effectiveDate ? ` effective <strong>${effectiveDate}</strong>` : ''}.</p>
-          <p style="margin:16px 0;padding:12px;background:#fff5f5;border-left:4px solid #E30613;border-radius:4px;"><strong>Reason:</strong><br/>${reason.replace(/[<>]/g, '')}</p>
+
+          <table style="width:100%;border-collapse:collapse;margin:16px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <tr style="background:#fafafa;">
+              <td style="padding:10px 14px;font-size:12px;color:#666;width:170px;">Termination type</td>
+              <td style="padding:10px 14px;font-size:13px;color:#111;"><strong>${typeLabel}</strong>${terminationType === 'BreakLease' ? ' <span style="color:#92400e;">(2-month penalty applies)</span>' : ''}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 14px;font-size:12px;color:#666;border-top:1px solid #e5e7eb;">DEWA closing date</td>
+              <td style="padding:10px 14px;font-size:13px;color:#111;border-top:1px solid #e5e7eb;">${dewaClosingDate}</td>
+            </tr>
+            <tr style="background:#fafafa;">
+              <td style="padding:10px 14px;font-size:12px;color:#666;border-top:1px solid #e5e7eb;">Rent calculation date</td>
+              <td style="padding:10px 14px;font-size:13px;color:#111;border-top:1px solid #e5e7eb;">${rentCalcDate}</td>
+            </tr>
+          </table>
+
+          <p style="margin:16px 0;padding:12px;background:#fff5f5;border-left:4px solid #E30613;border-radius:4px;"><strong>Reason:</strong><br/>${safeReason}</p>
+
           <p>Your tenant portal access has been disabled. For any questions, please contact <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a>.</p>
         </div>
       </body></html>`
