@@ -184,6 +184,16 @@ export default function TenantsPage() {
   const [termDewaDoc, setTermDewaDoc] = useState<File | null>(null)
   const [termFmrDoc, setTermFmrDoc] = useState<File | null>(null)
   const [termAquaDoc, setTermAquaDoc] = useState<File | null>(null)
+  // Settlement table state — driven from contract data, editable by staff.
+  // Defaults are auto-filled from the tenant's active unit when the modal
+  // opens; staff can override any cell to match the actual collected /
+  // owed numbers before confirming termination.
+  const [termAnnualRent, setTermAnnualRent] = useState("0")
+  const [termSecurityDeposit, setTermSecurityDeposit] = useState("0")
+  const [termRentReceived, setTermRentReceived] = useState("0")
+  const [termMaintenanceCharges, setTermMaintenanceCharges] = useState("0")
+  const [termOtherCharges, setTermOtherCharges] = useState("0")
+  const [termOtherCredits, setTermOtherCredits] = useState("0")
   const [contractOpen, setContractOpen] = useState(false)
   const [form, setForm] = useState(defaultForm)
   const [contractForm, setContractForm] = useState(defaultContractForm)
@@ -395,6 +405,17 @@ export default function TenantsPage() {
     setTermDewaDoc(null)
     setTermFmrDoc(null)
     setTermAquaDoc(null)
+    // Pre-fill the settlement table from the tenant's primary unit. Staff can
+    // override any cell. SecurityDeposit defaults to 5% of annual rent (UAE
+    // residential standard) until we wire a real contract fetch.
+    const u = t.units?.[0]
+    const rent = u?.currentRent || 0
+    setTermAnnualRent(String(rent))
+    setTermSecurityDeposit(String(Math.round(rent * 0.05)))
+    setTermRentReceived("0")
+    setTermMaintenanceCharges("0")
+    setTermOtherCharges("0")
+    setTermOtherCredits("0")
     setTermOpen(true)
   }
 
@@ -439,6 +460,15 @@ export default function TenantsPage() {
       fd.append("terminationType", termType)
       fd.append("dewaClosingDate", termDewaDate)
       fd.append("rentCalcDate", termRentCalcDate)
+      // Settlement snapshot — persisted as part of reason metadata so the
+      // numbers shown to the user at termination stay attached to the
+      // record forever.
+      fd.append("annualRent", termAnnualRent)
+      fd.append("securityDeposit", termSecurityDeposit)
+      fd.append("rentReceived", termRentReceived)
+      fd.append("maintenanceCharges", termMaintenanceCharges)
+      fd.append("otherCharges", termOtherCharges)
+      fd.append("otherCredits", termOtherCredits)
       if (termProof) fd.append("proof", termProof)
       fd.append("dewaClearance", termDewaDoc)
       fd.append("fmrReport", termFmrDoc)
@@ -2014,9 +2044,152 @@ export default function TenantsPage() {
               </div>
             )}
 
-            {/* ── Step 3: Required Documents — explicit "Required" badges */}
+            {/* ── Settlement / financial summary — only shown after type + dates picked. */}
+            {termType && termDewaDate && termRentCalcDate && (() => {
+              // Compute monthsDue between contract start (or today fallback)
+              // and the rent-calc date. Min 0, no fractional rounding —
+              // staff can override the rent-received amount if the tenant
+              // pre-paid a partial month.
+              const u = termTenant.units?.[0]
+              const start = u?.contractStart ? new Date(u.contractStart) : new Date()
+              const end = new Date(termRentCalcDate)
+              const monthsDue = Math.max(
+                0,
+                (end.getFullYear() - start.getFullYear()) * 12 +
+                (end.getMonth() - start.getMonth()) +
+                (end.getDate() >= start.getDate() ? 0 : -1)
+              )
+              const annualRent = Number(termAnnualRent) || 0
+              const monthlyRent = annualRent / 12
+              const rentDue = monthlyRent * monthsDue
+              const rentReceived = Number(termRentReceived) || 0
+              const securityDeposit = Number(termSecurityDeposit) || 0
+              const maintenance = Number(termMaintenanceCharges) || 0
+              const otherCharges = Number(termOtherCharges) || 0
+              const otherCredits = Number(termOtherCredits) || 0
+              // Break Lease adds 2 months penalty (charged to the tenant).
+              const penalty = termType === "BreakLease" ? monthlyRent * 2 : 0
+
+              const totalCharges = rentDue + maintenance + otherCharges + penalty
+              const totalCredits = rentReceived + securityDeposit + otherCredits
+              const net = totalCredits - totalCharges
+
+              const fmt = (n: number) => `AED ${Math.round(n).toLocaleString()}`
+
+              return (
+                <div>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 3 · Final Settlement</p>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-600">Annual Rent</label>
+                        <input type="number" min="0" value={termAnnualRent} onChange={(e) => setTermAnnualRent(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-600">Security Deposit Held</label>
+                        <input type="number" min="0" value={termSecurityDeposit} onChange={(e) => setTermSecurityDeposit(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-600">Rent Received So Far</label>
+                        <input type="number" min="0" value={termRentReceived} onChange={(e) => setTermRentReceived(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-600">Maintenance Charges <span className="text-slate-400 font-normal">(deduction)</span></label>
+                        <input type="number" min="0" value={termMaintenanceCharges} onChange={(e) => setTermMaintenanceCharges(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-600">Other Charges <span className="text-slate-400 font-normal">(tenant owes us)</span></label>
+                        <input type="number" min="0" value={termOtherCharges} onChange={(e) => setTermOtherCharges(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-600">Other Credits <span className="text-slate-400 font-normal">(we owe tenant)</span></label>
+                        <input type="number" min="0" value={termOtherCredits} onChange={(e) => setTermOtherCredits(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900" />
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-lg border border-slate-300 bg-white">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-100 text-[11px] uppercase tracking-wide text-slate-600">
+                            <th className="px-3 py-2 text-left">Line</th>
+                            <th className="px-3 py-2 text-right">Charges (tenant owes)</th>
+                            <th className="px-3 py-2 text-right">Credits (we owe / received)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          <tr>
+                            <td className="px-3 py-2 text-slate-700">
+                              Rent due — <span className="text-slate-500">{monthsDue} month{monthsDue === 1 ? "" : "s"} × {fmt(monthlyRent)}</span>
+                            </td>
+                            <td className="px-3 py-2 text-right text-red-700 font-mono">{fmt(rentDue)}</td>
+                            <td></td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 text-slate-700">Rent received so far</td>
+                            <td></td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-mono">{fmt(rentReceived)}</td>
+                          </tr>
+                          {termType === "BreakLease" && (
+                            <tr className="bg-amber-50">
+                              <td className="px-3 py-2 text-amber-900">⚠ Break Lease penalty — <span className="text-amber-700">2 months × {fmt(monthlyRent)}</span></td>
+                              <td className="px-3 py-2 text-right text-amber-800 font-mono font-semibold">{fmt(penalty)}</td>
+                              <td></td>
+                            </tr>
+                          )}
+                          <tr>
+                            <td className="px-3 py-2 text-slate-700">Maintenance charges</td>
+                            <td className="px-3 py-2 text-right text-red-700 font-mono">{maintenance > 0 ? fmt(maintenance) : "—"}</td>
+                            <td></td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 text-slate-700">Other charges</td>
+                            <td className="px-3 py-2 text-right text-red-700 font-mono">{otherCharges > 0 ? fmt(otherCharges) : "—"}</td>
+                            <td></td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 text-slate-700">Security deposit refund</td>
+                            <td></td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-mono">{fmt(securityDeposit)}</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 text-slate-700">Other credits</td>
+                            <td></td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-mono">{otherCredits > 0 ? fmt(otherCredits) : "—"}</td>
+                          </tr>
+                          <tr className="bg-slate-100 font-semibold">
+                            <td className="px-3 py-2 text-slate-800">Subtotals</td>
+                            <td className="px-3 py-2 text-right text-red-700 font-mono">{fmt(totalCharges)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-mono">{fmt(totalCredits)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className={`mt-3 rounded-lg border-2 p-3 text-center ${
+                      net > 0 ? "border-emerald-300 bg-emerald-50"
+                      : net < 0 ? "border-red-300 bg-red-50"
+                      : "border-slate-300 bg-slate-100"
+                    }`}>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${net > 0 ? "text-emerald-700" : net < 0 ? "text-red-700" : "text-slate-600"}`}>
+                        {net > 0 ? "Refund Due to Tenant" : net < 0 ? "Tenant Owes Us" : "Settled — No Balance"}
+                      </p>
+                      <p className={`mt-1 text-2xl font-bold ${net > 0 ? "text-emerald-700" : net < 0 ? "text-red-700" : "text-slate-700"}`}>
+                        {fmt(Math.abs(net))}
+                      </p>
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        {net > 0 ? "We will refund this amount to the tenant after final clearance."
+                        : net < 0 ? "Tenant must settle this balance before keys are released."
+                        : "All accounts are square — no settlement payment needed."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── Step 4: Required Documents — explicit "Required" badges */}
             <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 3 · Required Documents</p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 4 · Required Documents</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {([
                   { val: "dewa", label: "DEWA Clearance", file: termDewaDoc, set: setTermDewaDoc, hint: "Latest DEWA bill / clearance receipt" },
@@ -2071,7 +2244,7 @@ export default function TenantsPage() {
 
             {/* ── Step 4: Reason + Effective date */}
             <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 4 · Reason</p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 5 · Reason</p>
               <div className="space-y-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">

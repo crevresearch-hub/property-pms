@@ -33,6 +33,13 @@ export async function POST(
     const terminationType = String(form.get('terminationType') || '').trim()  // BreakLease | NonRenewal
     const dewaClosingDate = String(form.get('dewaClosingDate') || '').trim()
     const rentCalcDate = String(form.get('rentCalcDate') || '').trim()
+    // Settlement snapshot captured at the moment of termination.
+    const annualRent = parseFloat(String(form.get('annualRent') || '0')) || 0
+    const securityDeposit = parseFloat(String(form.get('securityDeposit') || '0')) || 0
+    const rentReceived = parseFloat(String(form.get('rentReceived') || '0')) || 0
+    const maintenanceCharges = parseFloat(String(form.get('maintenanceCharges') || '0')) || 0
+    const otherCharges = parseFloat(String(form.get('otherCharges') || '0')) || 0
+    const otherCredits = parseFloat(String(form.get('otherCredits') || '0')) || 0
     if (reason.length < 3) {
       return NextResponse.json({ error: 'Termination reason is required.' }, { status: 400 })
     }
@@ -97,7 +104,32 @@ export async function POST(
     // a schema change to track them.
     const typeLabel = terminationType === 'BreakLease' ? 'Break Lease' : 'Non Renewal'
     const datesLine = `DEWA closing: ${dewaClosingDate} · Rent calc: ${rentCalcDate}`
-    const reasonWithMeta = `[${typeLabel}] ${reason}\n${datesLine}`
+    // Settlement: same calculation as the modal preview, so the snapshot
+    // stored with the record matches what staff approved.
+    const monthlyRent = annualRent / 12
+    const start = new Date()
+    const tcActive = await prisma.tenancyContract.findFirst({
+      where: { organizationId, tenantId: tenant.id, status: 'Active' },
+      select: { contractStart: true, securityDeposit: true },
+    })
+    if (tcActive?.contractStart) {
+      const d = new Date(tcActive.contractStart)
+      if (!Number.isNaN(d.getTime())) start.setTime(d.getTime())
+    }
+    const end = new Date(rentCalcDate || dewaClosingDate)
+    const monthsDue = Math.max(
+      0,
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth()) +
+      (end.getDate() >= start.getDate() ? 0 : -1)
+    )
+    const rentDue = monthlyRent * monthsDue
+    const penalty = terminationType === 'BreakLease' ? monthlyRent * 2 : 0
+    const totalCharges = rentDue + maintenanceCharges + otherCharges + penalty
+    const totalCredits = rentReceived + securityDeposit + otherCredits
+    const net = totalCredits - totalCharges  // > 0 → refund tenant; < 0 → tenant owes
+    const settleLine = `Settlement: rent due ${Math.round(rentDue).toLocaleString()} (${monthsDue}m × ${Math.round(monthlyRent).toLocaleString()})${penalty > 0 ? ` + penalty ${Math.round(penalty).toLocaleString()}` : ''}${maintenanceCharges > 0 ? ` + maint ${Math.round(maintenanceCharges).toLocaleString()}` : ''}${otherCharges > 0 ? ` + other ${Math.round(otherCharges).toLocaleString()}` : ''} − received ${Math.round(rentReceived).toLocaleString()} − deposit ${Math.round(securityDeposit).toLocaleString()}${otherCredits > 0 ? ` − other-cr ${Math.round(otherCredits).toLocaleString()}` : ''} = ${net >= 0 ? 'refund' : 'tenant-owes'} AED ${Math.round(Math.abs(net)).toLocaleString()}`
+    const reasonWithMeta = `[${typeLabel}] ${reason}\n${datesLine}\n${settleLine}`
     await prisma.tenancyContract.updateMany({
       where: { organizationId, tenantId: tenant.id, status: 'Active' },
       data: {
@@ -160,6 +192,21 @@ export async function POST(
           </table>
 
           <p style="margin:16px 0;padding:12px;background:#fff5f5;border-left:4px solid #E30613;border-radius:4px;"><strong>Reason:</strong><br/>${safeReason}</p>
+
+          <h3 style="margin:18px 0 8px 0;font-size:14px;color:#222;">Final Settlement</h3>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;font-size:12px;">
+            <tr style="background:#fafafa;"><td style="padding:8px 12px;color:#666;">Rent due (${monthsDue} month${monthsDue === 1 ? '' : 's'} × AED ${Math.round(monthlyRent).toLocaleString()})</td><td style="padding:8px 12px;text-align:right;color:#a00;">AED ${Math.round(rentDue).toLocaleString()}</td></tr>
+            ${penalty > 0 ? `<tr><td style="padding:8px 12px;color:#92400e;border-top:1px solid #e5e7eb;">Break Lease penalty (2 months)</td><td style="padding:8px 12px;text-align:right;color:#92400e;border-top:1px solid #e5e7eb;font-weight:600;">AED ${Math.round(penalty).toLocaleString()}</td></tr>` : ''}
+            ${maintenanceCharges > 0 ? `<tr style="background:#fafafa;"><td style="padding:8px 12px;color:#666;border-top:1px solid #e5e7eb;">Maintenance charges</td><td style="padding:8px 12px;text-align:right;color:#a00;border-top:1px solid #e5e7eb;">AED ${Math.round(maintenanceCharges).toLocaleString()}</td></tr>` : ''}
+            ${otherCharges > 0 ? `<tr><td style="padding:8px 12px;color:#666;border-top:1px solid #e5e7eb;">Other charges</td><td style="padding:8px 12px;text-align:right;color:#a00;border-top:1px solid #e5e7eb;">AED ${Math.round(otherCharges).toLocaleString()}</td></tr>` : ''}
+            <tr style="background:#fafafa;"><td style="padding:8px 12px;color:#666;border-top:1px solid #e5e7eb;">Rent received so far</td><td style="padding:8px 12px;text-align:right;color:#067647;border-top:1px solid #e5e7eb;">− AED ${Math.round(rentReceived).toLocaleString()}</td></tr>
+            <tr><td style="padding:8px 12px;color:#666;border-top:1px solid #e5e7eb;">Security deposit refund</td><td style="padding:8px 12px;text-align:right;color:#067647;border-top:1px solid #e5e7eb;">− AED ${Math.round(securityDeposit).toLocaleString()}</td></tr>
+            ${otherCredits > 0 ? `<tr style="background:#fafafa;"><td style="padding:8px 12px;color:#666;border-top:1px solid #e5e7eb;">Other credits</td><td style="padding:8px 12px;text-align:right;color:#067647;border-top:1px solid #e5e7eb;">− AED ${Math.round(otherCredits).toLocaleString()}</td></tr>` : ''}
+            <tr style="background:${net > 0 ? '#ecfdf5' : net < 0 ? '#fef2f2' : '#f3f4f6'};">
+              <td style="padding:10px 12px;border-top:2px solid #cbd5e1;font-weight:700;color:#111;">${net > 0 ? 'Refund due to tenant' : net < 0 ? 'Tenant owes' : 'Settled'}</td>
+              <td style="padding:10px 12px;border-top:2px solid #cbd5e1;text-align:right;font-weight:700;color:${net > 0 ? '#067647' : net < 0 ? '#a00' : '#111'};">AED ${Math.round(Math.abs(net)).toLocaleString()}</td>
+            </tr>
+          </table>
 
           <p>Your tenant portal access has been disabled. For any questions, please contact <a href="mailto:info@alwaan.ae" style="color:#E30613;">info@alwaan.ae</a>.</p>
         </div>
