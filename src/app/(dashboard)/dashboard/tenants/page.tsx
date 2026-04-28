@@ -1916,138 +1916,182 @@ export default function TenantsPage() {
         }
       >
         {termTenant && (
-          <div className="space-y-3 text-sm">
+          <div className="space-y-5 text-sm">
+            {/* ── Step 1: Type picker — radio cards instead of a dropdown so
+                each option's policy ("2-month penalty" / "no penalty") is
+                visible before clicking. */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Termination Type <span className="text-red-600">*</span>
-              </label>
-              <select
-                value={termType}
-                onChange={(e) => setTermType(e.target.value as "" | "BreakLease" | "NonRenewal")}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/20"
-              >
-                <option value="">— Select —</option>
-                <option value="BreakLease">Break Lease (penalty: 2 months added to rent calc)</option>
-                <option value="NonRenewal">Non Renewal (rent calc = DEWA closing date)</option>
-              </select>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 1 · Termination Type</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {([
+                  {
+                    val: "BreakLease",
+                    title: "Break Lease",
+                    icon: "⚠",
+                    blurb: "Tenant ends contract early. 2-month penalty added to the rent calculation date.",
+                    accent: "amber",
+                  },
+                  {
+                    val: "NonRenewal",
+                    title: "Non Renewal",
+                    icon: "📅",
+                    blurb: "Contract reaches its natural end. No penalty — rent calc matches DEWA closing date.",
+                    accent: "slate",
+                  },
+                ] as const).map((opt) => {
+                  const selected = termType === opt.val
+                  return (
+                    <button
+                      type="button"
+                      key={opt.val}
+                      onClick={() => setTermType(opt.val)}
+                      className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-colors ${
+                        selected
+                          ? opt.accent === "amber"
+                            ? "border-amber-400 bg-amber-50"
+                            : "border-slate-700 bg-slate-100"
+                          : "border-slate-200 bg-white hover:border-slate-400"
+                      }`}
+                    >
+                      <span className="text-xl leading-none">{opt.icon}</span>
+                      <div className="flex-1">
+                        <p className={`text-sm font-bold ${selected ? "text-slate-900" : "text-slate-800"}`}>{opt.title}</p>
+                        <p className="mt-0.5 text-[11px] leading-snug text-slate-600">{opt.blurb}</p>
+                      </div>
+                      {selected && <span className="text-emerald-600">✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
+            {/* ── Step 2: Dates — only after type is picked. The tile reminds
+                the user how rent-calc is derived for the chosen type. */}
             {termType && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">
-                    DEWA Closing Date <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={termDewaDate}
-                    onChange={(e) => setTermDewaDate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">
-                    Rent Calculation Date <span className="text-red-600">*</span>
-                    {termType === "BreakLease" && (
-                      <span className="ml-1 text-[10px] font-normal text-amber-700">(auto: DEWA + 2 months penalty — editable)</span>
-                    )}
-                    {termType === "NonRenewal" && (
-                      <span className="ml-1 text-[10px] font-normal text-slate-500">(auto: matches DEWA closing date)</span>
-                    )}
-                  </label>
-                  <input
-                    type="date"
-                    value={termRentCalcDate}
-                    min={termDewaDate || undefined}
-                    onChange={(e) => setTermRentCalcDate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                  />
+              <div>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 2 · Closure & Rent Calculation Dates</p>
+                <div className={`rounded-xl border p-3 ${termType === "BreakLease" ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
+                  <p className={`mb-2 text-[11px] ${termType === "BreakLease" ? "text-amber-800" : "text-slate-700"}`}>
+                    {termType === "BreakLease"
+                      ? "Rent calc auto-fills as DEWA closing + 2 months (penalty). You can override if a different gap was negotiated."
+                      : "Rent calc auto-fills to match DEWA closing date. You can override if needed."}
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                        DEWA Closing Date <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={termDewaDate}
+                        onChange={(e) => setTermDewaDate(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                        Rent Calculation Date <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={termRentCalcDate}
+                        min={termDewaDate || undefined}
+                        onChange={(e) => setTermRentCalcDate(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                      />
+                      {termType === "BreakLease" && termDewaDate && termRentCalcDate && (
+                        <p className="mt-1 text-[10px] text-amber-700">
+                          ↳ {Math.round((new Date(termRentCalcDate).getTime() - new Date(termDewaDate).getTime()) / 86400000)} days after DEWA closing
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
+            {/* ── Step 3: Required Documents — explicit "Required" badges */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Reason for Termination <span className="text-red-600">*</span>
-              </label>
-              <textarea
-                rows={3}
-                value={termReason}
-                onChange={(e) => setTermReason(e.target.value)}
-                placeholder="Describe why the contract is being terminated (non-payment, mutual agreement, etc.)"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/20"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Effective Date
-              </label>
-              <input
-                type="date"
-                value={termEffectiveDate}
-                onChange={(e) => setTermEffectiveDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">
-                  DEWA Clearance Document <span className="text-red-600">*</span>
-                </label>
-                {!termDewaDoc ? (
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => setTermDewaDoc(e.target.files?.[0] || null)}
-                    className="block w-full text-xs text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-300"
-                  />
-                ) : (
-                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
-                    <span className="truncate">{termDewaDoc.name} ({(termDewaDoc.size / 1024).toFixed(0)} KB)</span>
-                    <button onClick={() => setTermDewaDoc(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 3 · Required Documents</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {([
+                  { val: "dewa", label: "DEWA Clearance", file: termDewaDoc, set: setTermDewaDoc, hint: "Latest DEWA bill / clearance receipt" },
+                  { val: "fmr", label: "FMR Report", file: termFmrDoc, set: setTermFmrDoc, hint: "Final Move-out Report from inspection" },
+                ] as const).map((doc) => (
+                  <div key={doc.val} className={`rounded-lg border-2 p-3 ${doc.file ? "border-emerald-300 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <p className="text-xs font-semibold text-slate-800">{doc.label}</p>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ${doc.file ? "bg-emerald-200 text-emerald-800" : "bg-red-200 text-red-800"}`}>
+                        {doc.file ? "Attached" : "Required"}
+                      </span>
+                    </div>
+                    <p className="mb-2 text-[10px] text-slate-600">{doc.hint}</p>
+                    {!doc.file ? (
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        onChange={(e) => doc.set(e.target.files?.[0] || null)}
+                        className="block w-full text-[11px] text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:ring-1 file:ring-slate-300 hover:file:bg-slate-50"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px]">
+                        <span className="truncate">{doc.file.name} <span className="text-slate-500">({(doc.file.size / 1024).toFixed(0)} KB)</span></span>
+                        <button onClick={() => doc.set(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">
-                  FMR Report <span className="text-red-600">*</span>
-                </label>
-                {!termFmrDoc ? (
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => setTermFmrDoc(e.target.files?.[0] || null)}
-                    className="block w-full text-xs text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-300"
-                  />
-                ) : (
-                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
-                    <span className="truncate">{termFmrDoc.name} ({(termFmrDoc.size / 1024).toFixed(0)} KB)</span>
-                    <button onClick={() => setTermFmrDoc(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Other Proof / Supporting Document (optional)
-              </label>
-              {!termProof ? (
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  onChange={(e) => setTermProof(e.target.files?.[0] || null)}
-                  className="block w-full text-xs text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-300"
-                />
-              ) : (
-                <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
-                  <span className="truncate">{termProof.name} ({(termProof.size / 1024).toFixed(0)} KB)</span>
-                  <button onClick={() => setTermProof(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
+              {/* Optional extra proof — collapsed below the two mandatory ones */}
+              <details className="mt-2 rounded-lg border border-slate-200 bg-white">
+                <summary className="cursor-pointer px-3 py-2 text-[11px] font-medium text-slate-600 hover:bg-slate-50">+ Add another supporting document (optional)</summary>
+                <div className="border-t border-slate-200 p-3">
+                  {!termProof ? (
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                      onChange={(e) => setTermProof(e.target.files?.[0] || null)}
+                      className="block w-full text-[11px] text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-300"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px]">
+                      <span className="truncate">{termProof.name} ({(termProof.size / 1024).toFixed(0)} KB)</span>
+                      <button onClick={() => setTermProof(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
+                    </div>
+                  )}
                 </div>
-              )}
-              <p className="mt-1 text-[11px] text-slate-500">PDF / JPG / PNG / WebP, max 10 MB each.</p>
+              </details>
+              <p className="mt-2 text-[10px] text-slate-500">All files: PDF / JPG / PNG / WebP, max 10 MB each.</p>
+            </div>
+
+            {/* ── Step 4: Reason + Effective date */}
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 4 · Reason</p>
+              <div className="space-y-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">
+                    Reason for Termination <span className="text-red-600">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={termReason}
+                    onChange={(e) => setTermReason(e.target.value)}
+                    placeholder="Describe why the contract is being terminated (non-payment, mutual agreement, etc.)"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">
+                    Effective Date
+                  </label>
+                  <input
+                    type="date"
+                    value={termEffectiveDate}
+                    onChange={(e) => setTermEffectiveDate(e.target.value)}
+                    className="w-full sm:w-1/2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                  />
+                </div>
+              </div>
             </div>
 
             <label className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
