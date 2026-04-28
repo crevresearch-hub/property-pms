@@ -34,6 +34,10 @@ export async function GET() {
           chequeDate: true,
           clearedDate: true,
           paymentType: true,
+          sequenceNo: true,
+          totalCheques: true,
+          parentId: true,
+          bouncedReason: true,
           tenantId: true,
           unitId: true,
           tenant: { select: { id: true, name: true } },
@@ -95,6 +99,44 @@ export async function GET() {
 
     const rows: Omit<LedgerRow, 'runningBalance'>[] = []
 
+    // Pre-fetch the parents of any replacement / bounce-collect cash rows so
+    // the description can name the original cheque (e.g. "Replaces cheque
+    // #2222 Emirates NBD"). Single query, scoped to org, keyed by id.
+    const parentIds = Array.from(new Set(cashCheques.map((c) => c.parentId).filter(Boolean) as string[]))
+    const parentRows = parentIds.length
+      ? await prisma.cheque.findMany({
+          where: { id: { in: parentIds }, organizationId },
+          select: { id: true, chequeNo: true, bankName: true, sequenceNo: true, totalCheques: true, paymentType: true },
+        })
+      : []
+    const parentById = new Map(parentRows.map((p) => [p.id, p]))
+
+    const describeCashIn = (c: typeof cashCheques[number]): string => {
+      const parent = c.parentId ? parentById.get(c.parentId) : undefined
+      const reason = (c.bouncedReason || '').toLowerCase()
+      const isBounceCollect = reason.includes('collected by cash')
+      const isReplaced = reason.includes('replaced by cash') || c.paymentType === 'Replacement'
+      // Build the "what installment" suffix from the parent if this is a
+      // child cash row, else from the cash row itself for top-level cash.
+      const seq = parent?.sequenceNo ?? c.sequenceNo
+      const total = parent?.totalCheques ?? c.totalCheques
+      const installment = total ? `installment ${seq} of ${total}` : `seq ${seq}`
+      const pt = (parent?.paymentType || c.paymentType || 'Rent')
+      const base = pt === 'Upfront'
+        ? 'Upfront rent'
+        : pt === 'Security Deposit'
+          ? 'Security Deposit'
+          : `Rent · ${installment}`
+      if (parent) {
+        const pNo = parent.chequeNo ? `#${parent.chequeNo}` : `seq ${parent.sequenceNo}`
+        const pBank = parent.bankName ? ` ${parent.bankName}` : ''
+        if (isBounceCollect) return `${base} — bounce-collect of cheque ${pNo}${pBank}, paid in cash`
+        if (isReplaced) return `${base} — replaces cheque ${pNo}${pBank}, paid in cash`
+        return `${base} — linked to cheque ${pNo}${pBank}, paid in cash`
+      }
+      return `${base} — cash from tenant`
+    }
+
     for (const c of cashCheques) {
       const date = c.clearedDate || c.chequeDate || c.createdAt.toISOString().slice(0, 10)
       rows.push({
@@ -102,7 +144,7 @@ export async function GET() {
         date,
         kind: 'in',
         type: 'Cash Received',
-        description: `${c.paymentType || 'Rent'} — cash from tenant`,
+        description: describeCashIn(c),
         unitNo: c.unit?.unitNo || '',
         tenantName: c.tenant?.name || '',
         counterparty: c.tenant?.name || '',
