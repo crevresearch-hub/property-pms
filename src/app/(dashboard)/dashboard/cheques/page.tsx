@@ -1803,7 +1803,11 @@ function ChequeUnitCards({
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       {grouped.map((g) => {
-        const total = g.cheques.reduce((s, c) => s + (c.amount || 0), 0)
+        // Exclude Replaced rows from the total — those are parents whose
+        // active state has been moved to a linked child row (after a
+        // Replacement-By-Cash / Bounce-Collect-Cash). Counting both would
+        // double-count the same installment.
+        const total = g.cheques.reduce((s, c) => s + (c.status === "Replaced" ? 0 : c.amount || 0), 0)
         const collected = g.cheques.filter((c) => c.status === "Cleared").reduce((s, c) => s + (c.amount || 0), 0)
         const pending = total - collected
         const dueToday = g.cheques.filter((c) => c.chequeDate === today && c.status !== "Cleared")
