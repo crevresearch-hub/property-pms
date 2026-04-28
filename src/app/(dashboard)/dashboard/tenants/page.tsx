@@ -194,6 +194,8 @@ export default function TenantsPage() {
   const [termMaintenanceCharges, setTermMaintenanceCharges] = useState("0")
   const [termOtherCharges, setTermOtherCharges] = useState("0")
   const [termOtherCredits, setTermOtherCredits] = useState("0")
+  const [termAutoLoaded, setTermAutoLoaded] = useState(false)
+  const [termContractStart, setTermContractStart] = useState("")
   const [contractOpen, setContractOpen] = useState(false)
   const [form, setForm] = useState(defaultForm)
   const [contractForm, setContractForm] = useState(defaultContractForm)
@@ -405,9 +407,10 @@ export default function TenantsPage() {
     setTermDewaDoc(null)
     setTermFmrDoc(null)
     setTermAquaDoc(null)
-    // Pre-fill the settlement table from the tenant's primary unit. Staff can
-    // override any cell. SecurityDeposit defaults to 5% of annual rent (UAE
-    // residential standard) until we wire a real contract fetch.
+    // Optimistic pre-fill from the unit row so the modal isn't empty while
+    // the settlement-summary API call is in flight. The real numbers
+    // (cleared cheques, paid vendor bills, contract security deposit)
+    // overwrite these as soon as the fetch returns.
     const u = t.units?.[0]
     const rent = u?.currentRent || 0
     setTermAnnualRent(String(rent))
@@ -416,7 +419,24 @@ export default function TenantsPage() {
     setTermMaintenanceCharges("0")
     setTermOtherCharges("0")
     setTermOtherCredits("0")
+    setTermAutoLoaded(false)
+    setTermContractStart(u?.contractStart || "")
     setTermOpen(true)
+    // Background fetch — pulls real numbers from cheques + vendor bills +
+    // active contract. Errors are logged silently; the optimistic
+    // pre-fill above stays as the fallback.
+    fetch(`/api/tenants/${t.id}/settlement-summary`)
+      .then(async (r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return
+        setTermAnnualRent(String(Math.round(data.annualRent || 0)))
+        setTermSecurityDeposit(String(Math.round(data.securityDeposit || 0)))
+        setTermRentReceived(String(Math.round(data.rentReceived || 0)))
+        setTermMaintenanceCharges(String(Math.round(data.maintenanceCharges || 0)))
+        if (data.contractStart) setTermContractStart(data.contractStart)
+        setTermAutoLoaded(true)
+      })
+      .catch(() => {})
   }
 
   // Auto-derive the rent-calc date whenever DEWA date / type changes.
@@ -2051,7 +2071,8 @@ export default function TenantsPage() {
               // staff can override the rent-received amount if the tenant
               // pre-paid a partial month.
               const u = termTenant.units?.[0]
-              const start = u?.contractStart ? new Date(u.contractStart) : new Date()
+              const startStr = termContractStart || u?.contractStart || ""
+              const start = startStr ? new Date(startStr) : new Date()
               const end = new Date(termRentCalcDate)
               const monthsDue = Math.max(
                 0,
@@ -2078,7 +2099,18 @@ export default function TenantsPage() {
 
               return (
                 <div>
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 3 · Final Settlement</p>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 3 · Final Settlement</p>
+                    {termAutoLoaded ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                        ✓ Auto-loaded from invoices · cheques · vendor bills
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                        Loading totals…
+                      </span>
+                    )}
+                  </div>
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-3">
                       <div>
