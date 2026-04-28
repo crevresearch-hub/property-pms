@@ -183,6 +183,7 @@ export default function TenantsPage() {
   const [termRentCalcDate, setTermRentCalcDate] = useState("")
   const [termDewaDoc, setTermDewaDoc] = useState<File | null>(null)
   const [termFmrDoc, setTermFmrDoc] = useState<File | null>(null)
+  const [termAquaDoc, setTermAquaDoc] = useState<File | null>(null)
   const [contractOpen, setContractOpen] = useState(false)
   const [form, setForm] = useState(defaultForm)
   const [contractForm, setContractForm] = useState(defaultContractForm)
@@ -393,6 +394,7 @@ export default function TenantsPage() {
     setTermRentCalcDate("")
     setTermDewaDoc(null)
     setTermFmrDoc(null)
+    setTermAquaDoc(null)
     setTermOpen(true)
   }
 
@@ -424,6 +426,7 @@ export default function TenantsPage() {
     if (!termRentCalcDate) { setTermError("Rent calculation date is required."); return }
     if (!termDewaDoc) { setTermError("DEWA Clearance document is required."); return }
     if (!termFmrDoc) { setTermError("FMR Report is required."); return }
+    if (!termAquaDoc) { setTermError("Aqua Cool clearance is required."); return }
     if (!termConfirm) {
       setTermError("Please tick the confirmation box to proceed.")
       return
@@ -439,6 +442,7 @@ export default function TenantsPage() {
       if (termProof) fd.append("proof", termProof)
       fd.append("dewaClearance", termDewaDoc)
       fd.append("fmrReport", termFmrDoc)
+      fd.append("aquaCool", termAquaDoc)
       const res = await fetch(`/api/tenants/${termTenant.id}/terminate`, {
         method: "POST",
         body: fd,
@@ -1906,7 +1910,7 @@ export default function TenantsPage() {
             <ModalCancelButton />
             <button
               onClick={submitTerminate}
-              disabled={termBusy || !termConfirm || termReason.trim().length < 3 || !termType || !termDewaDate || !termRentCalcDate || !termDewaDoc || !termFmrDoc}
+              disabled={termBusy || !termConfirm || termReason.trim().length < 3 || !termType || !termDewaDate || !termRentCalcDate || !termDewaDoc || !termFmrDoc || !termAquaDoc}
               className="inline-flex items-center gap-2 rounded-lg bg-[#E30613] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c20510] disabled:opacity-50"
             >
               <Ban className="h-4 w-4" />
@@ -2013,10 +2017,11 @@ export default function TenantsPage() {
             {/* ── Step 3: Required Documents — explicit "Required" badges */}
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Step 3 · Required Documents</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {([
                   { val: "dewa", label: "DEWA Clearance", file: termDewaDoc, set: setTermDewaDoc, hint: "Latest DEWA bill / clearance receipt" },
                   { val: "fmr", label: "FMR Report", file: termFmrDoc, set: setTermFmrDoc, hint: "Final Move-out Report from inspection" },
+                  { val: "aqua", label: "Aqua Cool Clearance", file: termAquaDoc, set: setTermAquaDoc, hint: "Aqua Cool / chiller account closure receipt" },
                 ] as const).map((doc) => (
                   <div key={doc.val} className={`rounded-lg border-2 p-3 ${doc.file ? "border-emerald-300 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
                     <div className="mb-1 flex items-center justify-between">

@@ -45,7 +45,7 @@ export async function POST(
     // Helper: validate + persist a single uploaded file as a TenantDocument.
     // Returns the relative path on success (or '' if no file was provided).
     const saveDoc = async (
-      field: 'proof' | 'dewaClearance' | 'fmrReport',
+      field: 'proof' | 'dewaClearance' | 'fmrReport' | 'aquaCool',
       docType: string,
       required: boolean
     ): Promise<string> => {
@@ -82,9 +82,10 @@ export async function POST(
 
     let proofRelPath = ''
     try {
-      // Two new mandatory docs per spec; the legacy "proof" stays optional.
+      // Three mandatory docs per spec; the legacy "proof" stays optional.
       await saveDoc('dewaClearance', 'DEWA Clearance', true)
       await saveDoc('fmrReport', 'FMR Report', true)
+      await saveDoc('aquaCool', 'Aqua Cool Clearance', true)
       proofRelPath = await saveDoc('proof', 'Termination Proof', false)
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : 'File upload failed' }, { status: 400 })
