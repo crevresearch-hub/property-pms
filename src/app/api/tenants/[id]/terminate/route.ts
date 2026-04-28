@@ -30,49 +30,79 @@ export async function POST(
     const form = await request.formData()
     const reason = String(form.get('reason') || '').trim()
     const effectiveDate = String(form.get('effectiveDate') || '').trim()
+    const terminationType = String(form.get('terminationType') || '').trim()  // BreakLease | NonRenewal
+    const dewaClosingDate = String(form.get('dewaClosingDate') || '').trim()
+    const rentCalcDate = String(form.get('rentCalcDate') || '').trim()
     if (reason.length < 3) {
       return NextResponse.json({ error: 'Termination reason is required.' }, { status: 400 })
     }
+    if (!['BreakLease', 'NonRenewal'].includes(terminationType)) {
+      return NextResponse.json({ error: 'terminationType must be BreakLease or NonRenewal.' }, { status: 400 })
+    }
+    if (!dewaClosingDate) return NextResponse.json({ error: 'DEWA closing date is required.' }, { status: 400 })
+    if (!rentCalcDate) return NextResponse.json({ error: 'Rent calculation date is required.' }, { status: 400 })
 
-    const proof = form.get('proof')
-    let proofRelPath = ''
-    if (proof instanceof File && proof.size > 0) {
-      const mime = (proof.type || '').toLowerCase()
-      if (!ALLOWED.has(mime)) {
-        return NextResponse.json({ error: 'Proof must be PDF, JPG, PNG or WebP.' }, { status: 400 })
+    // Helper: validate + persist a single uploaded file as a TenantDocument.
+    // Returns the relative path on success (or '' if no file was provided).
+    const saveDoc = async (
+      field: 'proof' | 'dewaClearance' | 'fmrReport',
+      docType: string,
+      required: boolean
+    ): Promise<string> => {
+      const file = form.get(field)
+      if (!(file instanceof File) || file.size === 0) {
+        if (required) throw new Error(`${docType} is required.`)
+        return ''
       }
-      if (proof.size > MAX_BYTES) {
-        return NextResponse.json({ error: 'Proof file must be 10 MB or smaller.' }, { status: 413 })
-      }
-      const buf = Buffer.from(await proof.arrayBuffer())
+      const mime = (file.type || '').toLowerCase()
+      if (!ALLOWED.has(mime)) throw new Error(`${docType} must be PDF, JPG, PNG or WebP.`)
+      if (file.size > MAX_BYTES) throw new Error(`${docType} must be 10 MB or smaller.`)
+      const buf = Buffer.from(await file.arrayBuffer())
       const ext = mime.split('/')[1].replace('jpeg', 'jpg')
-      const fileName = `termination-${Date.now()}.${ext}`
+      const fileName = `${field}-${Date.now()}.${ext}`
       const dir = path.join(process.cwd(), 'uploads', 'terminations', tenant.id)
       await mkdir(dir, { recursive: true }).catch(() => {})
       await writeFile(path.join(dir, fileName), buf).catch(() => {})
-      proofRelPath = `uploads/terminations/${tenant.id}/${fileName}`
+      const rel = `uploads/terminations/${tenant.id}/${fileName}`
       await prisma.tenantDocument.create({
         data: {
           organizationId,
           tenantId: tenant.id,
-          docType: 'Termination Proof',
+          docType,
           filename: fileName,
-          originalFilename: proof.name || fileName,
-          filePath: proofRelPath,
+          originalFilename: file.name || fileName,
+          filePath: rel,
           fileSize: buf.length,
           status: 'Uploaded',
-          reviewNotes: `Uploaded at termination: ${reason.slice(0, 200)}`,
+          reviewNotes: `Uploaded at termination (${terminationType}): ${reason.slice(0, 180)}`,
         },
       })
+      return rel
+    }
+
+    let proofRelPath = ''
+    try {
+      // Two new mandatory docs per spec; the legacy "proof" stays optional.
+      await saveDoc('dewaClearance', 'DEWA Clearance', true)
+      await saveDoc('fmrReport', 'FMR Report', true)
+      proofRelPath = await saveDoc('proof', 'Termination Proof', false)
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : 'File upload failed' }, { status: 400 })
     }
 
     const now = new Date()
+    // Bake the type + DEWA / rent-calc dates into the human-readable reason
+    // so they show up everywhere the reason is rendered, AND we don't need
+    // a schema change to track them.
+    const typeLabel = terminationType === 'BreakLease' ? 'Break Lease' : 'Non Renewal'
+    const datesLine = `DEWA closing: ${dewaClosingDate} · Rent calc: ${rentCalcDate}`
+    const reasonWithMeta = `[${typeLabel}] ${reason}\n${datesLine}`
     await prisma.tenancyContract.updateMany({
       where: { organizationId, tenantId: tenant.id, status: 'Active' },
       data: {
         status: 'Terminated',
         terminatedAt: now,
-        terminationReason: reason,
+        terminationReason: reasonWithMeta,
       },
     })
 
@@ -83,7 +113,7 @@ export async function POST(
         passwordHash: '',
         notes: [
           tenant.notes || '',
-          `Contract terminated on ${now.toISOString().slice(0, 10)}${effectiveDate ? ` (effective ${effectiveDate})` : ''}: ${reason}`,
+          `Contract terminated on ${now.toISOString().slice(0, 10)}${effectiveDate ? ` (effective ${effectiveDate})` : ''} — ${typeLabel} · ${datesLine} — ${reason}`,
         ].filter(Boolean).join('\n'),
       },
     })

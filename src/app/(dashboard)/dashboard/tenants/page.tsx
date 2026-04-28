@@ -171,6 +171,18 @@ export default function TenantsPage() {
   const [termConfirm, setTermConfirm] = useState(false)
   const [termBusy, setTermBusy] = useState(false)
   const [termError, setTermError] = useState("")
+  // Extended termination flow per spec — type chooses the date semantics:
+  //   BreakLease  : DEWA closing date + rent-calc date (auto = DEWA + 2 months
+  //                 unless the user overrides — that 2-month gap is the
+  //                 break-lease penalty window).
+  //   NonRenewal  : DEWA closing date + rent-calc date (kept equal — no
+  //                 penalty).
+  // Both types require a DEWA Clearance + FMR Report upload.
+  const [termType, setTermType] = useState<"" | "BreakLease" | "NonRenewal">("")
+  const [termDewaDate, setTermDewaDate] = useState("")
+  const [termRentCalcDate, setTermRentCalcDate] = useState("")
+  const [termDewaDoc, setTermDewaDoc] = useState<File | null>(null)
+  const [termFmrDoc, setTermFmrDoc] = useState<File | null>(null)
   const [contractOpen, setContractOpen] = useState(false)
   const [form, setForm] = useState(defaultForm)
   const [contractForm, setContractForm] = useState(defaultContractForm)
@@ -376,8 +388,29 @@ export default function TenantsPage() {
     setTermProof(null)
     setTermConfirm(false)
     setTermError("")
+    setTermType("")
+    setTermDewaDate("")
+    setTermRentCalcDate("")
+    setTermDewaDoc(null)
+    setTermFmrDoc(null)
     setTermOpen(true)
   }
+
+  // Auto-derive the rent-calc date whenever DEWA date / type changes.
+  // BreakLease → DEWA + 2 months (the penalty window).
+  // NonRenewal → DEWA closing date itself.
+  // The user can still override by typing in the rent-calc field directly.
+  useEffect(() => {
+    if (!termDewaDate || !termType) return
+    const d = new Date(termDewaDate)
+    if (Number.isNaN(d.getTime())) return
+    if (termType === "BreakLease") {
+      d.setMonth(d.getMonth() + 2)
+      setTermRentCalcDate(d.toISOString().slice(0, 10))
+    } else if (termType === "NonRenewal") {
+      setTermRentCalcDate(termDewaDate)
+    }
+  }, [termDewaDate, termType])
 
   const submitTerminate = async () => {
     if (!termTenant) return
@@ -386,6 +419,11 @@ export default function TenantsPage() {
       setTermError("Please enter a reason for termination.")
       return
     }
+    if (!termType) { setTermError("Please choose a termination type."); return }
+    if (!termDewaDate) { setTermError("DEWA closing date is required."); return }
+    if (!termRentCalcDate) { setTermError("Rent calculation date is required."); return }
+    if (!termDewaDoc) { setTermError("DEWA Clearance document is required."); return }
+    if (!termFmrDoc) { setTermError("FMR Report is required."); return }
     if (!termConfirm) {
       setTermError("Please tick the confirmation box to proceed.")
       return
@@ -395,7 +433,12 @@ export default function TenantsPage() {
       const fd = new FormData()
       fd.append("reason", termReason.trim())
       fd.append("effectiveDate", termEffectiveDate)
+      fd.append("terminationType", termType)
+      fd.append("dewaClosingDate", termDewaDate)
+      fd.append("rentCalcDate", termRentCalcDate)
       if (termProof) fd.append("proof", termProof)
+      fd.append("dewaClearance", termDewaDoc)
+      fd.append("fmrReport", termFmrDoc)
       const res = await fetch(`/api/tenants/${termTenant.id}/terminate`, {
         method: "POST",
         body: fd,
@@ -1863,7 +1906,7 @@ export default function TenantsPage() {
             <ModalCancelButton />
             <button
               onClick={submitTerminate}
-              disabled={termBusy || !termConfirm || termReason.trim().length < 3}
+              disabled={termBusy || !termConfirm || termReason.trim().length < 3 || !termType || !termDewaDate || !termRentCalcDate || !termDewaDoc || !termFmrDoc}
               className="inline-flex items-center gap-2 rounded-lg bg-[#E30613] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c20510] disabled:opacity-50"
             >
               <Ban className="h-4 w-4" />
@@ -1876,10 +1919,59 @@ export default function TenantsPage() {
           <div className="space-y-3 text-sm">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">
+                Termination Type <span className="text-red-600">*</span>
+              </label>
+              <select
+                value={termType}
+                onChange={(e) => setTermType(e.target.value as "" | "BreakLease" | "NonRenewal")}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/20"
+              >
+                <option value="">— Select —</option>
+                <option value="BreakLease">Break Lease (penalty: 2 months added to rent calc)</option>
+                <option value="NonRenewal">Non Renewal (rent calc = DEWA closing date)</option>
+              </select>
+            </div>
+
+            {termType && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">
+                    DEWA Closing Date <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={termDewaDate}
+                    onChange={(e) => setTermDewaDate(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">
+                    Rent Calculation Date <span className="text-red-600">*</span>
+                    {termType === "BreakLease" && (
+                      <span className="ml-1 text-[10px] font-normal text-amber-700">(auto: DEWA + 2 months penalty — editable)</span>
+                    )}
+                    {termType === "NonRenewal" && (
+                      <span className="ml-1 text-[10px] font-normal text-slate-500">(auto: matches DEWA closing date)</span>
+                    )}
+                  </label>
+                  <input
+                    type="date"
+                    value={termRentCalcDate}
+                    min={termDewaDate || undefined}
+                    onChange={(e) => setTermRentCalcDate(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
                 Reason for Termination <span className="text-red-600">*</span>
               </label>
               <textarea
-                rows={4}
+                rows={3}
                 value={termReason}
                 onChange={(e) => setTermReason(e.target.value)}
                 placeholder="Describe why the contract is being terminated (non-payment, mutual agreement, etc.)"
@@ -1899,9 +1991,48 @@ export default function TenantsPage() {
               />
             </div>
 
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  DEWA Clearance Document <span className="text-red-600">*</span>
+                </label>
+                {!termDewaDoc ? (
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    onChange={(e) => setTermDewaDoc(e.target.files?.[0] || null)}
+                    className="block w-full text-xs text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-300"
+                  />
+                ) : (
+                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
+                    <span className="truncate">{termDewaDoc.name} ({(termDewaDoc.size / 1024).toFixed(0)} KB)</span>
+                    <button onClick={() => setTermDewaDoc(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  FMR Report <span className="text-red-600">*</span>
+                </label>
+                {!termFmrDoc ? (
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    onChange={(e) => setTermFmrDoc(e.target.files?.[0] || null)}
+                    className="block w-full text-xs text-slate-700 file:mr-2 file:rounded file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-300"
+                  />
+                ) : (
+                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
+                    <span className="truncate">{termFmrDoc.name} ({(termFmrDoc.size / 1024).toFixed(0)} KB)</span>
+                    <button onClick={() => setTermFmrDoc(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">
-                Proof / Supporting Document (optional)
+                Other Proof / Supporting Document (optional)
               </label>
               {!termProof ? (
                 <input
@@ -1913,15 +2044,10 @@ export default function TenantsPage() {
               ) : (
                 <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
                   <span className="truncate">{termProof.name} ({(termProof.size / 1024).toFixed(0)} KB)</span>
-                  <button
-                    onClick={() => setTermProof(null)}
-                    className="ml-2 text-red-600 hover:text-red-800"
-                  >
-                    Remove
-                  </button>
+                  <button onClick={() => setTermProof(null)} className="ml-2 text-red-600 hover:text-red-800">Remove</button>
                 </div>
               )}
-              <p className="mt-1 text-[11px] text-slate-500">PDF / JPG / PNG / WebP, max 10 MB</p>
+              <p className="mt-1 text-[11px] text-slate-500">PDF / JPG / PNG / WebP, max 10 MB each.</p>
             </div>
 
             <label className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
