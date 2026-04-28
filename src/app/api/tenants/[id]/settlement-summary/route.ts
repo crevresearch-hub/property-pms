@@ -43,14 +43,37 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const finalAnnualRent = tc?.rentAmount && tc.rentAmount > 0 ? tc.rentAmount : annualRent
     const securityDeposit = tc?.securityDeposit || Math.round(finalAnnualRent * 0.05)
 
-    // Rent received = sum of cleared cheques (which includes cleared cash
-    // since post-Bounce-Collect-Cash and Replacement-By-Cash rows are also
-    // status=Cleared and live in the same table).
-    const cleared = await prisma.cheque.findMany({
-      where: { organizationId, tenantId: id, status: 'Cleared' },
-      select: { amount: true },
+    // Rent received needs three sources to be complete:
+    //   (1) Full cleared cheques  (status='Cleared')
+    //   (2) Partial cheques' individually-cleared PE events (parent stays
+    //        at status='Partial' until every PE clears, so we'd otherwise
+    //        miss the cash that already cleared)
+    //   (3) Replaced parents are skipped — their child row carries the
+    //        active state and is already counted via (1).
+    const allCheques = await prisma.cheque.findMany({
+      where: { organizationId, tenantId: id, status: { not: 'Replaced' } },
+      select: { id: true, amount: true, status: true, notes: true },
     })
-    const rentReceived = cleared.reduce((s, c) => s + (c.amount || 0), 0)
+    let rentReceived = 0
+    let partialClearedCount = 0
+    for (const c of allCheques) {
+      if (c.status === 'Cleared') {
+        rentReceived += c.amount || 0
+        continue
+      }
+      if (c.status === 'Partial' && c.notes) {
+        // PE:<id>|<date>|<amount>|<method>|<chequeNo>|<bank>|<status>|<bankedDate>
+        const peLines = c.notes.matchAll(/(?:^|\n)PE:[^|]*\|[^|]*\|([^|]*)\|[^|]*\|[^|]*\|[^|]*\|([^|]*)\|/g)
+        for (const m of peLines) {
+          const amt = parseFloat(m[1]) || 0
+          const status = (m[2] || '').trim()
+          if (status === 'Cleared' && amt > 0) {
+            rentReceived += amt
+            partialClearedCount += 1
+          }
+        }
+      }
+    }
 
     // Maintenance charges = total of Paid VendorBills linked to this unit.
     // We use unitId scoping (not tenantId) because vendor bills are
@@ -72,7 +95,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       // Helpful context for the modal display:
       contractStart: tc?.contractStart || unit?.contractStart || '',
       contractEnd: tc?.contractEnd || unit?.contractEnd || '',
-      clearedCount: cleared.length,
+      clearedCount: allCheques.filter((c) => c.status === 'Cleared').length,
+      partialClearedCount,
     })
   } catch (error) {
     console.error('GET /api/tenants/[id]/settlement-summary error:', error)
